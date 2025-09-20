@@ -9,6 +9,7 @@ from typing import List, Optional
 from app.utils.health import get_health_status, get_readiness_status, get_startup_checks
 from app.utils.metrics import get_metrics, get_metrics_content_type
 from app.utils.logger import get_logger
+from app.utils.production_validator import production_validator
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -143,6 +144,36 @@ async def status_check():
                 "version": "1.0.0",
                 "overall_status": "error",
                 "error": str(e)
+            },
+            status_code=503
+        )
+
+@router.get("/production-validation")
+async def production_validation():
+    """
+    Production environment validation endpoint
+    
+    Comprehensive validation of all production requirements including
+    external services, security configuration, and performance settings.
+    """
+    try:
+        validation_result = await production_validator.validate_all()
+        
+        # Determine response status
+        if validation_result["status"] == "healthy":
+            return JSONResponse(content=validation_result, status_code=200)
+        else:
+            return JSONResponse(content=validation_result, status_code=503)
+            
+    except Exception as e:
+        logger.error(f"Production validation failed: {e}")
+        return JSONResponse(
+            content={
+                "status": "error",
+                "error": str(e),
+                "critical_failures": [f"Validation error: {e}"],
+                "warnings": [],
+                "validation_results": {}
             },
             status_code=503
         )

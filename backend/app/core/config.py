@@ -5,27 +5,28 @@ Application configuration settings
 from pydantic import BaseSettings
 from typing import List, Optional
 import os
+from .secrets import secrets_manager
 
 class Settings(BaseSettings):
     """Application settings"""
     
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/customercaregpt"
+    DATABASE_URL: str = secrets_manager.get_database_url() or "postgresql://user:password@localhost:5432/customercaregpt"
     
     # Redis
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = secrets_manager.get_redis_url() or "redis://localhost:6379"
     
     # JWT
-    SECRET_KEY: str = "your-secret-key-here"
+    SECRET_KEY: str = secrets_manager.get_jwt_secret() or "your-secret-key-here"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # Google Gemini
-    GEMINI_API_KEY: str = ""
+    GEMINI_API_KEY: str = secrets_manager.get_api_key("gemini") or ""
     
     # Stripe Configuration
-    STRIPE_API_KEY: str = ""
-    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_API_KEY: str = secrets_manager.get_stripe_config().get("api_key", "")
+    STRIPE_WEBHOOK_SECRET: str = secrets_manager.get_stripe_config().get("webhook_secret", "")
     STRIPE_SUCCESS_URL: str = "https://your-frontend.com/billing/success"
     STRIPE_CANCEL_URL: str = "https://your-frontend.com/billing/cancel"
     BILLING_DEFAULT_TIER: str = "starter"

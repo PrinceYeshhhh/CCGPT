@@ -33,6 +33,11 @@ rq==1.15.1
 # S3 Storage
 boto3==1.34.0
 
+# Secrets Management
+azure-keyvault-secrets==4.7.0
+azure-identity==1.15.0
+hvac==2.0.0
+
 # Text Processing
 nltk==3.8.1
 

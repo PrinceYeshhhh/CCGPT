@@ -2,10 +2,11 @@
 CustomerCareGPT - Main FastAPI Application
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 import structlog
 
 from app.core.config import settings
@@ -13,6 +14,14 @@ from app.api.api_v1.api import api_router
 from app.api.websocket.chat_ws import router as websocket_router
 from app.db.session import engine
 from app.db.base import Base
+from app.middleware.security import (
+    SecurityHeadersMiddleware,
+    InputValidationMiddleware,
+    RateLimitMiddleware,
+    CORSMiddleware as SecurityCORSMiddleware,
+    RequestLoggingMiddleware,
+    SecurityExceptionHandler
+)
 
 # Configure structured logging
 structlog.configure(
@@ -47,14 +56,12 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Add security middleware (order matters!)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(InputValidationMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityCORSMiddleware, allowed_origins=settings.CORS_ORIGINS)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Add trusted host middleware
 app.add_middleware(
@@ -70,6 +77,18 @@ app.include_router(api_router, prefix="/api/v1")
 
 # Include WebSocket router
 app.include_router(websocket_router, prefix="/ws")
+
+# Add exception handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions with security considerations"""
+    return SecurityExceptionHandler.handle_security_exception(request, exc)
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle general exceptions with security considerations"""
+    logger.error(f"Unhandled exception: {exc}", path=request.url.path)
+    return SecurityExceptionHandler.handle_security_exception(request, exc)
 
 @app.get("/")
 async def root():
