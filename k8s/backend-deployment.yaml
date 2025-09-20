@@ -1,0 +1,122 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customercaregpt-backend
+  labels:
+    app: customercaregpt-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: customercaregpt-backend
+  template:
+    metadata:
+      labels:
+        app: customercaregpt-backend
+    spec:
+      containers:
+      - name: backend
+        image: customercaregpt/backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: customercaregpt-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: customercaregpt-secrets
+              key: redis-url
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: customercaregpt-secrets
+              key: gemini-api-key
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: customercaregpt-secrets
+              key: secret-key
+        - name: STRIPE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: customercaregpt-secrets
+              key: stripe-api-key
+        - name: STRIPE_WEBHOOK_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: customercaregpt-secrets
+              key: stripe-webhook-secret
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customercaregpt-backend-service
+  labels:
+    app: customercaregpt-backend
+spec:
+  selector:
+    app: customercaregpt-backend
+  ports:
+  - protocol: TCP
+    port: 8000
+    targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: customercaregpt-backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: customercaregpt-backend
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
