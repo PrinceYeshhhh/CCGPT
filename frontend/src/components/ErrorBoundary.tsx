@@ -44,7 +44,7 @@ class ErrorBoundary extends Component<Props, State> {
       hasError: false, 
       error: undefined, 
       errorInfo: undefined, 
-      retryKey: prev.retryKey + 1 
+      retryKey: (prev.retryKey ?? 0) + 1 
     }))
   }
 
