@@ -18,6 +18,7 @@ import { Pricing } from '@/pages/public/Pricing'
 import { FAQ } from '@/pages/public/FAQ'
 import { DashboardLayout } from '@/pages/dashboard/DashboardLayout'
 import { DashboardPage } from './pages/DashboardPage'
+import { useApiHealth } from '@/hooks/useApiHealth'
 
 function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -31,6 +32,7 @@ function PublicLayout({ children }: { children: React.ReactNode }) {
 
 function App() {
   const { user, isLoading } = useAuth()
+  useApiHealth()
 
   if (isLoading) {
     return (
