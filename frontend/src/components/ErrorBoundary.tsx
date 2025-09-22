@@ -10,7 +10,7 @@ interface State {
   hasError: boolean
   error?: Error
   errorInfo?: ErrorInfo
-  retryKey: number
+  retryKey?: number
 }
 
 class ErrorBoundary extends Component<Props, State> {
