@@ -10,12 +10,13 @@ interface State {
   hasError: boolean
   error?: Error
   errorInfo?: ErrorInfo
+  retryKey: number
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false }
+    this.state = { hasError: false, retryKey: 0 }
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -39,11 +40,27 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined })
+    this.setState((prev) => ({ 
+      hasError: false, 
+      error: undefined, 
+      errorInfo: undefined, 
+      retryKey: prev.retryKey + 1 
+    }))
   }
 
   handleGoHome = () => {
     window.location.href = '/'
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.hasError && prevProps.children !== this.props.children) {
+      // If children changed after an error (e.g., user retried and parent rerendered),
+      // clear the error state so new children can render.
+      // This complements the explicit retry button for cases where rerender happens immediately.
+      // Avoid infinite loops by only doing this when hasError is true and children identity changed.
+      // eslint-disable-next-line react/no-did-update-set-state
+      this.setState({ hasError: false, error: undefined, errorInfo: undefined })
+    }
   }
 
   render() {
@@ -104,7 +121,12 @@ class ErrorBoundary extends Component<Props, State> {
       )
     }
 
-    return this.props.children
+    // Force remount of child subtree after a retry to clear error boundary state
+    return (
+      <div key={this.state.retryKey}>
+        {this.props.children}
+      </div>
+    )
   }
 }
 
