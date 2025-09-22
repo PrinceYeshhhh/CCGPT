@@ -365,3 +365,67 @@ See `.github/workflows/ci.yml` for the complete pipeline configuration.
 ## License
 
 Proprietary - All rights reserved
+
+## Unified Frontend (New UI + Existing Functionality)
+
+The frontend has been unified to use the new Bolt-styled UI while retaining all backend-connected features from the old app.
+
+- Location: `frontend/src`
+- Path aliases: `@/*` maps to `frontend/src/*`
+- Env: set `VITE_API_URL` to your backend URL (e.g., `http://localhost:8000`)
+
+### Quick Start
+
+1. Copy `.env` values: create `frontend/.env` and set:
+   - `VITE_API_URL=http://localhost:8000`
+2. Install deps: from `frontend/`
+   - `npm install`
+3. Run dev server:
+   - `npm run dev`
+
+### Public Site
+
+- `Home` (new hero/sections): `src/pages/public/Home.tsx`
+- `Pricing` (Stripe flow): `src/pages/public/Pricing.tsx`
+- `FAQ`: `src/pages/public/FAQ.tsx`
+- `Navbar`/`Footer` + dark/light toggle: `src/components/common/*`, `src/contexts/ThemeContext.tsx`
+
+### Auth
+
+- Login/Register wired to backend JWT:
+  - `src/hooks/useAuth.ts`
+  - `src/pages/LoginPage.tsx`, `src/pages/RegisterPage.tsx`
+- Axios instance with interceptors: `src/lib/api.ts` (reads `VITE_API_URL`)
+
+### Dashboard (New Layout)
+
+- Shell: `src/pages/dashboard/DashboardLayout.tsx` + `src/components/dashboard/Sidebar.tsx`
+- Routes (nested under `/dashboard`):
+  - Overview (existing `DashboardPage.tsx`)
+  - Documents: `src/pages/dashboard/Documents.tsx` → `/api/v1/documents/*`
+  - Analytics: `src/pages/dashboard/Analytics.tsx` → `/api/v1/analytics/*`
+  - Embed: `src/pages/dashboard/Embed.tsx` → `/api/v1/embed/*`
+  - Billing: `src/pages/BillingPage.tsx` → `/api/v1/billing/*`
+  - Settings: `src/pages/SettingsPage.tsx`
+
+### Billing (Stripe)
+
+- Pricing page starts checkout via `/api/v1/billing/create-checkout-session`
+- Billing page supports portal via `/api/v1/billing/portal` and shows usage/status
+
+### Chatbot Embed
+
+- Manage/embed codes: `src/pages/dashboard/Embed.tsx`
+- Copy embed snippet and paste into the business website. The repo includes widget sources under `widget/`.
+
+### Implementation Notes
+
+- All mock data in new UI pages has been replaced with real API calls.
+- Dark/light mode is provided app-wide by `ThemeProvider`.
+- Existing error boundaries, loading UI, and utilities retained.
+- App routing combines new public site with authenticated dashboard: `src/App.tsx`.
+
+### Housekeeping
+
+- The legacy Bolt scaffold under `frontend/src new/` has been migrated into `frontend/src`.
+- You can remove the `frontend/src new/` folder once you verify the new UI locally.

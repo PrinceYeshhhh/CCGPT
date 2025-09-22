@@ -10,7 +10,7 @@ from datetime import datetime
 import logging
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.models.subscriptions import Subscription
@@ -175,8 +175,9 @@ async def activate_license(
         subscription.status = "active"
         subscription.seats = -1
         subscription.monthly_query_quota = None
+        existing_metadata = subscription.metadata or {}
         subscription.metadata = {
-            **subscription.metadata or {},
+            **existing_metadata,
             "license_key": license_key,
             "activated_at": datetime.utcnow().isoformat()
         }

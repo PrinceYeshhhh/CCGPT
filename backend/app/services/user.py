@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from app.models.user import User
 from app.schemas.user import UserCreate
-from app.services.auth import AuthService
+from app.utils.password import get_password_hash
 
 
 class UserService:
@@ -14,7 +14,6 @@ class UserService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.auth_service = AuthService(db)
     
     def get_user_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID"""
@@ -26,7 +25,7 @@ class UserService:
     
     def create_user(self, user_data: UserCreate) -> User:
         """Create a new user"""
-        hashed_password = self.auth_service.get_password_hash(user_data.password)
+        hashed_password = get_password_hash(user_data.password)
         
         db_user = User(
             email=user_data.email,

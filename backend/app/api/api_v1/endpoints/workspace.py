@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.schemas.workspace import WorkspaceSettings, WorkspaceUpdate, WorkspaceResponse

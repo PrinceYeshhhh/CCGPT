@@ -22,6 +22,7 @@ from app.schemas.chat import (
 from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.services.session_persistence import session_persistence_service
+from app.api.api_v1.dependencies import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -31,7 +32,7 @@ router = APIRouter()
 async def create_chat_session(
     request: ChatSessionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Create a new chat session"""
     try:
@@ -96,7 +97,7 @@ async def get_chat_sessions(
     limit: int = Query(20, ge=1, le=100),
     active_only: bool = Query(False, description="Show only active sessions"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get user's chat sessions with optional filtering"""
     try:
@@ -141,7 +142,7 @@ async def get_chat_sessions(
 async def get_chat_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get a specific chat session with messages"""
     try:
@@ -200,7 +201,7 @@ async def get_session_messages(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get messages for a specific session"""
     try:
@@ -246,7 +247,7 @@ async def update_chat_session(
     session_id: str,
     request: ChatSessionUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Update a chat session"""
     try:
@@ -308,7 +309,7 @@ async def update_chat_session(
 async def end_chat_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """End a chat session"""
     try:
@@ -354,7 +355,7 @@ async def end_chat_session(
 async def delete_chat_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete a chat session and all its messages"""
     try:
@@ -400,7 +401,7 @@ async def delete_chat_session(
 async def get_session_state(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get ephemeral session state from Redis"""
     try:

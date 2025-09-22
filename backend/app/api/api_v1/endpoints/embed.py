@@ -16,6 +16,7 @@ from app.schemas.embed import (
     WidgetConfig
 )
 from app.services.auth import AuthService
+from app.api.api_v1.dependencies import get_current_user
 from app.services.embed import EmbedService
 
 logger = structlog.get_logger()
@@ -26,7 +27,7 @@ router = APIRouter()
 async def create_embed_code(
     embed_data: EmbedCodeCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Create a new embed code"""
     try:
@@ -67,7 +68,7 @@ async def create_embed_code(
 @router.get("/codes", response_model=List[EmbedCodeResponse])
 async def get_embed_codes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get user's embed codes"""
     try:
@@ -88,7 +89,7 @@ async def get_embed_codes(
 async def get_embed_code(
     code_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get a specific embed code"""
     try:
@@ -123,7 +124,7 @@ async def update_embed_code(
     code_id: int,
     embed_data: EmbedCodeUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Update an embed code"""
     try:
@@ -173,7 +174,7 @@ async def update_embed_code(
 async def delete_embed_code(
     code_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete an embed code"""
     try:
@@ -213,7 +214,7 @@ async def delete_embed_code(
 async def regenerate_embed_code(
     code_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Regenerate embed code script"""
     try:

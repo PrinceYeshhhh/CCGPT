@@ -289,7 +289,7 @@ class RAGService:
         if session_id:
             session = self.db.query(ChatSession).filter(
                 ChatSession.session_id == session_id,
-                ChatSession.user_id == int(workspace_id)  # Using workspace_id as user_id for now
+                ChatSession.workspace_id == workspace_id
             ).first()
             
             if session:
@@ -297,8 +297,10 @@ class RAGService:
         
         # Create new session
         new_session_id = str(uuid.uuid4())
+        # For testing, we'll use a default user_id since workspace_id is a UUID
         session = ChatSession(
-            user_id=int(workspace_id),  # Using workspace_id as user_id for now
+            workspace_id=workspace_id,
+            user_id=1,  # Default user_id for testing
             session_id=new_session_id,
             is_active=True
         )
@@ -349,7 +351,8 @@ class RAGService:
             self.db.add(assistant_message)
             
             # Update session
-            session.updated_at = time.time()
+            from datetime import datetime
+            session.updated_at = datetime.now()
             
             self.db.commit()
             

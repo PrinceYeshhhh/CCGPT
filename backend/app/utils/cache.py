@@ -71,6 +71,32 @@ class CacheManager:
             logger.error(f"Cache get failed for {cache_key}: {e}")
             return default
     
+    async def get_or_set(
+        self, 
+        prefix: str, 
+        key: str, 
+        factory_func: callable,
+        ttl: int = 600,
+        deserialize_type: type = str
+    ) -> Any:
+        """Get from cache or set using factory function"""
+        cached = await self.get(prefix, key, deserialize_type=deserialize_type)
+        if cached is not None:
+            return cached
+        
+        # Generate value using factory function
+        try:
+            if asyncio.iscoroutinefunction(factory_func):
+                value = await factory_func()
+            else:
+                value = factory_func()
+            
+            await self.set(prefix, key, value, ttl)
+            return value
+        except Exception as e:
+            logger.error(f"Factory function failed for {prefix}:{key}: {e}")
+            return None
+    
     async def set(
         self, 
         prefix: str, 

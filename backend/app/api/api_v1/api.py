@@ -3,7 +3,7 @@ API v1 router configuration
 """
 
 from fastapi import APIRouter
-from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health, production_rag
 
 api_router = APIRouter()
 
@@ -22,3 +22,4 @@ api_router.include_router(white_label.router, prefix="/white-label", tags=["whit
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(vector_search.router, prefix="/vector", tags=["vector-search"])
 api_router.include_router(rag_query.router, prefix="/rag", tags=["rag-query"])
+api_router.include_router(production_rag.router, prefix="/production-rag", tags=["production-rag"])

@@ -243,6 +243,76 @@ async def get_startup_checks() -> Dict[str, Any]:
     """Run startup checks (all components)"""
     return await health_checker.run_health_checks()
 
+async def get_detailed_health_status() -> Dict[str, Any]:
+    """Get detailed health status with performance metrics"""
+    try:
+        # Run all health checks
+        health_results = await health_checker.run_health_checks()
+        
+        # Get additional metrics
+        from app.core.database import db_manager, redis_manager
+        from app.services.enhanced_vector_service import enhanced_vector_service
+        from app.core.queue import queue_manager
+        
+        # Database health
+        db_health = await db_manager.health_check()
+        
+        # Redis health
+        redis_health = await redis_manager.health_check()
+        
+        # Vector DB health
+        vector_health = await enhanced_vector_service.health_check()
+        
+        # Queue stats
+        queue_stats = queue_manager.get_queue_stats()
+        
+        # Circuit breaker stats
+        from app.utils.circuit_breaker import circuit_breaker_manager
+        circuit_breaker_stats = circuit_breaker_manager.get_all_stats()
+        
+        # Performance metrics
+        performance_metrics = {
+            'database_connections': {
+                'write_pool_size': db_health.get('write_pool_size', 0),
+                'read_pool_size': db_health.get('read_pool_size', 0),
+                'active_connections': db_health.get('active_connections', 0)
+            },
+            'redis_connections': {
+                'connection_pool_size': redis_health.get('connection_pool_size', 0),
+                'active_connections': redis_health.get('active_connections', 0)
+            },
+            'queue_lengths': queue_stats,
+            'circuit_breakers': circuit_breaker_stats
+        }
+        
+        # Overall health assessment
+        overall_healthy = (
+            health_results['status'] == 'healthy' and
+            db_health.get('overall', False) and
+            redis_health and
+            vector_health.get('status') == 'healthy'
+        )
+        
+        return {
+            'status': 'healthy' if overall_healthy else 'unhealthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'components': health_results['components'],
+            'database': db_health,
+            'redis': redis_health,
+            'vector_db': vector_health,
+            'performance': performance_metrics,
+            'overall_healthy': overall_healthy
+        }
+        
+    except Exception as e:
+        logger.error("Detailed health check failed", error=str(e))
+        return {
+            'status': 'unhealthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'error': str(e),
+            'overall_healthy': False
+        }
+
 # Kubernetes probe examples
 KUBERNETES_LIVENESS_PROBE = {
     "httpGet": {

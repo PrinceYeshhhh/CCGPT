@@ -3,19 +3,19 @@ Workspace model for multi-tenant support
 """
 
 from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 from datetime import datetime
 
 from app.core.database import Base
+from app.core.uuid_type import UUID
 
 class Workspace(Base):
     """Workspace model for multi-tenant support"""
     __tablename__ = "workspaces"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(UUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     logo_url = Column(String(500), nullable=True)

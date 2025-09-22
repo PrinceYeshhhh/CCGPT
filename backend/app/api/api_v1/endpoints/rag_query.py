@@ -26,6 +26,7 @@ from app.services.rag_service import RAGService
 from app.services.rate_limiting import rate_limiting_service
 from app.services.token_budget import TokenBudgetService
 from app.middleware.quota_middleware import check_quota, increment_usage
+from app.api.api_v1.dependencies import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -36,7 +37,7 @@ async def rag_query(
     request: RAGQueryRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user),
+    current_user: User = Depends(get_current_user),
     subscription: Optional[Subscription] = Depends(check_quota)
 ):
     """
@@ -144,7 +145,7 @@ async def rag_query_stream(
     request: RAGQueryRequest,
     http_request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Process a RAG query with streaming response for better UX
@@ -229,7 +230,7 @@ async def rag_query_stream(
 @router.get("/rate-limit")
 async def get_rate_limit_info(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get rate limit information for current user"""
     try:
@@ -254,7 +255,7 @@ async def get_rate_limit_info(
 @router.get("/token-budget")
 async def get_token_budget_info(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get token budget information for current user"""
     try:
@@ -283,7 +284,7 @@ async def get_token_budget_info(
 @router.post("/reset-budget")
 async def reset_token_budget(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Reset token budget for current user (admin only)"""
     try:

@@ -18,6 +18,7 @@ from app.schemas.chat import (
 )
 from app.services.auth import AuthService
 from app.services.chat import ChatService
+from app.api.api_v1.dependencies import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -27,7 +28,7 @@ router = APIRouter()
 async def send_message(
     request: ChatRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Send a message and get AI response"""
     try:
@@ -69,7 +70,7 @@ async def get_chat_sessions(
     limit: int = 20,
     active_only: bool = False,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get user's chat sessions"""
     try:
@@ -95,7 +96,7 @@ async def get_chat_sessions(
 async def get_chat_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get a specific chat session with messages"""
     try:
@@ -132,7 +133,7 @@ async def get_chat_session(
 async def end_chat_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """End a chat session"""
     try:
@@ -175,7 +176,7 @@ async def end_chat_session(
 async def delete_chat_session(
     session_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete a chat session and all its messages"""
     try:
@@ -220,7 +221,7 @@ async def flag_message(
     message_id: int,
     reason: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Flag a message for review"""
     try:

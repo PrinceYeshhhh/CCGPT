@@ -8,6 +8,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import structlog
+import os
 
 from app.core.config import settings
 from app.api.api_v1.api import api_router
@@ -44,8 +45,9 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables (skip in testing)
+if not os.getenv("TESTING"):
+    Base.metadata.create_all(bind=engine)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -56,12 +58,21 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-# Add security middleware (order matters!)
-app.add_middleware(SecurityHeadersMiddleware)
-app.add_middleware(InputValidationMiddleware)
-app.add_middleware(RateLimitMiddleware)
-app.add_middleware(SecurityCORSMiddleware, allowed_origins=settings.CORS_ORIGINS)
-app.add_middleware(RequestLoggingMiddleware)
+# Add security middleware (order matters!) - only if enabled
+if settings.ENABLE_SECURITY_HEADERS:
+    app.add_middleware(SecurityHeadersMiddleware)
+
+if settings.ENABLE_INPUT_VALIDATION:
+    app.add_middleware(InputValidationMiddleware)
+
+if settings.ENABLE_RATE_LIMITING:
+    app.add_middleware(RateLimitMiddleware)
+
+if settings.ENABLE_CORS:
+    app.add_middleware(SecurityCORSMiddleware, allowed_origins=settings.CORS_ORIGINS)
+
+if settings.ENABLE_REQUEST_LOGGING:
+    app.add_middleware(RequestLoggingMiddleware)
 
 # Add trusted host middleware
 app.add_middleware(
@@ -69,8 +80,9 @@ app.add_middleware(
     allowed_hosts=["*"]  # Configure appropriately for production
 )
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="uploads"), name="static")
+# Mount static files (skip in testing)
+if not os.getenv("TESTING"):
+    app.mount("/static", StaticFiles(directory="uploads"), name="static")
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
@@ -101,8 +113,70 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Basic health check (liveness probe)"""
+    from app.utils.health import get_health_status
+    return await get_health_status()
+
+@app.get("/ready")
+async def readiness_check():
+    """Readiness check (readiness probe)"""
+    from app.utils.health import get_readiness_status
+    return await get_readiness_status()
+
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with performance metrics"""
+    from app.utils.health import get_detailed_health_status
+    return await get_detailed_health_status()
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    from app.utils.metrics import get_metrics, get_metrics_content_type
+    from fastapi.responses import Response
+    
+    return Response(
+        content=get_metrics(),
+        media_type=get_metrics_content_type()
+    )
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize system on startup"""
+    logger.info("Starting CustomerCareGPT Scaled System")
+    
+    try:
+        # Initialize database with performance optimizations
+        from app.core.database import initialize_database
+        await initialize_database()
+        logger.info("Database initialization completed")
+        
+        # Initialize other services
+        from app.core.queue import queue_manager
+        from app.utils.circuit_breaker import circuit_breaker_manager
+        
+        logger.info("System startup completed successfully")
+        
+    except Exception as e:
+        logger.error(f"System startup failed: {e}")
+        raise
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("Shutting down CustomerCareGPT Scaled System")
+    
+    try:
+        # Stop background workers
+        from app.worker.enhanced_worker import enhanced_worker
+        enhanced_worker.stop()
+        
+        logger.info("System shutdown completed")
+        
+    except Exception as e:
+        logger.error(f"System shutdown error: {e}")
 
 if __name__ == "__main__":
     import uvicorn

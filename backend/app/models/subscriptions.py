@@ -1,5 +1,6 @@
 from sqlalchemy import Column, String, Integer, BigInteger, DateTime, Boolean, Text, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import JSON
+from app.core.uuid_type import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -10,8 +11,8 @@ from app.core.database import Base
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False)
+    id = Column(UUID(), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(), ForeignKey("workspaces.id"), nullable=False)
     stripe_customer_id = Column(String, nullable=True)
     stripe_subscription_id = Column(String, nullable=True)
     tier = Column(String, nullable=False)  # 'starter', 'pro', 'white_label'
@@ -22,7 +23,7 @@ class Subscription(Base):
     period_start = Column(DateTime(timezone=True), nullable=True)
     period_end = Column(DateTime(timezone=True), nullable=True)
     next_billing_at = Column(DateTime(timezone=True), nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    subscription_metadata = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -90,7 +91,7 @@ class Subscription(Base):
             "period_start": self.period_start.isoformat() if self.period_start else None,
             "period_end": self.period_end.isoformat() if self.period_end else None,
             "next_billing_at": self.next_billing_at.isoformat() if self.next_billing_at else None,
-            "metadata": self.metadata,
+            "metadata": self.subscription_metadata,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "is_active": self.is_active,

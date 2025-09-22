@@ -27,11 +27,11 @@ class AnalyticsService:
         try:
             # Document statistics
             total_documents = self.db.query(Document).filter(
-                Document.user_id == user_id
+                Document.uploaded_by == user_id
             ).count()
             
             total_chunks = self.db.query(DocumentChunk).join(Document).filter(
-                Document.user_id == user_id
+                Document.uploaded_by == user_id
             ).count()
             
             # Session statistics
@@ -113,8 +113,8 @@ class AnalyticsService:
         """Get document analytics"""
         try:
             documents = self.db.query(Document).filter(
-                Document.user_id == user_id
-            ).order_by(desc(Document.created_at)).all()
+                Document.uploaded_by == user_id
+            ).order_by(desc(Document.uploaded_at)).all()
             
             return documents
             
@@ -201,9 +201,9 @@ class AnalyticsService:
                 
                 # Documents uploaded
                 documents_uploaded = self.db.query(Document).filter(
-                    Document.user_id == user_id,
-                    Document.created_at >= current_date,
-                    Document.created_at < next_date
+                    Document.uploaded_by == user_id,
+                    Document.uploaded_at >= current_date,
+                    Document.uploaded_at < next_date
                 ).count()
                 
                 # Average session duration

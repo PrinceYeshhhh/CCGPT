@@ -5,13 +5,30 @@ Supports AWS Secrets Manager, Azure Key Vault, and HashiCorp Vault
 
 import os
 import json
-import boto3
 from typing import Optional, Dict, Any
-from azure.keyvault.secrets import SecretClient
-from azure.identity import DefaultAzureCredential
-import hvac
-from app.core.config import settings
 import structlog
+
+# Optional imports for secrets management
+try:
+    import boto3
+    AWS_AVAILABLE = True
+except ImportError:
+    AWS_AVAILABLE = False
+
+try:
+    from azure.keyvault.secrets import SecretClient
+    from azure.identity import DefaultAzureCredential
+    AZURE_AVAILABLE = True
+except ImportError:
+    AZURE_AVAILABLE = False
+
+try:
+    import hvac
+    VAULT_AVAILABLE = True
+except ImportError:
+    VAULT_AVAILABLE = False
+
+# Removed circular import - settings will be passed as parameter
 
 logger = structlog.get_logger()
 
@@ -25,6 +42,8 @@ class SecretsManager:
         
     def _get_aws_client(self):
         """Initialize AWS Secrets Manager client"""
+        if not AWS_AVAILABLE:
+            raise ImportError("boto3 is not installed. Install with: pip install boto3")
         if not self._client:
             region = os.getenv("AWS_REGION", "us-east-1")
             self._client = boto3.client('secretsmanager', region_name=region)
@@ -32,6 +51,8 @@ class SecretsManager:
     
     def _get_azure_client(self):
         """Initialize Azure Key Vault client"""
+        if not AZURE_AVAILABLE:
+            raise ImportError("azure-keyvault-secrets is not installed. Install with: pip install azure-keyvault-secrets azure-identity")
         if not self._client:
             vault_url = os.getenv("AZURE_KEY_VAULT_URL")
             if not vault_url:
@@ -42,6 +63,8 @@ class SecretsManager:
     
     def _get_vault_client(self):
         """Initialize HashiCorp Vault client"""
+        if not VAULT_AVAILABLE:
+            raise ImportError("hvac is not installed. Install with: pip install hvac")
         if not self._client:
             vault_url = os.getenv("VAULT_URL", "http://localhost:8200")
             vault_token = os.getenv("VAULT_TOKEN")

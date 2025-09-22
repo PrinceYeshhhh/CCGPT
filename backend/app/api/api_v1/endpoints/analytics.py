@@ -20,6 +20,7 @@ from app.schemas.analytics import (
 )
 from app.services.auth import AuthService
 from app.services.analytics import AnalyticsService
+from app.api.api_v1.dependencies import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -28,7 +29,7 @@ router = APIRouter()
 @router.get("/overview", response_model=AnalyticsOverview)
 async def get_analytics_overview(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get analytics overview for the user"""
     try:
@@ -48,7 +49,7 @@ async def get_analytics_overview(
 @router.get("/documents", response_model=List[DocumentAnalytics])
 async def get_document_analytics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get document analytics"""
     try:
@@ -72,7 +73,7 @@ async def get_session_analytics(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get session analytics"""
     try:
@@ -101,7 +102,7 @@ async def get_message_analytics(
     limit: int = Query(50, ge=1, le=200),
     flagged_only: bool = Query(False),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get message analytics"""
     try:
@@ -127,7 +128,7 @@ async def get_message_analytics(
 async def get_usage_stats(
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get usage statistics over time"""
     try:
@@ -150,7 +151,7 @@ async def get_usage_stats(
 @router.get("/embed-codes", response_model=List[EmbedCodeAnalytics])
 async def get_embed_code_analytics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get embed code analytics"""
     try:
@@ -173,7 +174,7 @@ async def export_analytics(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Export analytics data"""
     try:

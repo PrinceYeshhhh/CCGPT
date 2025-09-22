@@ -2,10 +2,11 @@
 Chat and conversation models
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean, UUID
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean
+from app.core.uuid_type import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from app.db.base import Base
+from app.core.database import Base
 import uuid
 
 
@@ -13,8 +14,8 @@ class ChatSession(Base):
     """Chat session model"""
     __tablename__ = "chat_sessions"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    workspace_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    id = Column(UUID(), primary_key=True, default=uuid.uuid4, index=True)
+    workspace_id = Column(UUID(), ForeignKey("workspaces.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     session_id = Column(String(255), unique=True, nullable=False, index=True)
     
@@ -34,6 +35,7 @@ class ChatSession(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
+    workspace = relationship("Workspace", back_populates="chat_sessions")
     user = relationship("User", back_populates="chat_sessions")
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
     
@@ -45,8 +47,8 @@ class ChatMessage(Base):
     """Chat message model"""
     __tablename__ = "chat_messages"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id"), nullable=False)
+    id = Column(UUID(), primary_key=True, default=uuid.uuid4, index=True)
+    session_id = Column(UUID(), ForeignKey("chat_sessions.id"), nullable=False)
     
     # Message content
     role = Column(String(20), nullable=False)  # user, assistant, system
@@ -75,32 +77,4 @@ class ChatMessage(Base):
         return f"<ChatMessage(id={self.id}, role='{self.role}', session_id={self.session_id})>"
 
 
-class EmbedCode(Base):
-    """Embed code model for widget integration"""
-    __tablename__ = "embed_codes"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    # Embed code details
-    code_name = Column(String(255), nullable=False)
-    widget_config = Column(JSON, nullable=False)  # Widget configuration
-    
-    # Generated code
-    embed_script = Column(Text, nullable=False)
-    embed_html = Column(Text, nullable=True)
-    
-    # Usage tracking
-    is_active = Column(Boolean, default=True)
-    usage_count = Column(Integer, default=0)
-    last_used = Column(DateTime(timezone=True), nullable=True)
-    
-    # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
-    # Relationships
-    user = relationship("User", back_populates="embed_codes")
-    
-    def __repr__(self):
-        return f"<EmbedCode(id={self.id}, code_name='{self.code_name}')>"
+# EmbedCode model moved to embed.py to avoid duplicate table definitions

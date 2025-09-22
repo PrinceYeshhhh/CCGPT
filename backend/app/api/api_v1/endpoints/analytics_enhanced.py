@@ -15,6 +15,7 @@ from app.models.document import Document
 from app.models.chat import ChatSession, ChatMessage
 from app.models.embed import EmbedCode
 from app.services.auth import AuthService
+from app.api.api_v1.dependencies import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -23,7 +24,7 @@ router = APIRouter()
 @router.get("/summary")
 async def get_analytics_summary(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get analytics summary for dashboard overview"""
     try:
@@ -130,7 +131,7 @@ async def get_analytics_summary(
 async def get_queries_over_time(
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get queries over time for charts"""
     try:
@@ -194,7 +195,7 @@ async def get_top_queries(
     limit: int = Query(10, ge=1, le=50),
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get top queries for charts"""
     try:
@@ -228,7 +229,7 @@ async def get_top_queries(
 async def get_file_usage(
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get file usage statistics for charts"""
     try:
@@ -272,7 +273,7 @@ async def get_file_usage(
 @router.get("/embed-codes")
 async def get_embed_codes_analytics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get embed codes analytics"""
     try:
@@ -314,7 +315,7 @@ async def get_embed_codes_analytics(
 async def get_response_quality(
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get response quality metrics"""
     try:

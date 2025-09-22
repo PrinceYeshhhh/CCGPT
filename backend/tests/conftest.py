@@ -13,14 +13,19 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import patch, MagicMock
 
+# Set testing environment before importing app
+os.environ["TESTING"] = "true"
+os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["REDIS_URL"] = "redis://localhost:6379/1"
+os.environ["SECRET_KEY"] = "test-secret-key"
+os.environ["GEMINI_API_KEY"] = "test-gemini-key"
+os.environ["STRIPE_API_KEY"] = "test-stripe-key"
+os.environ["ENVIRONMENT"] = "testing"
+
 from app.main import app
 from app.core.database import get_db, Base
-from app.models.user import User
-from app.models.workspace import Workspace
-from app.models.document import Document
-from app.models.chat import ChatSession, ChatMessage
-from app.models.subscriptions import Subscription
-from app.models.embed import EmbedCode
+# Import all models to ensure relationships are resolved
+from app.models import User, Workspace, Document, DocumentChunk, ChatSession, ChatMessage, EmbedCode, Subscription
 
 # Test database configuration
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"

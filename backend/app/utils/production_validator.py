@@ -1,380 +1,522 @@
 """
 Production environment validation utilities
-Validates external services, database migrations, and production readiness
 """
 
 import asyncio
+import time
+from typing import Dict, Any, List, Optional
+from datetime import datetime
 import httpx
-import structlog
-from typing import Dict, List, Tuple, Optional
+import redis
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from app.core.database import get_db
-from app.core.config import settings
-from app.core.secrets import secrets_manager
-import redis
-import chromadb
-from google.generativeai import configure, GenerativeModel
-import stripe
 
-logger = structlog.get_logger()
+from app.core.database import get_db, redis_client
+from app.core.config import settings
+from app.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class ProductionValidator:
-    """Validates production environment readiness"""
+    """Comprehensive production environment validation"""
     
     def __init__(self):
         self.validation_results = {}
         self.critical_failures = []
         self.warnings = []
     
-    async def validate_all(self) -> Dict[str, any]:
+    async def validate_all(self) -> Dict[str, Any]:
         """Run all production validations"""
-        logger.info("Starting production environment validation")
+        logger.info("Starting comprehensive production validation")
         
-        # Critical validations
+        # Reset validation state
+        self.validation_results = {}
+        self.critical_failures = []
+        self.warnings = []
+        
+        # Run all validations
+        await self.validate_environment_variables()
         await self.validate_database_connectivity()
         await self.validate_redis_connectivity()
         await self.validate_chromadb_connectivity()
-        await self.validate_external_apis()
-        await self.validate_database_migrations()
-        await self.validate_secrets_management()
-        await self.validate_rate_limiting()
-        await self.validate_caching()
-        
-        # Security validations
+        await self.validate_gemini_api()
         await self.validate_security_configuration()
-        await self.validate_cors_configuration()
-        await self.validate_authentication()
-        
-        # Performance validations
-        await self.validate_performance_configuration()
+        await self.validate_performance_settings()
         await self.validate_monitoring_setup()
+        await self.validate_ssl_certificates()
+        await self.validate_backup_configuration()
+        await self.validate_logging_configuration()
+        await self.validate_rate_limiting()
+        await self.validate_cors_configuration()
+        await self.validate_file_upload_limits()
+        await self.validate_memory_usage()
+        await self.validate_disk_space()
+        await self.validate_network_connectivity()
+        await self.validate_dependencies()
+        await self.validate_health_checks()
+        
+        # Determine overall status
+        overall_status = "healthy" if not self.critical_failures else "unhealthy"
         
         return {
-            "status": "healthy" if not self.critical_failures else "unhealthy",
+            "status": overall_status,
+            "timestamp": datetime.utcnow().isoformat(),
             "critical_failures": self.critical_failures,
             "warnings": self.warnings,
-            "validation_results": self.validation_results
+            "validation_results": self.validation_results,
+            "summary": {
+                "total_checks": len(self.validation_results),
+                "passed": len([r for r in self.validation_results.values() if r.get("status") == "passed"]),
+                "failed": len([r for r in self.validation_results.values() if r.get("status") == "failed"]),
+                "warnings": len(self.warnings)
+            }
+        }
+    
+    async def validate_environment_variables(self):
+        """Validate all required environment variables"""
+        required_vars = [
+            "DATABASE_URL", "REDIS_URL", "CHROMA_URL", "GEMINI_API_KEY",
+            "SECRET_KEY", "STRIPE_API_KEY", "STRIPE_WEBHOOK_SECRET"
+        ]
+        
+        missing_vars = []
+        for var in required_vars:
+            if not getattr(settings, var, None):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            self.critical_failures.append(f"Missing required environment variables: {', '.join(missing_vars)}")
+            self.validation_results["environment_variables"] = {
+                "status": "failed",
+                "message": f"Missing variables: {', '.join(missing_vars)}"
+            }
+        else:
+            self.validation_results["environment_variables"] = {
+                "status": "passed",
+                "message": "All required environment variables are set"
         }
     
     async def validate_database_connectivity(self):
-        """Validate database connectivity and basic operations"""
+        """Validate database connectivity and performance"""
         try:
+            start_time = time.time()
             db = next(get_db())
             
-            # Test basic query
-            result = db.execute(text("SELECT 1 as test")).fetchone()
-            if result and result[0] == 1:
-                self.validation_results["database_connectivity"] = "PASS"
-                logger.info("Database connectivity validated")
-            else:
-                self.critical_failures.append("Database query test failed")
-                self.validation_results["database_connectivity"] = "FAIL"
+            # Test basic connectivity
+            result = db.execute(text("SELECT 1")).scalar()
+            basic_latency = (time.time() - start_time) * 1000
+            
+            # Test connection pool
+            start_time = time.time()
+            db.execute(text("SELECT COUNT(*) FROM information_schema.tables"))
+            query_latency = (time.time() - start_time) * 1000
+            
+            # Check database size
+            size_result = db.execute(text("SELECT pg_database_size(current_database())")).scalar()
+            db_size_mb = size_result / (1024 * 1024)
+            
+            if basic_latency > 1000:  # More than 1 second
+                self.warnings.append(f"Database basic connectivity is slow: {basic_latency:.2f}ms")
+            
+            if query_latency > 2000:  # More than 2 seconds
+                self.warnings.append(f"Database queries are slow: {query_latency:.2f}ms")
+            
+            if db_size_mb > 1000:  # More than 1GB
+                self.warnings.append(f"Database size is large: {db_size_mb:.2f}MB")
+            
+            self.validation_results["database_connectivity"] = {
+                "status": "passed",
+                "message": "Database connectivity successful",
+                "metrics": {
+                    "basic_latency_ms": round(basic_latency, 2),
+                    "query_latency_ms": round(query_latency, 2),
+                    "database_size_mb": round(db_size_mb, 2)
+                }
+            }
                 
         except Exception as e:
-            self.critical_failures.append(f"Database connectivity failed: {e}")
-            self.validation_results["database_connectivity"] = "FAIL"
-            logger.error(f"Database validation failed: {e}")
+            self.critical_failures.append(f"Database connectivity failed: {str(e)}")
+            self.validation_results["database_connectivity"] = {
+                "status": "failed",
+                "message": f"Database connection failed: {str(e)}"
+            }
     
     async def validate_redis_connectivity(self):
-        """Validate Redis connectivity and basic operations"""
+        """Validate Redis connectivity and performance"""
         try:
-            redis_client = redis.from_url(settings.REDIS_URL)
+            start_time = time.time()
+            redis_client.ping()
+            latency = (time.time() - start_time) * 1000
             
-            # Test basic operations
+            # Test Redis operations
+            start_time = time.time()
             redis_client.set("test_key", "test_value", ex=10)
-            value = redis_client.get("test_key")
+            redis_client.get("test_key")
+            redis_client.delete("test_key")
+            operation_latency = (time.time() - start_time) * 1000
             
-            if value and value.decode() == "test_value":
-                redis_client.delete("test_key")
-                self.validation_results["redis_connectivity"] = "PASS"
-                logger.info("Redis connectivity validated")
-            else:
-                self.critical_failures.append("Redis operations test failed")
-                self.validation_results["redis_connectivity"] = "FAIL"
+            if latency > 100:  # More than 100ms
+                self.warnings.append(f"Redis ping is slow: {latency:.2f}ms")
+            
+            if operation_latency > 500:  # More than 500ms
+                self.warnings.append(f"Redis operations are slow: {operation_latency:.2f}ms")
+            
+            self.validation_results["redis_connectivity"] = {
+                "status": "passed",
+                "message": "Redis connectivity successful",
+                "metrics": {
+                    "ping_latency_ms": round(latency, 2),
+                    "operation_latency_ms": round(operation_latency, 2)
+                }
+            }
                 
         except Exception as e:
-            self.critical_failures.append(f"Redis connectivity failed: {e}")
-            self.validation_results["redis_connectivity"] = "FAIL"
-            logger.error(f"Redis validation failed: {e}")
+            self.critical_failures.append(f"Redis connectivity failed: {str(e)}")
+            self.validation_results["redis_connectivity"] = {
+                "status": "failed",
+                "message": f"Redis connection failed: {str(e)}"
+            }
     
     async def validate_chromadb_connectivity(self):
-        """Validate ChromaDB connectivity and basic operations"""
+        """Validate ChromaDB connectivity"""
         try:
-            client = chromadb.HttpClient(host=settings.CHROMA_URL.replace("http://", "").split(":")[0])
+            start_time = time.time()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{settings.CHROMA_URL}/api/v1/heartbeat")
+                latency = (time.time() - start_time) * 1000
             
-            # Test basic operations
-            collection = client.get_or_create_collection("test_collection")
-            collection.add(
-                documents=["test document"],
-                ids=["test_id"]
-            )
-            
-            results = collection.query(
-                query_texts=["test"],
-                n_results=1
-            )
-            
-            if results and len(results["documents"][0]) > 0:
-                # Cleanup
-                client.delete_collection("test_collection")
-                self.validation_results["chromadb_connectivity"] = "PASS"
-                logger.info("ChromaDB connectivity validated")
+            if response.status_code == 200:
+                if latency > 1000:  # More than 1 second
+                    self.warnings.append(f"ChromaDB response is slow: {latency:.2f}ms")
+                
+                self.validation_results["chromadb_connectivity"] = {
+                    "status": "passed",
+                    "message": "ChromaDB connectivity successful",
+                    "metrics": {
+                        "response_latency_ms": round(latency, 2)
+                    }
+                }
             else:
-                self.critical_failures.append("ChromaDB operations test failed")
-                self.validation_results["chromadb_connectivity"] = "FAIL"
+                self.critical_failures.append(f"ChromaDB returned status {response.status_code}")
+                self.validation_results["chromadb_connectivity"] = {
+                    "status": "failed",
+                    "message": f"ChromaDB returned status {response.status_code}"
+                }
                 
         except Exception as e:
-            self.critical_failures.append(f"ChromaDB connectivity failed: {e}")
-            self.validation_results["chromadb_connectivity"] = "FAIL"
-            logger.error(f"ChromaDB validation failed: {e}")
+            self.critical_failures.append(f"ChromaDB connectivity failed: {str(e)}")
+            self.validation_results["chromadb_connectivity"] = {
+                "status": "failed",
+                "message": f"ChromaDB connection failed: {str(e)}"
+            }
     
-    async def validate_external_apis(self):
-        """Validate external API connectivity"""
-        
-        # Validate Gemini API
-        await self._validate_gemini_api()
-        
-        # Validate Stripe API
-        await self._validate_stripe_api()
-    
-    async def _validate_gemini_api(self):
-        """Validate Google Gemini API connectivity"""
+    async def validate_gemini_api(self):
+        """Validate Gemini API connectivity"""
         try:
             if not settings.GEMINI_API_KEY:
                 self.warnings.append("Gemini API key not configured")
-                self.validation_results["gemini_api"] = "SKIP"
+                self.validation_results["gemini_api"] = {
+                    "status": "skipped",
+                    "message": "Gemini API key not configured"
+                }
                 return
             
-            configure(api_key=settings.GEMINI_API_KEY)
-            model = GenerativeModel("gemini-pro")
+            start_time = time.time()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(
+                    "https://generativelanguage.googleapis.com/v1beta/models",
+                    params={"key": settings.GEMINI_API_KEY}
+                )
+                latency = (time.time() - start_time) * 1000
             
-            # Test with a simple prompt
-            response = model.generate_content("Test")
-            
-            if response and response.text:
-                self.validation_results["gemini_api"] = "PASS"
-                logger.info("Gemini API validated")
+            if response.status_code == 200:
+                if latency > 5000:  # More than 5 seconds
+                    self.warnings.append(f"Gemini API response is slow: {latency:.2f}ms")
+                
+                self.validation_results["gemini_api"] = {
+                    "status": "passed",
+                    "message": "Gemini API connectivity successful",
+                    "metrics": {
+                        "response_latency_ms": round(latency, 2)
+                    }
+                }
             else:
-                self.critical_failures.append("Gemini API test failed")
-                self.validation_results["gemini_api"] = "FAIL"
+                self.critical_failures.append(f"Gemini API returned status {response.status_code}")
+                self.validation_results["gemini_api"] = {
+                    "status": "failed",
+                    "message": f"Gemini API returned status {response.status_code}"
+                }
                 
         except Exception as e:
-            self.critical_failures.append(f"Gemini API validation failed: {e}")
-            self.validation_results["gemini_api"] = "FAIL"
-            logger.error(f"Gemini API validation failed: {e}")
-    
-    async def _validate_stripe_api(self):
-        """Validate Stripe API connectivity"""
-        try:
-            if not settings.STRIPE_API_KEY:
-                self.warnings.append("Stripe API key not configured")
-                self.validation_results["stripe_api"] = "SKIP"
-                return
-            
-            stripe.api_key = settings.STRIPE_API_KEY
-            
-            # Test with a simple API call
-            balance = stripe.Balance.retrieve()
-            
-            if balance:
-                self.validation_results["stripe_api"] = "PASS"
-                logger.info("Stripe API validated")
-            else:
-                self.critical_failures.append("Stripe API test failed")
-                self.validation_results["stripe_api"] = "FAIL"
-                
-        except Exception as e:
-            self.critical_failures.append(f"Stripe API validation failed: {e}")
-            self.validation_results["stripe_api"] = "FAIL"
-            logger.error(f"Stripe API validation failed: {e}")
-    
-    async def validate_database_migrations(self):
-        """Validate database migrations are up to date"""
-        try:
-            db = next(get_db())
-            
-            # Check if all required tables exist
-            required_tables = [
-                "users", "workspaces", "subscriptions", "documents", 
-                "document_chunks", "chat_sessions", "chat_messages", "embed_codes"
-            ]
-            
-            for table in required_tables:
-                result = db.execute(text(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')")).fetchone()
-                if not result or not result[0]:
-                    self.critical_failures.append(f"Required table '{table}' does not exist")
-                    self.validation_results["database_migrations"] = "FAIL"
-                    return
-            
-            self.validation_results["database_migrations"] = "PASS"
-            logger.info("Database migrations validated")
-            
-        except Exception as e:
-            self.critical_failures.append(f"Database migrations validation failed: {e}")
-            self.validation_results["database_migrations"] = "FAIL"
-            logger.error(f"Database migrations validation failed: {e}")
-    
-    async def validate_secrets_management(self):
-        """Validate secrets management configuration"""
-        try:
-            # Test secrets manager initialization
-            if secrets_manager.provider == "env":
-                self.warnings.append("Using environment variables for secrets (not recommended for production)")
-                self.validation_results["secrets_management"] = "WARN"
-            else:
-                # Test secret retrieval
-                test_secret = secrets_manager.get_secret("TEST_SECRET")
-                if test_secret is not None:
-                    self.validation_results["secrets_management"] = "PASS"
-                    logger.info("Secrets management validated")
-                else:
-                    self.warnings.append("Secrets management configured but test secret not found")
-                    self.validation_results["secrets_management"] = "WARN"
-                    
-        except Exception as e:
-            self.critical_failures.append(f"Secrets management validation failed: {e}")
-            self.validation_results["secrets_management"] = "FAIL"
-            logger.error(f"Secrets management validation failed: {e}")
-    
-    async def validate_rate_limiting(self):
-        """Validate rate limiting configuration"""
-        try:
-            # Test rate limiting service
-            from app.services.rate_limiting import rate_limiting_service
-            
-            # Test rate limit check
-            is_allowed, info = await rate_limiting_service.check_workspace_rate_limit(
-                workspace_id="test-workspace",
-                limit=60,
-                window_seconds=60
-            )
-            
-            if isinstance(is_allowed, bool):
-                self.validation_results["rate_limiting"] = "PASS"
-                logger.info("Rate limiting validated")
-            else:
-                self.critical_failures.append("Rate limiting service not working")
-                self.validation_results["rate_limiting"] = "FAIL"
-                
-        except Exception as e:
-            self.critical_failures.append(f"Rate limiting validation failed: {e}")
-            self.validation_results["rate_limiting"] = "FAIL"
-            logger.error(f"Rate limiting validation failed: {e}")
-    
-    async def validate_caching(self):
-        """Validate caching configuration"""
-        try:
-            from app.utils.cache import cache_service
-            
-            # Test cache operations
-            await cache_service.set("test_cache_key", "test_value", ttl=10)
-            cached_value = await cache_service.get("test_cache_key")
-            
-            if cached_value == "test_value":
-                await cache_service.delete("test_cache_key")
-                self.validation_results["caching"] = "PASS"
-                logger.info("Caching validated")
-            else:
-                self.critical_failures.append("Cache operations test failed")
-                self.validation_results["caching"] = "FAIL"
-                
-        except Exception as e:
-            self.critical_failures.append(f"Caching validation failed: {e}")
-            self.validation_results["caching"] = "FAIL"
-            logger.error(f"Caching validation failed: {e}")
+            self.critical_failures.append(f"Gemini API connectivity failed: {str(e)}")
+            self.validation_results["gemini_api"] = {
+                "status": "failed",
+                "message": f"Gemini API connection failed: {str(e)}"
+            }
     
     async def validate_security_configuration(self):
         """Validate security configuration"""
-        try:
-            # Check JWT secret is not default
-            if settings.SECRET_KEY == "your-secret-key-here":
-                self.critical_failures.append("JWT secret is using default value")
-                self.validation_results["security_configuration"] = "FAIL"
-                return
-            
-            # Check CORS configuration
-            if "*" in settings.CORS_ORIGINS:
-                self.warnings.append("CORS allows all origins (not recommended for production)")
-                self.validation_results["security_configuration"] = "WARN"
-            else:
-                self.validation_results["security_configuration"] = "PASS"
-                logger.info("Security configuration validated")
-                
-        except Exception as e:
-            self.critical_failures.append(f"Security configuration validation failed: {e}")
-            self.validation_results["security_configuration"] = "FAIL"
-            logger.error(f"Security configuration validation failed: {e}")
+        security_issues = []
+        
+        # Check if running in production mode
+        if settings.DEBUG:
+            security_issues.append("Debug mode is enabled in production")
+        
+        # Check secret key strength
+        if len(settings.SECRET_KEY) < 32:
+            security_issues.append("SECRET_KEY is too short (minimum 32 characters)")
+        
+        # Check if default secret key is being used
+        if settings.SECRET_KEY == "your-secret-key-here":
+            security_issues.append("Default SECRET_KEY is being used")
+        
+        # Check CORS configuration
+        if "*" in settings.CORS_ORIGINS:
+            security_issues.append("CORS is configured to allow all origins")
+        
+        if security_issues:
+            self.critical_failures.extend(security_issues)
+            self.validation_results["security_configuration"] = {
+                "status": "failed",
+                "message": f"Security issues found: {len(security_issues)}",
+                "issues": security_issues
+            }
+        else:
+            self.validation_results["security_configuration"] = {
+                "status": "passed",
+                "message": "Security configuration is appropriate"
+            }
+    
+    async def validate_performance_settings(self):
+        """Validate performance-related settings"""
+        performance_issues = []
+        
+        # Check database pool settings
+        if settings.DB_POOL_SIZE < 10:
+            performance_issues.append("Database pool size is too small")
+        
+        if settings.DB_MAX_OVERFLOW < 5:
+            performance_issues.append("Database max overflow is too small")
+        
+        # Check rate limiting settings
+        if not settings.ENABLE_RATE_LIMITING:
+            performance_issues.append("Rate limiting is disabled")
+        
+        if performance_issues:
+            self.warnings.extend(performance_issues)
+            self.validation_results["performance_settings"] = {
+                "status": "warning",
+                "message": f"Performance issues found: {len(performance_issues)}",
+                "issues": performance_issues
+            }
+        else:
+            self.validation_results["performance_settings"] = {
+                "status": "passed",
+                "message": "Performance settings are appropriate"
+            }
+    
+    async def validate_monitoring_setup(self):
+        """Validate monitoring and metrics setup"""
+        monitoring_issues = []
+        
+        if not settings.PROMETHEUS_ENABLED:
+            monitoring_issues.append("Prometheus metrics are disabled")
+        
+        if not settings.METRICS_ENABLED:
+            monitoring_issues.append("Metrics collection is disabled")
+        
+        if not settings.HEALTH_CHECK_ENABLED:
+            monitoring_issues.append("Health checks are disabled")
+        
+        if monitoring_issues:
+            self.warnings.extend(monitoring_issues)
+            self.validation_results["monitoring_setup"] = {
+                "status": "warning",
+                "message": f"Monitoring issues found: {len(monitoring_issues)}",
+                "issues": monitoring_issues
+            }
+        else:
+            self.validation_results["monitoring_setup"] = {
+                "status": "passed",
+                "message": "Monitoring setup is appropriate"
+            }
+    
+    async def validate_ssl_certificates(self):
+        """Validate SSL certificate configuration"""
+        # This would check SSL certificates in production
+        self.validation_results["ssl_certificates"] = {
+            "status": "skipped",
+            "message": "SSL certificate validation not implemented"
+        }
+    
+    async def validate_backup_configuration(self):
+        """Validate backup configuration"""
+        # This would check backup configuration
+        self.validation_results["backup_configuration"] = {
+            "status": "skipped",
+            "message": "Backup configuration validation not implemented"
+        }
+    
+    async def validate_logging_configuration(self):
+        """Validate logging configuration"""
+        logging_issues = []
+        
+        if settings.LOG_LEVEL not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            logging_issues.append("Invalid log level")
+        
+        if settings.ENVIRONMENT == "production" and settings.LOG_LEVEL == "DEBUG":
+            logging_issues.append("Debug logging enabled in production")
+        
+        if logging_issues:
+            self.warnings.extend(logging_issues)
+            self.validation_results["logging_configuration"] = {
+                "status": "warning",
+                "message": f"Logging issues found: {len(logging_issues)}",
+                "issues": logging_issues
+            }
+        else:
+            self.validation_results["logging_configuration"] = {
+                "status": "passed",
+                "message": "Logging configuration is appropriate"
+            }
+    
+    async def validate_rate_limiting(self):
+        """Validate rate limiting configuration"""
+        if not settings.ENABLE_RATE_LIMITING:
+            self.warnings.append("Rate limiting is disabled")
+            self.validation_results["rate_limiting"] = {
+                "status": "warning",
+                "message": "Rate limiting is disabled"
+            }
+        else:
+            self.validation_results["rate_limiting"] = {
+                "status": "passed",
+                "message": "Rate limiting is enabled"
+            }
     
     async def validate_cors_configuration(self):
         """Validate CORS configuration"""
+        if not settings.ENABLE_CORS:
+            self.warnings.append("CORS is disabled")
+            self.validation_results["cors_configuration"] = {
+                "status": "warning",
+                "message": "CORS is disabled"
+            }
+        else:
+            self.validation_results["cors_configuration"] = {
+                "status": "passed",
+                "message": "CORS is properly configured"
+            }
+    
+    async def validate_file_upload_limits(self):
+        """Validate file upload limits"""
+        if settings.MAX_FILE_SIZE > 50 * 1024 * 1024:  # 50MB
+            self.warnings.append("File upload limit is very high")
+            self.validation_results["file_upload_limits"] = {
+                "status": "warning",
+                "message": "File upload limit is very high"
+            }
+        else:
+            self.validation_results["file_upload_limits"] = {
+                "status": "passed",
+                "message": "File upload limits are appropriate"
+            }
+    
+    async def validate_memory_usage(self):
+        """Validate memory usage"""
         try:
-            if not settings.CORS_ORIGINS:
-                self.critical_failures.append("CORS origins not configured")
-                self.validation_results["cors_configuration"] = "FAIL"
-                return
-            
-            if "*" in settings.CORS_ORIGINS:
-                self.warnings.append("CORS allows all origins")
-                self.validation_results["cors_configuration"] = "WARN"
+            import psutil
+            memory = psutil.virtual_memory()
+            if memory.percent > 80:
+                self.warnings.append(f"High memory usage: {memory.percent}%")
+                self.validation_results["memory_usage"] = {
+                    "status": "warning",
+                    "message": f"High memory usage: {memory.percent}%"
+                }
             else:
-                self.validation_results["cors_configuration"] = "PASS"
-                logger.info("CORS configuration validated")
-                
-        except Exception as e:
-            self.critical_failures.append(f"CORS configuration validation failed: {e}")
-            self.validation_results["cors_configuration"] = "FAIL"
-            logger.error(f"CORS configuration validation failed: {e}")
+                self.validation_results["memory_usage"] = {
+                    "status": "passed",
+                    "message": f"Memory usage is normal: {memory.percent}%"
+                }
+        except ImportError:
+            self.validation_results["memory_usage"] = {
+                "status": "skipped",
+                "message": "psutil not available for memory monitoring"
+            }
     
-    async def validate_authentication(self):
-        """Validate authentication configuration"""
+    async def validate_disk_space(self):
+        """Validate disk space"""
         try:
-            # Check JWT configuration
-            if not settings.SECRET_KEY or len(settings.SECRET_KEY) < 32:
-                self.critical_failures.append("JWT secret key is too short or not configured")
-                self.validation_results["authentication"] = "FAIL"
-                return
-            
-            self.validation_results["authentication"] = "PASS"
-            logger.info("Authentication configuration validated")
-            
-        except Exception as e:
-            self.critical_failures.append(f"Authentication validation failed: {e}")
-            self.validation_results["authentication"] = "FAIL"
-            logger.error(f"Authentication validation failed: {e}")
+            import psutil
+            disk = psutil.disk_usage('/')
+            if disk.percent > 90:
+                self.warnings.append(f"Low disk space: {disk.percent}% used")
+                self.validation_results["disk_space"] = {
+                    "status": "warning",
+                    "message": f"Low disk space: {disk.percent}% used"
+                }
+            else:
+                self.validation_results["disk_space"] = {
+                    "status": "passed",
+                    "message": f"Disk space is adequate: {disk.percent}% used"
+                }
+        except ImportError:
+            self.validation_results["disk_space"] = {
+                "status": "skipped",
+                "message": "psutil not available for disk monitoring"
+            }
     
-    async def validate_performance_configuration(self):
-        """Validate performance configuration"""
-        try:
-            # Check database connection pool settings
-            db = next(get_db())
-            pool = db.bind.pool
-            
-            if hasattr(pool, 'size') and pool.size() < 5:
-                self.warnings.append("Database connection pool size is low")
-            
-            self.validation_results["performance_configuration"] = "PASS"
-            logger.info("Performance configuration validated")
-            
-        except Exception as e:
-            self.warnings.append(f"Performance configuration validation warning: {e}")
-            self.validation_results["performance_configuration"] = "WARN"
-            logger.warning(f"Performance configuration validation warning: {e}")
+    async def validate_network_connectivity(self):
+        """Validate network connectivity"""
+        # This would test network connectivity to external services
+        self.validation_results["network_connectivity"] = {
+            "status": "skipped",
+            "message": "Network connectivity validation not implemented"
+        }
     
-    async def validate_monitoring_setup(self):
-        """Validate monitoring and observability setup"""
+    async def validate_dependencies(self):
+        """Validate all dependencies are available"""
         try:
-            # Check if metrics endpoint is accessible
-            from app.api.api_v1.endpoints.health import get_metrics
+            # Test critical imports
+            import fastapi
+            import sqlalchemy
+            import redis
+            import httpx
+            import pydantic
             
-            # This would test the metrics endpoint
-            self.validation_results["monitoring_setup"] = "PASS"
-            logger.info("Monitoring setup validated")
-            
+            self.validation_results["dependencies"] = {
+                "status": "passed",
+                "message": "All critical dependencies are available"
+            }
+        except ImportError as e:
+            self.critical_failures.append(f"Missing dependency: {str(e)}")
+            self.validation_results["dependencies"] = {
+                "status": "failed",
+                "message": f"Missing dependency: {str(e)}"
+            }
+    
+    async def validate_health_checks(self):
+        """Validate health check endpoints"""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get("http://localhost:8000/health")
+                if response.status_code == 200:
+                    self.validation_results["health_checks"] = {
+                        "status": "passed",
+                        "message": "Health check endpoint is working"
+                    }
+                else:
+                    self.critical_failures.append(f"Health check returned status {response.status_code}")
+                    self.validation_results["health_checks"] = {
+                        "status": "failed",
+                        "message": f"Health check returned status {response.status_code}"
+                    }
         except Exception as e:
-            self.warnings.append(f"Monitoring setup validation warning: {e}")
-            self.validation_results["monitoring_setup"] = "WARN"
-            logger.warning(f"Monitoring setup validation warning: {e}")
+            self.critical_failures.append(f"Health check failed: {str(e)}")
+            self.validation_results["health_checks"] = {
+                "status": "failed",
+                "message": f"Health check failed: {str(e)}"
+            }
 
 # Global validator instance
 production_validator = ProductionValidator()

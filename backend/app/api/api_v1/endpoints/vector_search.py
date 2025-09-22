@@ -12,6 +12,7 @@ from app.models.user import User
 from app.schemas.vector_search import VectorSearchRequest, VectorSearchResponse
 from app.services.auth import AuthService
 from app.services.vector_service import VectorService
+from app.api.api_v1.dependencies import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -21,7 +22,7 @@ router = APIRouter()
 async def vector_search(
     request: VectorSearchRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Perform vector similarity search"""
     try:
@@ -68,7 +69,7 @@ async def vector_search_get(
     query: str = Query(..., description="Search query"),
     top_k: int = Query(5, ge=1, le=50, description="Number of results to return"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Perform vector similarity search via GET"""
     try:
@@ -113,7 +114,7 @@ async def vector_search_get(
 @router.delete("/cache")
 async def clear_vector_cache(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Clear vector search cache for current user"""
     try:
@@ -145,7 +146,7 @@ async def clear_vector_cache(
 @router.get("/stats")
 async def get_vector_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get vector search statistics"""
     try:

@@ -2,10 +2,11 @@
 Embed code models for widget integration
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean, UUID
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, Boolean
+from app.core.uuid_type import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from app.db.base import Base
+from app.core.database import Base
 import uuid
 
 
@@ -13,8 +14,8 @@ class EmbedCode(Base):
     """Embed code model for widget integration"""
     __tablename__ = "embed_codes"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    workspace_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    id = Column(UUID(), primary_key=True, default=uuid.uuid4, index=True)
+    workspace_id = Column(UUID(), ForeignKey("workspaces.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     # Embed code details
@@ -40,6 +41,7 @@ class EmbedCode(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
+    workspace = relationship("Workspace", back_populates="embed_codes")
     user = relationship("User", back_populates="embed_codes")
     
     def __repr__(self):
@@ -50,10 +52,10 @@ class WidgetAsset(Base):
     """Widget asset model for storing custom assets"""
     __tablename__ = "widget_assets"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    workspace_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    id = Column(UUID(), primary_key=True, default=uuid.uuid4, index=True)
+    workspace_id = Column(UUID(), ForeignKey("workspaces.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    embed_code_id = Column(UUID(as_uuid=True), ForeignKey("embed_codes.id"), nullable=True)
+    embed_code_id = Column(UUID(), ForeignKey("embed_codes.id"), nullable=True)
     
     # Asset details
     asset_type = Column(String(50), nullable=False)  # avatar, logo, background

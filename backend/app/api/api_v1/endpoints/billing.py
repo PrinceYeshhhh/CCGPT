@@ -5,12 +5,11 @@ from datetime import datetime, timedelta
 import os
 
 from app.core.database import get_db
-from app.core.auth import get_current_user
+from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.models.workspace import Workspace
-from app.models.chat_sessions import ChatSession
-from app.models.chat_messages import ChatMessage
-from app.models.documents import Document
+from app.models.chat import ChatSession, ChatMessage
+from app.models.document import Document
 from app.schemas.billing import BillingInfo, UsageStats
 
 router = APIRouter()

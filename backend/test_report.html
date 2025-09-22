@@ -1,0 +1,474 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CustomerCareGPT Test Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { background-color: #f0f0f0; padding: 20px; border-radius: 5px; }
+        .summary { background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .category { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .failure { background-color: #f8d7da; border-color: #f5c6cb; }
+        .details { margin-top: 10px; }
+        .stdout { background-color: #f8f9fa; padding: 10px; border-radius: 3px; font-family: monospace; white-space: pre-wrap; }
+        .stderr { background-color: #fff3cd; padding: 10px; border-radius: 3px; font-family: monospace; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>CustomerCareGPT Test Report</h1>
+        <p>Generated: 2025-09-20T16:15:57.157258</p>
+        <p>Total Duration: 382.53 seconds</p>
+    </div>
+    
+    <div class="summary">
+        <h2>Summary</h2>
+        <p>Total Categories: 10</p>
+        <p>Successful: 0</p>
+        <p>Failed: 10</p>
+        <p>Success Rate: 0.0%</p>
+    </div>
+    
+    <h2>Test Categories</h2>
+
+    <div class="category failure">
+        <h3>Unit Tests - FAILED</h3>
+        <p>Duration: 44.59 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>Integration Tests - FAILED</h3>
+        <p>Duration: 45.63 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>System Tests - FAILED</h3>
+        <p>Duration: 40.67 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>White-box Tests - FAILED</h3>
+        <p>Duration: 41.54 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>Black-box Tests - FAILED</h3>
+        <p>Duration: 43.14 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>Security Tests - FAILED</h3>
+        <p>Duration: 48.23 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>Performance Tests - FAILED</h3>
+        <p>Duration: 46.74 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>Coverage Analysis - FAILED</h3>
+        <p>Duration: 71.11 seconds</p>
+        <p>Return Code: 4</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\_pytest\config\__init__.py:331: PluggyTeardownRaisedWarning: A plugin raised an exception during an old-style hookwrapper teardown.
+Plugin: helpconfig, Hook: pytest_cmdline_parse
+ConftestImportFailure: ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py) (from C:\Intel\CustomerCareGPT\backend\tests\conftest.py)
+For more information see https://pluggy.readthedocs.io/en/stable/api_reference.html#pluggy.PluggyTeardownRaisedWarning
+  config = pluginmanager.hook.pytest_cmdline_parse(
+ImportError while loading conftest 'C:\Intel\CustomerCareGPT\backend\tests\conftest.py'.
+tests\conftest.py:16: in <module>
+    from app.main import app
+app\main.py:13: in <module>
+    from app.api.api_v1.api import api_router
+app\api\api_v1\api.py:6: in <module>
+    from app.api.api_v1.endpoints import auth, documents, chat, embed, analytics, vector_search, rag_query, chat_sessions, analytics_enhanced, billing, billing_enhanced, workspace, white_label, health
+app\api\api_v1\endpoints\chat.py:20: in <module>
+    from app.services.chat import ChatService
+app\services\chat.py:14: in <module>
+    from app.services.vector_service import VectorService
+app\services\vector_service.py:14: in <module>
+    from app.services.embeddings_service import embeddings_service
+app\services\embeddings_service.py:9: in <module>
+    from sentence_transformers import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\__init__.py:3: in <module>
+    from .datasets import SentencesDataset, ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\__init__.py:3: in <module>
+    from .ParallelSentencesDataset import ParallelSentencesDataset
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\datasets\ParallelSentencesDataset.py:4: in <module>
+    from .. import SentenceTransformer
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\sentence_transformers\SentenceTransformer.py:11: in <module>
+    import transformers
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\__init__.py:27: in <module>
+    from . import dependency_versions_check
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\dependency_versions_check.py:16: in <module>
+    from .utils.versions import require_version, require_version_core
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\__init__.py:83: in <module>
+    from .hub import (
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\transformers\utils\hub.py:32: in <module>
+    from huggingface_hub import (
+E   ImportError: cannot import name 'list_repo_tree' from 'huggingface_hub' (C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\huggingface_hub\__init__.py)
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>Code Linting - FAILED</h3>
+        <p>Duration: 0.43 seconds</p>
+        <p>Return Code: 1</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\python.exe: No module named flake8
+</div>
+        </div>
+    </div>
+
+    <div class="category failure">
+        <h3>Type Checking - FAILED</h3>
+        <p>Duration: 0.40 seconds</p>
+        <p>Return Code: 1</p>
+        
+        <div class="details">
+            <h4>Standard Output:</h4>
+            <div class="stdout"></div>
+            
+            <h4>Standard Error:</h4>
+            <div class="stderr">C:\Users\91807\AppData\Local\Microsoft\WindowsApps\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\python.exe: No module named mypy
+</div>
+        </div>
+    </div>
+
+</body>
+</html>

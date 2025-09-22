@@ -4,7 +4,7 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { cn } from '../lib/utils'
 import toast from 'react-hot-toast'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 interface LoginForm {
   email: string
@@ -15,6 +15,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
+  const navigate = useNavigate()
 
   const form = useForm<LoginForm>()
 
@@ -24,6 +25,7 @@ export function LoginPage() {
       const result = await login(data.email, data.password)
       if (result.success) {
         toast.success('Login successful!')
+        navigate('/dashboard')
       } else {
         toast.error(result.error || 'Login failed')
       }

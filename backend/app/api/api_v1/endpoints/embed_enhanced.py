@@ -23,6 +23,7 @@ from app.schemas.embed import (
 from app.services.auth import AuthService
 from app.services.embed_service import EmbedService
 from app.services.rate_limiting import rate_limiting_service
+from app.api.api_v1.dependencies import get_current_user
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -32,7 +33,7 @@ router = APIRouter()
 async def generate_embed_code(
     request: EmbedCodeGenerateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Generate a new embed code with API key"""
     try:
@@ -84,7 +85,7 @@ async def generate_embed_code(
 @router.get("/codes", response_model=List[EmbedCodeResponse])
 async def get_embed_codes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get user's embed codes"""
     try:
@@ -105,7 +106,7 @@ async def get_embed_codes(
 async def get_embed_code(
     code_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Get a specific embed code"""
     try:
@@ -140,7 +141,7 @@ async def update_embed_code(
     code_id: str,
     request: EmbedCodeUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Update an embed code"""
     try:
@@ -190,7 +191,7 @@ async def update_embed_code(
 async def delete_embed_code(
     code_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Delete an embed code"""
     try:
@@ -230,7 +231,7 @@ async def delete_embed_code(
 async def regenerate_embed_code(
     code_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Regenerate embed code script"""
     try:
@@ -305,7 +306,7 @@ async def get_widget_script(
 async def preview_widget(
     request: WidgetPreviewRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(AuthService(db).get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """Preview widget with custom configuration"""
     try:
