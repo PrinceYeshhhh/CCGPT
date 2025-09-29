@@ -23,7 +23,11 @@ class UserService:
         """Get user by email"""
         return self.db.query(User).filter(User.email == email).first()
     
-    def create_user(self, user_data: UserCreate) -> User:
+    def get_user_by_mobile(self, mobile_phone: str) -> Optional[User]:
+        """Get user by mobile phone number"""
+        return self.db.query(User).filter(User.mobile_phone == mobile_phone).first()
+    
+    def create_user(self, user_data: UserCreate, phone_verified: bool = False) -> User:
         """Create a new user"""
         hashed_password = get_password_hash(user_data.password)
         
@@ -32,7 +36,9 @@ class UserService:
             hashed_password=hashed_password,
             full_name=user_data.full_name,
             business_name=user_data.business_name,
-            business_domain=user_data.business_domain
+            business_domain=user_data.business_domain,
+            mobile_phone=user_data.mobile_phone,
+            phone_verified=phone_verified
         )
         
         self.db.add(db_user)

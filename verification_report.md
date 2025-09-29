@@ -265,10 +265,7 @@ cat docker-compose.yml
    "scripts": {
      "test": "vitest",
      "test:ci": "vitest run",
-     "type-check": "tsc --noEmit"
-   }
-   ```
-
+     "type-check": "tsc --no
 4. **Create Missing Files** (1 hour)
    ```bash
    # Create backend/init.sql

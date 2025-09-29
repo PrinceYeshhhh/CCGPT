@@ -116,7 +116,7 @@ echo "🔍 Checking service health..."
 
 # Check API health
 for i in {1..10}; do
-    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+    if curl -f https://customercaregpt-backend-xxxxx-uc.a.run.app/health > /dev/null 2>&1; then
         echo "✅ API is healthy"
         break
     else
@@ -140,7 +140,7 @@ else
 fi
 
 # Check ChromaDB health
-if curl -f http://localhost:8001/api/v1/heartbeat > /dev/null 2>&1; then
+if curl -f https://customercaregpt-chromadb-xxxxx-uc.a.run.app/api/v1/heartbeat > /dev/null 2>&1; then
     echo "✅ ChromaDB is healthy"
 else
     echo "❌ ChromaDB is not ready"
@@ -158,15 +158,15 @@ echo "🎉 CustomerCareGPT Scaled System is now running!"
 echo "================================================"
 echo ""
 echo "📊 Service URLs:"
-echo "   - API: http://localhost:8000"
-echo "   - API Docs: http://localhost:8000/api/docs"
-echo "   - Health Check: http://localhost:8000/health"
-echo "   - Detailed Health: http://localhost:8000/health/detailed"
-echo "   - Metrics: http://localhost:8000/metrics"
+echo "   - API: https://customercaregpt-backend-xxxxx-uc.a.run.app"
+echo "   - API Docs: https://customercaregpt-backend-xxxxx-uc.a.run.app/api/docs"
+echo "   - Health Check: https://customercaregpt-backend-xxxxx-uc.a.run.app/health"
+echo "   - Detailed Health: https://customercaregpt-backend-xxxxx-uc.a.run.app/health/detailed"
+echo "   - Metrics: https://customercaregpt-backend-xxxxx-uc.a.run.app/metrics"
 echo ""
 echo "📈 Monitoring:"
-echo "   - Prometheus: http://localhost:9090"
-echo "   - Grafana: http://localhost:3000 (admin/admin)"
+echo "   - Prometheus: https://prometheus.customercaregpt.com"
+echo "   - Grafana: https://grafana.customercaregpt.com (admin/admin)"
 echo ""
 echo "🔧 Management Commands:"
 echo "   - View logs: docker-compose -f docker-compose.scale.yml logs -f"

@@ -138,7 +138,7 @@ def display_system_capabilities(health_status):
     print(f"   - Metrics: /metrics")
     print(f"   - Detailed Status: /health/detailed")
     print(f"   - Prometheus: http://localhost:9090")
-    print(f"   - Grafana: http://localhost:3000")
+    print(f"   - Grafana: http://localhost:3001")
     
     print("\n" + "="*60)
     print("🎯 SYSTEM READY FOR PRODUCTION LOAD!")
@@ -206,7 +206,7 @@ async def main():
     print("\n🎉 CustomerCareGPT Scaled System is now running!")
     print("📝 Check logs for detailed information")
     print("🔗 Access the API at: http://localhost:8000")
-    print("📊 Monitor at: http://localhost:3000 (Grafana)")
+    print("📊 Monitor at: http://localhost:3000 (Local Frontend)")
     
     # Keep the process running
     try:

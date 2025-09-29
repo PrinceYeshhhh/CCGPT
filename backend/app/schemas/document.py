@@ -68,3 +68,5 @@ class JobStatusResponse(BaseModel):
     status: str
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+    progress: Optional[int] = None
+    phase: Optional[str] = None

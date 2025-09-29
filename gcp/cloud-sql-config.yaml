@@ -1,0 +1,73 @@
+# CustomerCareGPT Google Cloud SQL Configuration
+# This file contains the Cloud SQL instance configuration
+
+# Cloud SQL Instance
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLInstance
+metadata:
+  name: customercaregpt-db
+  labels:
+    app: customercaregpt
+spec:
+  region: us-central1
+  databaseVersion: POSTGRES_15
+  settings:
+    tier: db-f1-micro
+    diskType: PD_SSD
+    diskSize: 10
+    diskAutoresize: true
+    availabilityType: ZONAL
+    backupConfiguration:
+      enabled: true
+      startTime: "03:00"
+      location: us-central1
+      pointInTimeRecoveryEnabled: true
+    ipConfiguration:
+      ipv4Enabled: true
+      requireSsl: true
+      authorizedNetworks:
+      - value: "0.0.0.0/0"
+        name: "all"
+    maintenanceWindow:
+      day: 7
+      hour: 3
+    databaseFlags:
+    - name: "log_statement"
+      value: "all"
+    - name: "log_min_duration_statement"
+      value: "1000"
+---
+# Cloud SQL Database
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLDatabase
+metadata:
+  name: customercaregpt-database
+spec:
+  instanceRef:
+    name: customercaregpt-db
+  charset: UTF8
+  collation: en_US.UTF8
+---
+# Cloud SQL User
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLUser
+metadata:
+  name: customercaregpt-user
+spec:
+  instanceRef:
+    name: customercaregpt-db
+  password:
+    valueFrom:
+      secretKeyRef:
+        name: customercaregpt-db-secret
+        key: password
+  user: postgres
+---
+# Database Password Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: customercaregpt-db-secret
+type: Opaque
+data:
+  password: <base64-encoded-password>

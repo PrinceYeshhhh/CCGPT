@@ -16,13 +16,14 @@ from app.api.websocket.chat_ws import router as websocket_router
 from app.db.session import engine
 from app.db.base import Base
 from app.middleware.security import (
-    SecurityHeadersMiddleware,
     InputValidationMiddleware,
     RateLimitMiddleware,
-    CORSMiddleware as SecurityCORSMiddleware,
     RequestLoggingMiddleware,
-    SecurityExceptionHandler
+    SecurityExceptionHandler,
+    CSRFProtectionMiddleware
 )
+from app.middleware.security_headers import SecurityHeadersMiddleware as NewSecurityHeadersMiddleware, create_cors_middleware
+from app.utils.error_monitoring import error_monitor, create_error_response, log_api_call
 
 # Configure structured logging
 structlog.configure(
@@ -45,9 +46,7 @@ structlog.configure(
 
 logger = structlog.get_logger()
 
-# Create database tables (skip in testing)
-if not os.getenv("TESTING"):
-    Base.metadata.create_all(bind=engine)
+# Rely on Alembic migrations for schema management in all environments
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -60,7 +59,7 @@ app = FastAPI(
 
 # Add security middleware (order matters!) - only if enabled
 if settings.ENABLE_SECURITY_HEADERS:
-    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(NewSecurityHeadersMiddleware)
 
 if settings.ENABLE_INPUT_VALIDATION:
     app.add_middleware(InputValidationMiddleware)
@@ -68,17 +67,35 @@ if settings.ENABLE_INPUT_VALIDATION:
 if settings.ENABLE_RATE_LIMITING:
     app.add_middleware(RateLimitMiddleware)
 
-if settings.ENABLE_CORS:
-    app.add_middleware(SecurityCORSMiddleware, allowed_origins=settings.CORS_ORIGINS)
+# Add CSRF protection for production
+if settings.ENVIRONMENT == "production":
+    app.add_middleware(CSRFProtectionMiddleware)
+
+# CORS is handled by create_cors_middleware below
 
 if settings.ENABLE_REQUEST_LOGGING:
     app.add_middleware(RequestLoggingMiddleware)
 
-# Add trusted host middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"]  # Configure appropriately for production
-)
+# Add security middleware
+app.add_middleware(NewSecurityHeadersMiddleware)
+
+# Add trusted host middleware (skip in testing)
+if not os.getenv("TESTING"):
+    allowed_hosts = getattr(settings, "ALLOWED_HOSTS", ["*"])
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=allowed_hosts
+    )
+
+# Add CORS middleware with security restrictions (must be last)
+if settings.ENABLE_CORS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)],
+        allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+        allow_methods=settings.CORS_ALLOW_METHODS,
+        allow_headers=settings.CORS_ALLOW_HEADERS,
+    )
 
 # Mount static files (skip in testing)
 if not os.getenv("TESTING"):
@@ -90,6 +107,10 @@ app.include_router(api_router, prefix="/api/v1")
 # Include WebSocket router
 app.include_router(websocket_router, prefix="/ws")
 
+# Include debug router for error monitoring
+from app.utils.error_monitoring import router as debug_router
+app.include_router(debug_router, prefix="/debug")
+
 # Add exception handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -98,9 +119,22 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    """Handle general exceptions with security considerations"""
+    """Handle general exceptions with enhanced error monitoring"""
     logger.error(f"Unhandled exception: {exc}", path=request.url.path)
-    return SecurityExceptionHandler.handle_security_exception(request, exc)
+    
+    # Log error with full context
+    error_context = error_monitor.log_error(
+        error=exc,
+        context={"path": request.url.path, "method": request.method},
+        request=request
+    )
+    
+    # Return standardized error response
+    return create_error_response(
+        error=exc,
+        context={"debug": settings.DEBUG, "error_id": error_context["error_count"]},
+        request=request
+    )
 
 @app.get("/")
 async def root():

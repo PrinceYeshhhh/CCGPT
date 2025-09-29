@@ -1,6 +1,11 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime
+
+class WorkspaceCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
 
 class WorkspaceSettings(BaseModel):
     id: str

@@ -11,6 +11,7 @@ import structlog
 from functools import lru_cache
 
 from app.core.config import settings
+from app.exceptions import EmbeddingError, ConfigurationError
 
 logger = structlog.get_logger()
 
@@ -20,8 +21,10 @@ class EmbeddingsService:
     
     def __init__(self):
         self.model = None
-        self.model_name = "all-MiniLM-L6-v2"
-        self.embedding_dimension = 384  # all-MiniLM-L6-v2 dimension
+        self.model_name = settings.EMBEDDING_MODEL_NAME
+        self.embedding_dimension = settings.EMBEDDING_DIMENSION
+        self.batch_size = settings.EMBEDDING_BATCH_SIZE
+        self.cache_size = settings.EMBEDDING_CACHE_SIZE
         self._initialize_model()
     
     def _initialize_model(self):
@@ -37,7 +40,10 @@ class EmbeddingsService:
             )
         except Exception as e:
             logger.error("Failed to load sentence transformer model", error=str(e))
-            raise
+            raise EmbeddingError(
+                message="Failed to initialize embedding model",
+                details={"model_name": self.model_name, "error": str(e)}
+            )
     
     @lru_cache(maxsize=1)
     def get_model_info(self) -> Dict[str, Any]:
@@ -51,7 +57,7 @@ class EmbeddingsService:
     async def generate_embeddings(
         self, 
         texts: List[str], 
-        batch_size: int = 32
+        batch_size: Optional[int] = None
     ) -> List[List[float]]:
         """Generate embeddings for a list of texts with batching"""
         try:
@@ -63,6 +69,10 @@ class EmbeddingsService:
                 text_count=len(texts),
                 batch_size=batch_size
             )
+            
+            # Use configured batch size if not provided
+            if batch_size is None:
+                batch_size = self.batch_size
             
             # Process in batches for efficiency
             all_embeddings = []
@@ -106,7 +116,10 @@ class EmbeddingsService:
             
         except Exception as e:
             logger.error("Failed to generate batch embeddings", error=str(e))
-            raise
+            raise EmbeddingError(
+                message="Failed to generate embeddings",
+                details={"texts_count": len(texts), "error": str(e)}
+            )
     
     async def generate_single_embedding(self, text: str) -> List[float]:
         """Generate embedding for a single text"""
@@ -115,7 +128,10 @@ class EmbeddingsService:
             return embeddings[0] if embeddings else []
         except Exception as e:
             logger.error("Failed to generate single embedding", error=str(e))
-            raise
+            raise EmbeddingError(
+                message="Failed to generate single embedding",
+                details={"text": text[:100], "error": str(e)}
+            )
     
     def get_embedding_dimension(self) -> int:
         """Get the embedding dimension for this model"""

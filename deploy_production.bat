@@ -162,7 +162,7 @@ set max_attempts=30
 set attempt=1
 
 :health_check_loop
-curl -f http://localhost:8000/health >nul 2>&1
+curl -f https://customercaregpt-backend-xxxxx-uc.a.run.app/health >nul 2>&1
 if not errorlevel 1 (
     call :success "API is healthy"
     goto :health_check_done
@@ -179,7 +179,7 @@ exit /b 1
 :health_check_done
 REM Check frontend
 call :log "Checking frontend..."
-curl -f http://localhost/ >nul 2>&1
+curl -f https://customercaregpt-frontend.vercel.app/ >nul 2>&1
 if not errorlevel 1 (
     call :success "Frontend is accessible"
 ) else (
@@ -255,10 +255,10 @@ if errorlevel 1 exit /b 1
 call :success "Deployment completed successfully!"
 call :log "=============================================="
 call :log "Your CustomerCareGPT application is now running in production mode"
-call :log "Frontend: http://localhost (or your domain)"
-call :log "API: http://localhost:8000"
-call :log "Health Check: http://localhost:8000/health"
-call :log "Metrics: http://localhost:8000/metrics"
+call :log "Frontend: https://customercaregpt-frontend.vercel.app"
+call :log "API: https://customercaregpt-backend-xxxxx-uc.a.run.app"
+call :log "Health Check: https://customercaregpt-backend-xxxxx-uc.a.run.app/health"
+call :log "Metrics: https://customercaregpt-backend-xxxxx-uc.a.run.app/metrics"
 call :log "=============================================="
 call :log "To manage the service:"
 call :log "  Start: docker-compose -f docker-compose.prod.yml up -d"

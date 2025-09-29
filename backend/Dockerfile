@@ -41,8 +41,9 @@ FROM base as production
 # Install production dependencies
 RUN pip install --no-cache-dir gunicorn[uvicorn]
 
-# Run with gunicorn
-CMD ["gunicorn", "app.main:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]
+# Run with gunicorn (workers configurable via GUNICORN_WORKERS)
+ENV GUNICORN_WORKERS=4
+CMD ["sh", "-c", "gunicorn app.main:app -w ${GUNICORN_WORKERS} -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000"]
 
 # Development stage
 FROM base as development

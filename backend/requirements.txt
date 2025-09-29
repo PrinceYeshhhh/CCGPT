@@ -15,7 +15,7 @@ aioredis==2.0.1
 
 # Vector Database
 chromadb==0.4.15
-sentence-transformers==2.2.2
+sentence-transformers==3.0.1
 huggingface_hub>=0.16.0
 
 # Google Gemini
@@ -28,6 +28,7 @@ python-docx==1.1.0
 pandas==2.1.3
 openpyxl==3.1.2
 aiofiles==23.2.1
+python-magic==0.4.27  # File type detection
 
 # Background Jobs
 rq==1.15.1
@@ -40,26 +41,40 @@ azure-keyvault-secrets==4.7.0
 azure-identity==1.15.0
 hvac==2.0.0
 
+# Security
+cryptography==41.0.7  # For data encryption
+
 # Text Processing
 nltk==3.8.1
 scikit-learn==1.3.2  # For clustering and advanced ML
-transformers==4.35.2  # For advanced embeddings
-torch==2.1.1  # For transformers
+transformers==4.56.2  # Align with environment and sentence-transformers
+tokenizers==0.22.0  # Satisfies transformers (>=0.22,<=0.23) and chromadb (>=0.13.2)
+torch==2.2.2  # For transformers; provides torch.utils._pytree.register_pytree_node
+torchvision==0.17.2  # Compatible with torch 2.2.x
 rank-bm25==0.2.2  # For BM25 hybrid search
 beautifulsoup4==4.12.2  # For HTML processing
 markdown==3.5.1  # For markdown processing
+
+# Multi-language Support (translation optional for tests)
+langdetect==1.0.9  # For language detection
 
 # Authentication & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 
+# Billing
+stripe==5.4.0
+
 # Utilities
 pydantic==2.5.0
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
-httpx==0.25.2
+# Pin httpx to a version compatible with starlette testclient (BaseTransport)
+httpx==0.24.1
 aiofiles==23.2.1
+email-validator==2.1.0.post1
+aiohttp==3.9.5
 
 # Monitoring & Logging
 structlog==23.2.0
@@ -69,4 +84,3 @@ prometheus-client==0.19.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-httpx==0.25.2

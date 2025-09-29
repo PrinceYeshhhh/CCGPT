@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.queue import get_ingest_queue
 from app.models.document import Document, DocumentChunk
 from app.utils.storage import get_storage_adapter
+from app.services.file_security import file_security_service
 from app.utils.file_parser import extract_text_from_file
 
 logger = structlog.get_logger()
@@ -34,8 +35,13 @@ class DocumentService:
     ) -> Document:
         """Upload a document and enqueue processing job"""
         
-        # Validate file
-        self._validate_file(file)
+        # Comprehensive file security validation
+        is_valid, error_message = await file_security_service.validate_file(file)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File validation failed: {error_message}"
+            )
         
         # Generate document ID
         document_id = str(uuid.uuid4())
@@ -108,27 +114,95 @@ class DocumentService:
             DocumentChunk.workspace_id == workspace_id
         ).offset(offset).limit(limit).all()
     
+    def reprocess_document(
+        self,
+        document_id: str,
+        workspace_id: str
+    ) -> Optional[str]:
+        """Reprocess a document: clear existing chunks and enqueue processing again.
+        Returns job_id if enqueued successfully, otherwise None.
+        """
+        document = self.get_document(document_id, workspace_id)
+        if not document:
+            return None
+        try:
+            # Clear previous chunks
+            self.db.query(DocumentChunk).filter(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.workspace_id == workspace_id
+            ).delete(synchronize_session=False)
+            self.db.commit()
+
+            # Reset status
+            document.status = "uploaded"
+            document.error = None
+            self.db.commit()
+
+            # Enqueue processing job
+            job = self.queue.enqueue(
+                'app.worker.ingest_worker.process_document',
+                document_id,
+                job_timeout='10m'
+            )
+
+            logger.info(
+                "Document reprocess enqueued",
+                document_id=document_id,
+                workspace_id=workspace_id,
+                job_id=job.id,
+                filename=document.filename
+            )
+            return job.id
+        except Exception as e:
+            logger.error("Failed to reprocess document", error=str(e), document_id=document_id, workspace_id=workspace_id)
+            self.db.rollback()
+            return None
+    
     def soft_delete_document(
         self, 
         document_id: str, 
         workspace_id: str
     ) -> bool:
-        """Soft delete a document"""
+        """Soft delete and clean up a document: mark deleted, remove chunks, delete file, and schedule vector cleanup."""
         document = self.get_document(document_id, workspace_id)
         if not document:
             return False
-        
-        # Update status to deleted
-        document.status = "deleted"
-        self.db.commit()
-        
-        logger.info(
-            "Document soft deleted",
-            document_id=document_id,
-            workspace_id=workspace_id
-        )
-        
-        return True
+        try:
+            # Mark deleted
+            document.status = "deleted"
+            self.db.commit()
+
+            # Delete chunks from DB
+            self.db.query(DocumentChunk).filter(
+                DocumentChunk.document_id == document_id,
+                DocumentChunk.workspace_id == workspace_id
+            ).delete(synchronize_session=False)
+            self.db.commit()
+
+            # Delete file from storage
+            try:
+                if document.path and os.path.exists(document.path):
+                    os.remove(document.path)
+            except Exception:
+                pass
+
+            # Vector deletion (if using vector DB)
+            try:
+                from app.services.vector_service import VectorService
+                VectorService().delete_document(document_id=document_id, workspace_id=workspace_id)
+            except Exception:
+                pass
+
+            logger.info(
+                "Document soft deleted and cleaned",
+                document_id=document_id,
+                workspace_id=workspace_id
+            )
+            return True
+        except Exception as e:
+            logger.error("Failed to delete document", error=str(e), document_id=document_id, workspace_id=workspace_id)
+            self.db.rollback()
+            return False
     
     def get_workspace_documents(
         self,
@@ -159,10 +233,11 @@ class DocumentService:
         file_content = file.file.read()
         file.file.seek(0)  # Reset file pointer
         
-        if len(file_content) > settings.MAX_UPLOAD_SIZE_BYTES:
+        max_size = getattr(settings, 'MAX_FILE_SIZE', None) or getattr(settings, 'MAX_UPLOAD_SIZE_BYTES', 10 * 1024 * 1024)
+        if len(file_content) > max_size:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Maximum size: {settings.MAX_UPLOAD_SIZE_BYTES} bytes"
+                detail=f"File too large. Maximum size: {max_size} bytes"
             )
         
         # Check file extension
@@ -184,7 +259,10 @@ class DocumentService:
         """Get allowed content types"""
         return [
             "application/pdf",
+            "application/msword",
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain",
+            "text/markdown",
             "text/csv",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ]

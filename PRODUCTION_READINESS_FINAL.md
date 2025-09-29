@@ -257,7 +257,7 @@ docker-compose -f docker-compose.prod.yml ps
 docker-compose -f docker-compose.prod.yml logs -f
 
 # Check health
-curl http://localhost:8000/health
+curl https://customercaregpt-backend-xxxxx-uc.a.run.app/health
 
 # Run production tests
 python test_production_readiness_comprehensive.py

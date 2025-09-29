@@ -16,7 +16,7 @@ from typing import Dict, Any, List
 class ProductionReadinessTester:
     """Test production readiness features"""
     
-    def __init__(self, base_url: str = "http://localhost:8000"):
+    def __init__(self, base_url: str = "https://customercaregpt-backend-xxxxx-uc.a.run.app"):
         self.base_url = base_url
         self.client = httpx.AsyncClient(timeout=30.0)
         self.results = []

@@ -16,6 +16,7 @@ from app.models.document import Document, DocumentChunk
 from app.models.user import User
 from app.services.file_processor import FileProcessor
 from app.services.vector_service import VectorService
+from app.services.semantic_chunking_service import semantic_chunking_service, ChunkingStrategy
 
 logger = structlog.get_logger()
 
@@ -98,8 +99,29 @@ class DocumentService:
             # Extract text from file
             text_content = await self.file_processor.extract_text(document.file_path, document.file_type)
             
-            # Create chunks
-            chunks = self.file_processor.create_chunks(text_content, document.id)
+            # Create chunks using semantic chunking
+            chunking_strategy = ChunkingStrategy.SEMANTIC  # Default to semantic chunking
+            chunks = semantic_chunking_service.chunk_text(
+                text=text_content,
+                strategy=chunking_strategy,
+                chunk_size=1000,
+                chunk_overlap=200
+            )
+            
+            # Convert Chunk objects to dict format expected by the rest of the system
+            chunk_dicts = []
+            for chunk in chunks:
+                chunk_dicts.append({
+                    "index": chunk.chunk_index,
+                    "content": chunk.content,
+                    "hash": chunk.metadata.get("content_hash", ""),
+                    "word_count": chunk.metadata.get("word_count", 0),
+                    "section_title": chunk.metadata.get("section_title", ""),
+                    "importance_score": chunk.importance_score,
+                    "metadata": chunk.metadata
+                })
+            
+            chunks = chunk_dicts
             
             # Save chunks to database
             for chunk_data in chunks:

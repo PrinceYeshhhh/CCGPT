@@ -88,7 +88,7 @@ chroma_client = chromadb.Client()
 
 # Enhanced: Clustered ChromaDB
 chroma_client = chromadb.HttpClient(
-    host="chroma-cluster.example.com",
+    host="localhost",
     port=8000,
     settings=Settings(
         chroma_api_impl="chromadb.api.fastapi.FastAPI",

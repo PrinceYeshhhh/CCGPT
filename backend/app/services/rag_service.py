@@ -8,11 +8,15 @@ from typing import List, Dict, Any, Optional, AsyncGenerator
 from sqlalchemy.orm import Session
 import structlog
 
+from app.core.config import settings
 from app.services.vector_service import VectorService
 from app.services.gemini_service import GeminiService
+from app.services.language_service import language_service
+from app.utils.cache import analytics_cache
 from app.services.embeddings_service import embeddings_service
 from app.models.chat import ChatSession, ChatMessage
 from app.schemas.rag import RAGQueryResponse, RAGSource, RAGStreamChunk
+from app.exceptions import RAGError, LanguageError
 
 logger = structlog.get_logger()
 
@@ -30,7 +34,8 @@ class RAGService:
         workspace_id: str,
         query: str,
         session_id: Optional[str] = None,
-        top_k: int = 6
+        top_k: int = 6,
+        target_language: Optional[str] = None
     ) -> RAGQueryResponse:
         """
         Process a RAG query with enhanced prompting and citations
@@ -40,6 +45,7 @@ class RAGService:
             query: User query
             session_id: Optional session ID for continuity
             top_k: Number of chunks to retrieve
+            target_language: Optional target language for response
         
         Returns:
             RAGQueryResponse with answer, sources, and metadata
@@ -50,22 +56,32 @@ class RAGService:
             # Get or create session
             session = await self._get_or_create_session(workspace_id, session_id)
             
-            # Step 1: Vector search for relevant chunks
+            # Step 1: Detect language if auto-detection is enabled
+            detected_language = None
+            if settings.AUTO_DETECT_LANGUAGE:
+                detected_language = await language_service.detect_language(query)
+                logger.info("Language detected", language=detected_language, query_preview=query[:50])
+            
+            # Use target language or detected language
+            response_language = target_language or detected_language or settings.DEFAULT_LANGUAGE
+            
+            # Step 2: Vector search for relevant chunks
             similar_chunks = await self.vector_service.search_similar_chunks(
                 query=query,
                 workspace_id=workspace_id,
                 limit=top_k
             )
             
-            # Step 2: Build enhanced RAG prompt with citations
+            # Step 3: Build enhanced RAG prompt with citations
             context_text = self._build_context_with_citations(similar_chunks)
-            prompt = self._build_rag_prompt(query, context_text, similar_chunks)
+            prompt = self._build_rag_prompt(query, context_text, similar_chunks, response_language)
             
-            # Step 3: Generate response with Gemini
+            # Step 4: Generate response with Gemini
             gemini_response = await self.gemini_service.generate_response(
                 user_message=query,
                 context=context_text,
-                sources=similar_chunks
+                sources=similar_chunks,
+                target_language=response_language
             )
             
             # Step 4: Extract and format sources
@@ -355,6 +371,11 @@ class RAGService:
             session.updated_at = datetime.now()
             
             self.db.commit()
+            try:
+                # Invalidate analytics cache for this user/workspace (use user_id relation if available)
+                analytics_cache.invalidate_workspace_sync(str(session.user_id))
+            except Exception:
+                pass
             
             logger.info(
                 "RAG interaction saved",

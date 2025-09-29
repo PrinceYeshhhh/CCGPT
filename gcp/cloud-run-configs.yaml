@@ -1,0 +1,271 @@
+# CustomerCareGPT Google Cloud Run Configuration
+# This file contains all the Cloud Run service configurations
+
+# Backend Service Configuration
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: customercaregpt-backend
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: "true"
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "0"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+      - name: backend
+        image: gcr.io/YOUR_PROJECT_ID/customercaregpt/backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DEBUG
+          value: "false"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: ENABLE_SECURITY_HEADERS
+          value: "true"
+        - name: ENABLE_RATE_LIMITING
+          value: "true"
+        - name: ENABLE_INPUT_VALIDATION
+          value: "true"
+        - name: ENABLE_CORS
+          value: "true"
+        - name: CORS_ORIGINS
+          value: "https://your-domain.com,https://www.your-domain.com"
+        - name: CORS_ALLOW_CREDENTIALS
+          value: "true"
+        - name: CORS_ALLOW_METHODS
+          value: "GET,POST,PUT,DELETE,OPTIONS"
+        - name: CORS_ALLOW_HEADERS
+          value: "Content-Type,Authorization,X-Requested-With"
+        - name: RATE_LIMIT_WORKSPACE_PER_MIN
+          value: "60"
+        - name: RATE_LIMIT_EMBED_PER_MIN
+          value: "600"
+        - name: DB_POOL_SIZE
+          value: "20"
+        - name: DB_MAX_OVERFLOW
+          value: "10"
+        - name: PROMETHEUS_ENABLED
+          value: "true"
+        - name: METRICS_ENABLED
+          value: "true"
+        - name: HEALTH_CHECK_ENABLED
+          value: "true"
+        - name: DATABASE_URL
+          value: "postgresql://postgres:password@/customercaregpt?host=/cloudsql/YOUR_PROJECT_ID:us-central1:customercaregpt-db"
+        - name: REDIS_URL
+          value: "redis://10.x.x.x:6379"
+        - name: CHROMA_URL
+          value: "https://customercaregpt-chromadb-xxxxx-uc.a.run.app"
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "0.5"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: cloudsql-instance-connection
+          mountPath: /cloudsql
+          readOnly: true
+      volumes:
+      - name: cloudsql-instance-connection
+        csi:
+          driver: gcp.csi.sql
+          volumeAttributes:
+            instanceConnectionName: YOUR_PROJECT_ID:us-central1:customercaregpt-db
+      serviceAccountName: customercaregpt-sa
+---
+# Frontend Service Configuration
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: customercaregpt-frontend
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: "true"
+        autoscaling.knative.dev/maxScale: "5"
+        autoscaling.knative.dev/minScale: "0"
+    spec:
+      containerConcurrency: 100
+      timeoutSeconds: 60
+      containers:
+      - name: frontend
+        image: gcr.io/YOUR_PROJECT_ID/customercaregpt/frontend:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: VITE_API_URL
+          value: "https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1"
+        - name: VITE_WS_URL
+          value: "wss://customercaregpt-backend-xxxxx-uc.a.run.app/ws"
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+          requests:
+            cpu: "0.25"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+---
+# Worker Service Configuration
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: customercaregpt-worker
+  annotations:
+    run.googleapis.com/ingress: internal
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: "true"
+        autoscaling.knative.dev/maxScale: "3"
+        autoscaling.knative.dev/minScale: "0"
+    spec:
+      containerConcurrency: 1
+      timeoutSeconds: 3600
+      containers:
+      - name: worker
+        image: gcr.io/YOUR_PROJECT_ID/customercaregpt/worker:latest
+        command: ["python", "-m", "rq", "worker", "--url", "redis://10.x.x.x:6379"]
+        ports:
+        - containerPort: 8080
+        env:
+        - name: DEBUG
+          value: "false"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: ENVIRONMENT
+          value: "production"
+        - name: DATABASE_URL
+          value: "postgresql://postgres:password@/customercaregpt?host=/cloudsql/YOUR_PROJECT_ID:us-central1:customercaregpt-db"
+        - name: REDIS_URL
+          value: "redis://10.x.x.x:6379"
+        - name: CHROMA_URL
+          value: "https://customercaregpt-chromadb-xxxxx-uc.a.run.app"
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+          requests:
+            cpu: "0.25"
+            memory: "256Mi"
+        volumeMounts:
+        - name: cloudsql-instance-connection
+          mountPath: /cloudsql
+          readOnly: true
+      volumes:
+      - name: cloudsql-instance-connection
+        csi:
+          driver: gcp.csi.sql
+          volumeAttributes:
+            instanceConnectionName: YOUR_PROJECT_ID:us-central1:customercaregpt-db
+      serviceAccountName: customercaregpt-sa
+---
+# ChromaDB Service Configuration
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: customercaregpt-chromadb
+  annotations:
+    run.googleapis.com/ingress: internal
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: "true"
+        autoscaling.knative.dev/maxScale: "2"
+        autoscaling.knative.dev/minScale: "0"
+    spec:
+      containerConcurrency: 10
+      timeoutSeconds: 300
+      containers:
+      - name: chromadb
+        image: chromadb/chroma:latest
+        ports:
+        - containerPort: 8001
+        env:
+        - name: CHROMA_SERVER_HOST
+          value: "0.0.0.0"
+        - name: CHROMA_SERVER_HTTP_PORT
+          value: "8001"
+        - name: CHROMA_SERVER_AUTH_CREDENTIALS
+          value: "admin:your-chromadb-password"
+        resources:
+          limits:
+            cpu: "0.5"
+            memory: "512Mi"
+          requests:
+            cpu: "0.25"
+            memory: "256Mi"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/heartbeat
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v1/heartbeat
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3

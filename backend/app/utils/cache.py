@@ -134,16 +134,49 @@ class CacheManager:
         """Delete all keys matching pattern"""
         cache_prefix = self._get_cache_key(prefix, "")
         full_pattern = f"{cache_prefix}*{pattern}*"
-        
         try:
-            keys = self.redis_client.keys(full_pattern)
+            keys = list(self.redis_client.scan_iter(full_pattern))
             if keys:
-                return self.redis_client.delete(*keys)
+                return int(self.redis_client.delete(*keys))
             return 0
-            
         except Exception as e:
-            logger.error(f"Cache delete pattern failed for {full_pattern}: {e}")
+            logger.error(f"Cache delete_pattern failed for {full_pattern}: {e}")
             return 0
+
+    # ---- Synchronous helpers for services running in threadpool ----
+    def get_sync(self, prefix: str, key: str, deserialize_type: type = str):
+        cache_key = self._get_cache_key(prefix, key)
+        try:
+            value = self.redis_client.get(cache_key)
+            if value is None:
+                return None
+            return self._deserialize_value(value.decode('utf-8'), deserialize_type)
+        except Exception as e:
+            logger.error(f"Cache get_sync failed for {cache_key}: {e}")
+            return None
+    
+    def set_sync(self, prefix: str, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        cache_key = self._get_cache_key(prefix, key)
+        try:
+            serialized_value = self._serialize_value(value)
+            ttl = ttl or self.default_ttl
+            return bool(self.redis_client.setex(cache_key, ttl, serialized_value))
+        except Exception as e:
+            logger.error(f"Cache set_sync failed for {cache_key}: {e}")
+            return False
+    
+    def delete_pattern_sync(self, prefix: str, pattern: str) -> int:
+        cache_prefix = self._get_cache_key(prefix, "")
+        full_pattern = f"{cache_prefix}*{pattern}*"
+        try:
+            keys = list(self.redis_client.scan_iter(full_pattern))
+            if keys:
+                return int(self.redis_client.delete(*keys))
+            return 0
+        except Exception as e:
+            logger.error(f"Cache delete_pattern_sync failed for {full_pattern}: {e}")
+            return 0
+
     
     async def exists(self, prefix: str, key: str) -> bool:
         """Check if key exists in cache"""
@@ -278,6 +311,56 @@ class AnalyticsCache:
     async def invalidate_workspace(self, workspace_id: str) -> int:
         """Invalidate all analytics cache for workspace"""
         return await self.cache.delete_pattern('analytics', f"*{workspace_id}*")
+
+    # ---- Sync wrappers ----
+    def invalidate_workspace_sync(self, workspace_id: str) -> int:
+        return self.cache.delete_pattern_sync('analytics', f"*{workspace_id}*")
+
+    async def get_hourly_trends(self, workspace_id: str, period: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached hourly trends"""
+        return await self.cache.get(
+            'analytics',
+            f"hourly:{workspace_id}:{period}",
+            deserialize_type=list
+        )
+
+    async def set_hourly_trends(self, workspace_id: str, period: str, data: List[Dict[str, Any]]) -> bool:
+        """Cache hourly trends"""
+        return await self.cache.set(
+            'analytics',
+            f"hourly:{workspace_id}:{period}",
+            data,
+            ttl=self.ttl
+        )
+
+    def get_hourly_trends_sync(self, workspace_id: str, period: str):
+        return self.cache.get_sync('analytics', f"hourly:{workspace_id}:{period}", deserialize_type=list)
+
+    def set_hourly_trends_sync(self, workspace_id: str, period: str, data: List[Dict[str, Any]]):
+        return self.cache.set_sync('analytics', f"hourly:{workspace_id}:{period}", data, ttl=self.ttl)
+
+    async def get_satisfaction(self, workspace_id: str, period: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached satisfaction stats"""
+        return await self.cache.get(
+            'analytics',
+            f"satisfaction:{workspace_id}:{period}",
+            deserialize_type=list
+        )
+
+    async def set_satisfaction(self, workspace_id: str, period: str, data: List[Dict[str, Any]]) -> bool:
+        """Cache satisfaction stats"""
+        return await self.cache.set(
+            'analytics',
+            f"satisfaction:{workspace_id}:{period}",
+            data,
+            ttl=self.ttl
+        )
+
+    def get_satisfaction_sync(self, workspace_id: str, period: str):
+        return self.cache.get_sync('analytics', f"satisfaction:{workspace_id}:{period}", deserialize_type=list)
+
+    def set_satisfaction_sync(self, workspace_id: str, period: str, data: List[Dict[str, Any]]):
+        return self.cache.set_sync('analytics', f"satisfaction:{workspace_id}:{period}", data, ttl=self.ttl)
 
 class EmbedCodeCache:
     """Specialized cache for embed codes"""

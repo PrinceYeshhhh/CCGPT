@@ -16,11 +16,15 @@ from app.schemas.analytics import (
     SessionAnalytics,
     MessageAnalytics,
     UsageStats,
-    EmbedCodeAnalytics
+    EmbedCodeAnalytics,
+    HourlyStat,
+    SatisfactionStat,
+    KPISummary
 )
 from app.services.auth import AuthService
 from app.services.analytics import AnalyticsService
 from app.api.api_v1.dependencies import get_current_user
+from app.utils.validators import DashboardQueryValidator, AnalyticsFilterValidator
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -28,16 +32,26 @@ router = APIRouter()
 
 @router.get("/overview", response_model=AnalyticsOverview)
 async def get_analytics_overview(
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get analytics overview for the user"""
     try:
+        # Validate input parameters
+        query_params = DashboardQueryValidator(days=days)
+        
         analytics_service = AnalyticsService(db)
         overview = analytics_service.get_user_overview(current_user.id)
         
         return AnalyticsOverview(**overview)
         
+    except ValueError as e:
+        logger.warning("Invalid input parameters", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error("Failed to get analytics overview", error=str(e), user_id=current_user.id)
         raise HTTPException(
@@ -168,9 +182,66 @@ async def get_embed_code_analytics(
         )
 
 
+@router.get("/hourly", response_model=List[HourlyStat])
+async def get_hourly_trends(
+    days: int = Query(7, ge=1, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get aggregated hourly trends for sessions/messages for past N days"""
+    try:
+        analytics_service = AnalyticsService(db)
+        data = analytics_service.get_hourly_trends(current_user.id, days=days)
+        return [HourlyStat(**row) for row in data]
+    except Exception as e:
+        logger.error("Failed to get hourly trends", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve hourly trends"
+        )
+
+
+@router.get("/satisfaction", response_model=List[SatisfactionStat])
+async def get_satisfaction_stats(
+    days: int = Query(30, ge=1, le=180),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get daily satisfaction stats for the past N days"""
+    try:
+        analytics_service = AnalyticsService(db)
+        data = analytics_service.get_satisfaction_stats(current_user.id, days=days)
+        return [SatisfactionStat(**row) for row in data]
+    except Exception as e:
+        logger.error("Failed to get satisfaction stats", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve satisfaction statistics"
+        )
+
+
+@router.get("/kpis", response_model=KPISummary)
+async def get_kpis(
+    days: int = Query(30, ge=7, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get KPI metrics with deltas for the dashboard overview."""
+    try:
+        analytics_service = AnalyticsService(db)
+        data = analytics_service.get_kpis(current_user.id, days=days)
+        return KPISummary(**data)
+    except Exception as e:
+        logger.error("Failed to get KPIs", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve KPIs"
+        )
+
+
 @router.get("/export")
 async def export_analytics(
-    format: str = Query("json", regex="^(json|csv)$"),
+    format: str = Query("json", pattern="^(json|csv)$"),
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),

@@ -9,7 +9,7 @@
 
   // Configuration
   const CONFIG = {
-    apiUrl: 'http://localhost:8000',
+    apiUrl: 'https://customercaregpt-backend-xxxxx-uc.a.run.app',
     embedCodeId: null,
     clientApiKey: null,
     title: 'Customer Support',
@@ -210,7 +210,7 @@
   // WebSocket connection
   function connectWebSocket() {
     try {
-      const wsUrl = `${CONFIG.apiUrl.replace('http', 'ws')}/ws/chat/${sessionId || 'new'}?workspace_id=${CONFIG.embedCodeId}&user_id=widget&client_api_key=${CONFIG.clientApiKey}`;
+      const wsUrl = `${CONFIG.apiUrl.replace('http', 'ws')}/ws/chat/${sessionId || 'new'}?client_api_key=${CONFIG.clientApiKey}&embed_code_id=${CONFIG.embedCodeId}`;
       ws = new WebSocket(wsUrl);
       
       ws.onopen = () => {

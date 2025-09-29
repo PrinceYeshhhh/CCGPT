@@ -12,6 +12,7 @@ import structlog
 
 from app.models.embed import EmbedCode, WidgetAsset
 from app.core.config import settings
+from app.services.ab_testing_service import ABTestingService
 
 logger = structlog.get_logger()
 
@@ -21,6 +22,7 @@ class EmbedService:
     
     def __init__(self, db: Session):
         self.db = db
+        self.ab_testing_service = ABTestingService(db)
     
     def generate_embed_code(
         self,
@@ -57,6 +59,13 @@ class EmbedService:
         # Merge with provided config
         if config:
             default_config.update(config)
+        
+        # Apply A/B testing variants if enabled
+        if settings.AB_TESTING_ENABLED:
+            default_config = self.ab_testing_service.apply_variants_to_config(
+                default_config, 
+                str(user_id)
+            )
         
         # Generate embed script
         embed_script = self._generate_embed_script(
@@ -383,13 +392,21 @@ class EmbedService:
                     color: white;
                     border: none;
                     cursor: pointer;
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+                    box-shadow: 0 8px 20px rgba(37,99,235,0.35);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 24px;
-                ">
-                    💬
+                    position: relative;
+                    overflow: hidden;
+                    transition: box-shadow 0.2s ease, transform 0.2s ease;
+                " title="Chat">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <rect x="7" y="8" width="10" height="8" rx="2" stroke="white" stroke-width="2"/>
+                        <path d="M9 8V6a3 3 0 013-3v0a3 3 0 013 3v2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="10.5" cy="12" r="1" fill="white"/>
+                        <circle cx="13.5" cy="12" r="1" fill="white"/>
+                        <path d="M12 16v2" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
                 </button>
             </div>
         `;
@@ -409,12 +426,24 @@ class EmbedService:
         messagesContainer = document.getElementById('ccgpt-messages');
         input = document.getElementById('ccgpt-input');
         sendButton = document.getElementById('ccgpt-send');
+        const toggle = document.getElementById('ccgpt-toggle');
+        // Shine/dull hover effect
+        if (toggle) {{
+            toggle.addEventListener('mouseenter', () => {{
+                toggle.style.boxShadow = '0 10px 24px rgba(37,99,235,0.5)';
+                toggle.style.transform = 'translateY(-1px)';
+            }});
+            toggle.addEventListener('mouseleave', () => {{
+                toggle.style.boxShadow = '0 8px 20px rgba(37,99,235,0.35)';
+                toggle.style.transform = 'translateY(0)';
+            }});
+        }}
     }}
     
     // WebSocket connection
     function connectWebSocket() {{
         try {{
-            const wsUrl = `${{CONFIG.apiUrl.replace('http', 'ws')}}/ws/chat/${{sessionId || 'new'}}?workspace_id=${{CONFIG.embedCodeId}}&user_id=widget&client_api_key=${{CONFIG.clientApiKey}}`;
+            const wsUrl = `${{CONFIG.apiUrl.replace('http', 'ws')}}/ws/chat/${{sessionId || 'new'}}?client_api_key=${{CONFIG.clientApiKey}}&embed_code_id=${{CONFIG.embedCodeId}}`;
             ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {{
@@ -517,7 +546,7 @@ class EmbedService:
         }} else {{
             // Fallback to HTTP
             try {{
-                const response = await fetch(`${{CONFIG.apiUrl}}/api/v1/chat/message`, {{
+                const response = await fetch(`${{CONFIG.apiUrl}}/api/v1/embed/chat/message`, {{
                     method: 'POST',
                     headers: {{
                         'Content-Type': 'application/json',
@@ -527,7 +556,7 @@ class EmbedService:
                     body: JSON.stringify({{
                         message: message,
                         session_id: sessionId,
-                        workspace_id: CONFIG.embedCodeId
+                        // workspace is resolved server-side via API key; do not send from client
                     }})
                 }});
                 
@@ -767,3 +796,14 @@ class EmbedService:
         data-api-key="{embed_code.client_api_key}">
 </script>
 """
+    
+    def get_embed_code_by_api_key(self, client_api_key: str) -> Optional[EmbedCode]:
+        """Get embed code by client API key"""
+        try:
+            return self.db.query(EmbedCode).filter(
+                EmbedCode.client_api_key == client_api_key,
+                EmbedCode.is_active == True
+            ).first()
+        except Exception as e:
+            logger.error(f"Error getting embed code by API key: {e}")
+            return None

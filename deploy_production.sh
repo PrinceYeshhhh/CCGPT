@@ -182,7 +182,7 @@ check_service_health() {
     attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+        if curl -f https://customercaregpt-backend-xxxxx-uc.a.run.app/health > /dev/null 2>&1; then
             success "API is healthy"
             break
         else
@@ -199,7 +199,7 @@ check_service_health() {
     
     # Check frontend
     log "Checking frontend..."
-    if curl -f http://localhost/ > /dev/null 2>&1; then
+    if curl -f https://customercaregpt-frontend.vercel.app/ > /dev/null 2>&1; then
         success "Frontend is accessible"
     else
         error "Frontend is not accessible"
@@ -366,10 +366,10 @@ main() {
     success "Deployment completed successfully!"
     log "=============================================="
     log "Your CustomerCareGPT application is now running in production mode"
-    log "Frontend: http://localhost (or your domain)"
-    log "API: http://localhost:8000"
-    log "Health Check: http://localhost:8000/health"
-    log "Metrics: http://localhost:8000/metrics"
+    log "Frontend: https://customercaregpt-frontend.vercel.app"
+    log "API: https://customercaregpt-backend-xxxxx-uc.a.run.app"
+    log "Health Check: https://customercaregpt-backend-xxxxx-uc.a.run.app/health"
+    log "Metrics: https://customercaregpt-backend-xxxxx-uc.a.run.app/metrics"
     log "=============================================="
     log "To manage the service:"
     log "  Start: sudo systemctl start customercaregpt"

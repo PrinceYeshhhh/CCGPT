@@ -13,6 +13,7 @@ from app.models.chat import ChatSession, ChatMessage
 from app.models.user import User
 from app.services.vector_service import VectorService
 from app.services.gemini_service import GeminiService
+from app.utils.cache import analytics_cache
 
 logger = structlog.get_logger()
 
@@ -64,6 +65,17 @@ class ChatService:
             sources_used=ai_response.get("sources_used"),
             confidence_score=ai_response.get("confidence_score")
         )
+        # Invalidate analytics cache for workspace if provided; fallback to user scope
+        try:
+            workspace_id = None
+            if context and isinstance(context, dict):
+                workspace_id = context.get("workspace_id")
+            if workspace_id:
+                analytics_cache.invalidate_workspace_sync(str(workspace_id))
+            else:
+                analytics_cache.invalidate_workspace_sync(str(user_id))
+        except Exception:
+            pass
         
         # Update session
         session.updated_at = func.now()
@@ -149,10 +161,13 @@ class ChatService:
     ) -> Dict[str, Any]:
         """Generate AI response using RAG"""
         try:
-            # Search for relevant chunks using user_id as workspace_id
+            # Search for relevant chunks using workspace_id when available, else fallback to user_id
+            workspace_id = str(user_id)
+            if context and isinstance(context, dict) and context.get("workspace_id"):
+                workspace_id = str(context.get("workspace_id"))
             similar_chunks = await self.vector_service.search_similar_chunks(
                 query=message,
-                workspace_id=str(user_id),
+                workspace_id=workspace_id,
                 limit=5
             )
             

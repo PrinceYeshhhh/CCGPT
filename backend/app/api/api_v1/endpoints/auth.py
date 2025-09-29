@@ -14,14 +14,14 @@ from app.core.config import settings
 from app.core.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, UserLogin
-from app.schemas.auth import Token, TokenRefresh
+from app.schemas.auth import Token, TokenRefresh, RegisterRequest, OTPRequest
 from app.services.auth import AuthService
 from app.services.user import UserService
 
 logger = structlog.get_logger()
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -29,30 +29,41 @@ async def register(
     user_data: UserCreate,
     db: Session = Depends(get_db)
 ):
-    """Register a new user"""
+    """Register a new user with strict email and mobile validation."""
     try:
+        auth_service = AuthService(db)
         user_service = UserService(db)
         
-        # Check if user already exists
-        existing_user = user_service.get_user_by_email(user_data.email)
-        if existing_user:
+        # Strict validation - check both email and mobile uniqueness
+        validation_result = auth_service.validate_user_registration(
+            user_data.email, 
+            user_data.mobile_phone
+        )
+        
+        if not validation_result["valid"]:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail=validation_result["message"]
             )
         
-        # Create new user
-        user = user_service.create_user(user_data)
+        # Create user with strict validation
+        user = user_service.create_user(
+            user_data,
+            phone_verified=True
+        )
+        # Generate email verification token and send email
+        token = auth_service.generate_email_token()
+        user.email_verification_token = token
+        user.email_verification_sent_at = datetime.utcnow()
+        db.commit()
+        auth_service.send_email_verification(user.email, token)
         logger.info("User registered successfully", user_id=user.id, email=user.email)
-        
         return UserResponse.from_orm(user)
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("User registration failed", error=str(e), email=user_data.email)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed"
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Registration failed")
 
 
 @router.post("/login", response_model=Token)
@@ -64,12 +75,12 @@ async def login(
     try:
         auth_service = AuthService(db)
         
-        # Authenticate user
-        user = auth_service.authenticate_user(user_data.email, user_data.password)
+        # Authenticate user with email or mobile
+        user = auth_service.authenticate_user(user_data.identifier, user_data.password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password",
+                detail="Incorrect email/mobile or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
@@ -98,8 +109,80 @@ async def login(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Login failed"
         )
+@router.get("/verify-email")
+async def verify_email(token: str, db: Session = Depends(get_db)):
+    """Verify email using a token sent to the user's email address."""
+    try:
+        user = db.query(User).filter(User.email_verification_token == token).first()
+        if not user:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
+        user.email_verified = True
+        user.email_verification_token = None
+        db.commit()
+        return {"message": "Email verified"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Email verification failed", error=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Verification failed")
 
 
+@router.post("/resend-verification")
+async def resend_verification(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Resend the email verification link for the current user."""
+    try:
+        if current_user.email_verified:
+            return {"message": "Email already verified"}
+        auth_service = AuthService(db)
+        token = auth_service.generate_email_token()
+        current_user.email_verification_token = token
+        current_user.email_verification_sent_at = datetime.utcnow()
+        db.commit()
+        auth_service.send_email_verification(current_user.email, token)
+        return {"message": "Verification email sent"}
+    except Exception as e:
+        logger.error("Resend verification failed", error=str(e), user_id=current_user.id)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to resend verification")
+
+
+@router.post("/logout")
+async def logout(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Logout user and revoke all tokens"""
+    try:
+        from app.services.token_revocation import token_revocation_service
+        
+        # Revoke all tokens for the user
+        revoked_count = token_revocation_service.revoke_all_user_tokens(current_user.id)
+        
+        logger.info("User logged out", user_id=current_user.id, revoked_tokens=revoked_count)
+        
+        return {"message": "Logged out successfully", "revoked_tokens": revoked_count}
+        
+    except Exception as e:
+        logger.error("Logout failed", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Logout failed"
+        )
+
+
+@router.post("/send-otp")
+async def send_otp(
+    req: OTPRequest,
+    db: Session = Depends(get_db)
+):
+    """Send OTP to a mobile number (SMS integration to be configured)."""
+    try:
+        auth_service = AuthService(db)
+        # Optionally, rate-limit per phone number here
+        auth_service.generate_and_send_otp(req.mobile_phone)
+        return {"message": "OTP sent"}
+    except Exception as e:
+        logger.error("Send OTP failed", error=str(e), phone=req.mobile_phone)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to send OTP")
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
     token_data: TokenRefresh,

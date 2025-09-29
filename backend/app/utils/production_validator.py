@@ -11,7 +11,7 @@ import redis
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db, redis_client
+from app.core.database import get_db, get_redis
 from app.core.config import settings
 from app.utils.logger import get_logger
 
@@ -145,6 +145,7 @@ class ProductionValidator:
         """Validate Redis connectivity and performance"""
         try:
             start_time = time.time()
+            redis_client = get_redis()
             redis_client.ping()
             latency = (time.time() - start_time) * 1000
             

@@ -13,6 +13,7 @@ import structlog
 from app.core.config import settings
 from app.services.embeddings_service import embeddings_service
 from app.services.vector_search_service import vector_search_service
+from app.exceptions import VectorSearchError, DatabaseError, ConfigurationError
 
 logger = structlog.get_logger()
 
@@ -50,7 +51,10 @@ class VectorService:
             
         except Exception as e:
             logger.error("Failed to initialize vector service", error=str(e))
-            raise
+            raise ConfigurationError(
+                message="Failed to initialize vector database",
+                details={"error": str(e), "persist_directory": settings.CHROMA_PERSIST_DIRECTORY}
+            )
     
     async def add_document_chunks(
         self, 
@@ -104,7 +108,15 @@ class VectorService:
                 document_id=document_id,
                 workspace_id=workspace_id
             )
-            raise
+            raise VectorSearchError(
+                message="Failed to add document chunks to vector database",
+                details={
+                    "document_id": document_id,
+                    "workspace_id": workspace_id,
+                    "chunks_count": len(chunks),
+                    "error": str(e)
+                }
+            )
     
     async def search_similar_chunks(
         self, 
@@ -152,7 +164,15 @@ class VectorService:
                 query=query[:100],
                 workspace_id=workspace_id
             )
-            raise
+            raise VectorSearchError(
+                message="Similarity search failed",
+                details={
+                    "query": query[:100],
+                    "workspace_id": workspace_id,
+                    "limit": limit,
+                    "error": str(e)
+                }
+            )
     
     async def _perform_vector_search(
         self,

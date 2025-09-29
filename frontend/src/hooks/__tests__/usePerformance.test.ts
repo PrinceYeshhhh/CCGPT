@@ -1,247 +1,399 @@
-import { renderHook, act } from '@testing-library/react'
-import { vi } from 'vitest'
-import { usePerformance, useLazyLoad, useDebounce, useThrottle } from '../usePerformance'
+/**
+ * Unit tests for usePerformance hook
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import { usePerformance } from '../usePerformance';
 
 // Mock performance API
 const mockPerformance = {
-  now: vi.fn(() => Date.now()),
-  memory: {
-    usedJSHeapSize: 1000000,
-    totalJSHeapSize: 2000000,
-    jsHeapSizeLimit: 4000000
-  }
-}
+  now: vi.fn(),
+  mark: vi.fn(),
+  measure: vi.fn(),
+  getEntriesByName: vi.fn(),
+  getEntriesByType: vi.fn(),
+  clearMarks: vi.fn(),
+  clearMeasures: vi.fn(),
+};
 
 Object.defineProperty(window, 'performance', {
   value: mockPerformance,
-  writable: true
-})
+  writable: true,
+});
 
-// Mock IntersectionObserver
-;(global as any).IntersectionObserver = vi.fn().mockImplementation((callback) => ({
-  observe: vi.fn(),
-  disconnect: vi.fn(),
-  unobserve: vi.fn(),
-}))
+// Mock requestAnimationFrame
+const mockRequestAnimationFrame = vi.fn();
+Object.defineProperty(window, 'requestAnimationFrame', {
+  value: mockRequestAnimationFrame,
+  writable: true,
+});
 
-// Mock gtag
-const mockGtag = vi.fn()
-;(window as any).gtag = mockGtag
+// Mock setTimeout
+const mockSetTimeout = vi.fn();
+Object.defineProperty(global, 'setTimeout', {
+  value: mockSetTimeout,
+  writable: true,
+});
 
-describe('usePerformance', () => {
+describe('usePerformance Hook', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    vi.useFakeTimers()
-  })
+    vi.clearAllMocks();
+    mockPerformance.now.mockReturnValue(1000);
+  });
 
   afterEach(() => {
-    vi.useRealTimers()
-  })
+    vi.restoreAllMocks();
+  });
 
-  it('should measure render time', () => {
-    const { result } = renderHook(() => usePerformance())
+  it('initializes with default values', () => {
+    const { result } = renderHook(() => usePerformance());
+    
+    expect(result.current.metrics).toEqual({
+      renderTime: 0,
+      memoryUsage: 0,
+      networkLatency: 0,
+      errorCount: 0,
+    });
+    expect(result.current.isMonitoring).toBe(false);
+  });
+
+  it('starts monitoring when startMonitoring is called', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    expect(result.current.isMonitoring).toBe(true);
+  });
+
+  it('stops monitoring when stopMonitoring is called', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    expect(result.current.isMonitoring).toBe(true);
+
+    act(() => {
+      result.current.stopMonitoring();
+    });
+
+    expect(result.current.isMonitoring).toBe(false);
+  });
+
+  it('measures render time correctly', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    // Simulate render start
+    act(() => {
+      result.current.markRenderStart('test-component');
+    });
+
+    // Simulate render end
+    mockPerformance.now.mockReturnValue(1500);
+    act(() => {
+      result.current.markRenderEnd('test-component');
+    });
+
+    expect(result.current.metrics.renderTime).toBe(500);
+  });
+
+  it('tracks memory usage', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    // Mock memory API
+    Object.defineProperty(performance, 'memory', {
+      value: {
+        usedJSHeapSize: 1000000,
+        totalJSHeapSize: 2000000,
+        jsHeapSizeLimit: 4000000,
+      },
+      writable: true,
+    });
+
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    act(() => {
+      result.current.updateMemoryUsage();
+    });
+
+    expect(result.current.metrics.memoryUsage).toBe(1000000);
+  });
+
+  it('tracks network latency', async () => {
+    const { result } = renderHook(() => usePerformance());
     
     act(() => {
-      result.current.startRenderMeasurement()
-    })
-    
-    act(() => {
-      result.current.endRenderMeasurement('TestComponent')
-    })
+      result.current.startMonitoring();
+    });
 
-    expect(result.current.measureRenderTime).toBeDefined()
-    expect(result.current.measureLoadTime).toBeDefined()
-  })
-
-  it('should measure load time', () => {
-    const { result } = renderHook(() => usePerformance())
-    
-    act(() => {
-      result.current.measureLoadTime('TestComponent')
-    })
-
-    expect(result.current.measureLoadTime).toBeDefined()
-  })
-
-  it('should measure memory usage', () => {
-    const { result } = renderHook(() => usePerformance())
-    
-    act(() => {
-      const memory = result.current.measureMemoryUsage()
-      expect(memory).toEqual({
-        used: 1000000,
-        total: 2000000,
-        limit: 4000000
-      })
-    })
-  })
-
-  it('should measure network latency', async () => {
-    const { result } = renderHook(() => usePerformance())
-    
     // Mock fetch
-    ;(global as any).fetch = vi.fn(() =>
-      Promise.resolve({
-        ok: true,
-        status: 200
-      })
-    ) as any
-
-    await act(async () => {
-      const latency = await result.current.measureNetworkLatency('https://api.example.com')
-      expect(typeof latency).toBe('number')
-    })
-  })
-
-  it('should handle network latency errors', async () => {
-    const { result } = renderHook(() => usePerformance())
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({}),
+    });
     
+    await act(async () => {
+      await result.current.measureNetworkLatency('/api/test');
+    });
+    
+    expect(result.current.metrics.networkLatency).toBeGreaterThan(0);
+  });
+
+  it('handles network errors gracefully', async () => {
+    const { result } = renderHook(() => usePerformance());
+    
+    act(() => {
+      result.current.startMonitoring();
+    });
+
     // Mock fetch to reject
-    ;(global as any).fetch = vi.fn(() => Promise.reject(new Error('Network error'))) as any
-
+    global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
+    
     await act(async () => {
-      const latency = await result.current.measureNetworkLatency('https://api.example.com')
-      expect(latency).toBeNull()
-    })
-  })
+      await result.current.measureNetworkLatency('/api/test');
+    });
 
-  it('should call gtag for performance metrics', () => {
-    const { result } = renderHook(() => usePerformance())
+    expect(result.current.metrics.errorCount).toBe(1);
+  });
+
+  it('tracks error count', () => {
+    const { result } = renderHook(() => usePerformance());
     
     act(() => {
-      result.current.measureLoadTime('TestComponent')
-    })
+      result.current.startMonitoring();
+    });
 
-    expect(mockGtag).toHaveBeenCalledWith('event', 'timing_complete', {
-      name: 'TestComponent_load',
-      value: expect.any(Number)
-    })
-  })
-})
+    act(() => {
+      result.current.incrementErrorCount();
+    });
 
-describe('useLazyLoad', () => {
-  it('should initialize with invisible state', () => {
-    const { result } = renderHook(() => useLazyLoad())
+    expect(result.current.metrics.errorCount).toBe(1);
+
+    act(() => {
+      result.current.incrementErrorCount();
+    });
+
+    expect(result.current.metrics.errorCount).toBe(2);
+  });
+
+  it('resets metrics when resetMetrics is called', () => {
+    const { result } = renderHook(() => usePerformance());
     
-    expect(result.current[1]).toBe(false)
-  })
+    act(() => {
+      result.current.startMonitoring();
+    });
 
-  it('should have a ref', () => {
-    const { result } = renderHook(() => useLazyLoad())
+    // Set some metrics
+    act(() => {
+      result.current.markRenderStart('test');
+      result.current.markRenderEnd('test');
+      result.current.incrementErrorCount();
+    });
+
+    act(() => {
+      result.current.resetMetrics();
+    });
+
+    expect(result.current.metrics).toEqual({
+      renderTime: 0,
+      memoryUsage: 0,
+      networkLatency: 0,
+      errorCount: 0,
+      });
+    });
     
-    expect(result.current[0]).toBeDefined()
-  })
-})
-
-describe('useDebounce', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('should debounce value changes', () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: 'initial', delay: 100 } }
-    )
-
-    expect(result.current).toBe('initial')
-
-    // Change value quickly
-    rerender({ value: 'changed1', delay: 100 })
-    rerender({ value: 'changed2', delay: 100 })
-    rerender({ value: 'changed3', delay: 100 })
-
-    expect(result.current).toBe('initial')
-
-    // Fast forward time
+  it('handles multiple render measurements', () => {
+    const { result } = renderHook(() => usePerformance());
+    
     act(() => {
-      vi.advanceTimersByTime(100)
-    })
+      result.current.startMonitoring();
+    });
 
-    expect(result.current).toBe('changed3')
-  })
-
-  it('should handle different delay values', () => {
-    const { result, rerender } = renderHook(
-      ({ value, delay }) => useDebounce(value, delay),
-      { initialProps: { value: 'initial', delay: 200 } }
-    )
-
-    rerender({ value: 'changed', delay: 200 })
-
+    // First render
     act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(result.current).toBe('initial')
-
+      result.current.markRenderStart('component1');
+    });
+    mockPerformance.now.mockReturnValue(1200);
     act(() => {
-      vi.advanceTimersByTime(100)
-    })
+      result.current.markRenderEnd('component1');
+    });
 
-    expect(result.current).toBe('changed')
-  })
-})
-
-describe('useThrottle', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('should throttle function calls', () => {
-    const mockFn = vi.fn()
-    const { result } = renderHook(() => useThrottle(mockFn, 100))
-
-    // Call function multiple times quickly
+    // Second render
     act(() => {
-      result.current('arg1')
-      result.current('arg2')
-      result.current('arg3')
-    })
-
-    // Should only be called once initially
-    expect(mockFn).toHaveBeenCalledTimes(1)
-    expect(mockFn).toHaveBeenCalledWith('arg1')
-
-    // Fast forward time
+      result.current.markRenderStart('component2');
+    });
+    mockPerformance.now.mockReturnValue(1500);
     act(() => {
-      vi.advanceTimersByTime(100)
-    })
+      result.current.markRenderEnd('component2');
+    });
 
-    // Should be called with the last argument
-    expect(mockFn).toHaveBeenCalledTimes(2)
-    expect(mockFn).toHaveBeenCalledWith('arg3')
-  })
+    // Should track the latest render time
+    expect(result.current.metrics.renderTime).toBe(300);
+  });
 
-  it('should handle different throttle delays', () => {
-    const mockFn = vi.fn()
-    const { result } = renderHook(() => useThrottle(mockFn, 200))
+  it('handles missing performance API gracefully', () => {
+    // Remove performance API
+    Object.defineProperty(window, 'performance', {
+      value: undefined,
+      writable: true,
+    });
+    
+    const { result } = renderHook(() => usePerformance());
+    
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    // Should not throw error
+    expect(result.current.isMonitoring).toBe(true);
+  });
+
+  it('handles missing memory API gracefully', () => {
+    const { result } = renderHook(() => usePerformance());
 
     act(() => {
-      result.current('arg1')
-      result.current('arg2')
-    })
+      result.current.startMonitoring();
+    });
 
-    expect(mockFn).toHaveBeenCalledTimes(1)
-
-    act(() => {
-      vi.advanceTimersByTime(100)
-    })
-
-    expect(mockFn).toHaveBeenCalledTimes(1)
+    // Remove memory API
+    Object.defineProperty(performance, 'memory', {
+      value: undefined,
+      writable: true,
+    });
 
     act(() => {
-      vi.advanceTimersByTime(100)
-    })
+      result.current.updateMemoryUsage();
+    });
 
-    expect(mockFn).toHaveBeenCalledTimes(2)
-  })
-})
+    // Should not throw error
+    expect(result.current.metrics.memoryUsage).toBe(0);
+  });
+
+  it('provides performance report', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    // Set some metrics
+    act(() => {
+      result.current.markRenderStart('test');
+      result.current.markRenderEnd('test');
+      result.current.incrementErrorCount();
+    });
+
+    const report = result.current.getPerformanceReport();
+
+    expect(report).toHaveProperty('metrics');
+    expect(report).toHaveProperty('timestamp');
+    expect(report).toHaveProperty('isMonitoring');
+    expect(report.metrics.renderTime).toBeGreaterThan(0);
+  });
+
+  it('handles concurrent monitoring sessions', () => {
+    const { result } = renderHook(() => usePerformance());
+    
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    // Start another monitoring session
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    // Should still be monitoring
+    expect(result.current.isMonitoring).toBe(true);
+
+    // Stop monitoring
+    act(() => {
+      result.current.stopMonitoring();
+    });
+
+    expect(result.current.isMonitoring).toBe(false);
+  });
+
+  it('cleans up on unmount', () => {
+    const { result, unmount } = renderHook(() => usePerformance());
+    
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    expect(result.current.isMonitoring).toBe(true);
+
+    unmount();
+
+    // Should clean up monitoring
+    expect(result.current.isMonitoring).toBe(false);
+  });
+
+  it('handles rapid start/stop cycles', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    // Rapid start/stop cycles
+    for (let i = 0; i < 10; i++) {
+      act(() => {
+        result.current.startMonitoring();
+      });
+      act(() => {
+        result.current.stopMonitoring();
+      });
+    }
+
+    expect(result.current.isMonitoring).toBe(false);
+  });
+
+  it('tracks performance marks correctly', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    act(() => {
+      result.current.markRenderStart('test-component');
+    });
+
+    expect(mockPerformance.mark).toHaveBeenCalledWith('render-start-test-component');
+
+    act(() => {
+      result.current.markRenderEnd('test-component');
+    });
+
+    expect(mockPerformance.mark).toHaveBeenCalledWith('render-end-test-component');
+  });
+
+  it('measures performance between marks', () => {
+    const { result } = renderHook(() => usePerformance());
+
+    act(() => {
+      result.current.startMonitoring();
+    });
+
+    act(() => {
+      result.current.markRenderStart('test-component');
+    });
+
+    act(() => {
+      result.current.markRenderEnd('test-component');
+    });
+
+    expect(mockPerformance.measure).toHaveBeenCalledWith(
+      'render-test-component',
+      'render-start-test-component',
+      'render-end-test-component'
+    );
+  });
+});

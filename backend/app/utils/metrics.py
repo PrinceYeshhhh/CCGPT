@@ -1,268 +1,184 @@
 """
-Prometheus metrics collection and instrumentation
+Prometheus metrics and monitoring system
 """
 
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
-from typing import Optional, Dict, Any
 import time
-import functools
-from contextlib import contextmanager
+from typing import Dict, Any, List
+from datetime import datetime, timedelta
+from collections import defaultdict, Counter
+import structlog
 
-# Request metrics
-REQUEST_COUNT = Counter(
-    'http_requests_total',
-    'Total HTTP requests',
-    ['method', 'endpoint', 'status_code']
-)
+logger = structlog.get_logger()
 
-REQUEST_DURATION = Histogram(
-    'http_request_duration_seconds',
-    'HTTP request duration in seconds',
-    ['method', 'endpoint']
-)
-
-# Business metrics
-QUERY_COUNT = Counter(
-    'rag_queries_total',
-    'Total RAG queries processed',
-    ['workspace_id', 'status']
-)
-
-QUERY_DURATION = Histogram(
-    'rag_query_duration_seconds',
-    'RAG query processing duration in seconds',
-    ['workspace_id']
-)
-
-VECTOR_SEARCH_DURATION = Histogram(
-    'vector_search_duration_seconds',
-    'Vector search duration in seconds',
-    ['workspace_id']
-)
-
-GEMINI_API_CALLS = Counter(
-    'gemini_api_calls_total',
-    'Total Gemini API calls',
-    ['workspace_id', 'status']
-)
-
-GEMINI_API_DURATION = Histogram(
-    'gemini_api_duration_seconds',
-    'Gemini API call duration in seconds',
-    ['workspace_id']
-)
-
-# System metrics
-ACTIVE_CONNECTIONS = Gauge(
-    'active_connections',
-    'Number of active database connections'
-)
-
-QUEUE_LENGTH = Gauge(
-    'job_queue_length',
-    'Number of jobs in queue',
-    ['queue_name']
-)
-
-CACHE_HITS = Counter(
-    'cache_hits_total',
-    'Total cache hits',
-    ['cache_type']
-)
-
-CACHE_MISSES = Counter(
-    'cache_misses_total',
-    'Total cache misses',
-    ['cache_type']
-)
-
-# Subscription metrics
-SUBSCRIPTION_QUOTA_USAGE = Gauge(
-    'subscription_quota_usage_ratio',
-    'Subscription quota usage ratio (0-1)',
-    ['workspace_id', 'tier']
-)
-
-RATE_LIMIT_HITS = Counter(
-    'rate_limit_hits_total',
-    'Total rate limit hits',
-    ['workspace_id', 'limit_type']
-)
 
 class MetricsCollector:
-    """Centralized metrics collection"""
+    """Collect and format metrics for Prometheus"""
     
-    @staticmethod
-    def record_request(method: str, endpoint: str, status_code: int, duration: float):
-        """Record HTTP request metrics"""
-        REQUEST_COUNT.labels(
-            method=method,
-            endpoint=endpoint,
-            status_code=str(status_code)
-        ).inc()
+    def __init__(self):
+        self.request_counts = Counter()
+        self.request_durations = defaultdict(list)
+        self.error_counts = Counter()
+        self.active_connections = 0
+        self.start_time = time.time()
         
-        REQUEST_DURATION.labels(
-            method=method,
-            endpoint=endpoint
-        ).observe(duration)
-    
-    @staticmethod
-    def record_query(workspace_id: str, status: str, duration: float):
-        """Record RAG query metrics"""
-        QUERY_COUNT.labels(
-            workspace_id=workspace_id,
-            status=status
-        ).inc()
+        # Security metrics
+        self.failed_logins = Counter()
+        self.blocked_ips = set()
+        self.security_events = Counter()
         
-        QUERY_DURATION.labels(
-            workspace_id=workspace_id
-        ).observe(duration)
+        # Business metrics
+        self.api_calls = Counter()
+        self.user_sessions = Counter()
+        self.document_uploads = Counter()
+        self.chat_messages = Counter()
     
-    @staticmethod
-    def record_vector_search(workspace_id: str, duration: float):
-        """Record vector search metrics"""
-        VECTOR_SEARCH_DURATION.labels(
-            workspace_id=workspace_id
-        ).observe(duration)
-    
-    @staticmethod
-    def record_gemini_call(workspace_id: str, status: str, duration: float):
-        """Record Gemini API call metrics"""
-        GEMINI_API_CALLS.labels(
-            workspace_id=workspace_id,
-            status=status
-        ).inc()
+    def record_request(self, method: str, path: str, status_code: int, duration: float):
+        """Record a request metric"""
+        self.request_counts[f"{method}_{path}_{status_code}"] += 1
+        self.request_durations[f"{method}_{path}"].append(duration)
         
-        GEMINI_API_DURATION.labels(
-            workspace_id=workspace_id
-        ).observe(duration)
+        # Keep only last 1000 durations per endpoint
+        if len(self.request_durations[f"{method}_{path}"]) > 1000:
+            self.request_durations[f"{method}_{path}"] = self.request_durations[f"{method}_{path}"][-1000:]
     
-    @staticmethod
-    def record_cache_hit(cache_type: str):
-        """Record cache hit"""
-        CACHE_HITS.labels(cache_type=cache_type).inc()
+    def record_error(self, error_type: str, endpoint: str):
+        """Record an error metric"""
+        self.error_counts[f"{error_type}_{endpoint}"] += 1
     
-    @staticmethod
-    def record_cache_miss(cache_type: str):
-        """Record cache miss"""
-        CACHE_MISSES.labels(cache_type=cache_type).inc()
+    def record_security_event(self, event_type: str, ip_address: str):
+        """Record a security event"""
+        self.security_events[event_type] += 1
+        if event_type == "ip_blocked":
+            self.blocked_ips.add(ip_address)
     
-    @staticmethod
-    def record_quota_usage(workspace_id: str, tier: str, usage_ratio: float):
-        """Record subscription quota usage"""
-        SUBSCRIPTION_QUOTA_USAGE.labels(
-            workspace_id=workspace_id,
-            tier=tier
-        ).set(usage_ratio)
+    def record_failed_login(self, ip_address: str):
+        """Record a failed login attempt"""
+        self.failed_logins[ip_address] += 1
     
-    @staticmethod
-    def record_rate_limit_hit(workspace_id: str, limit_type: str):
-        """Record rate limit hit"""
-        RATE_LIMIT_HITS.labels(
-            workspace_id=workspace_id,
-            limit_type=limit_type
-        ).inc()
+    def record_api_call(self, endpoint: str):
+        """Record an API call"""
+        self.api_calls[endpoint] += 1
     
-    @staticmethod
-    def set_queue_length(queue_name: str, length: int):
-        """Set queue length metric"""
-        QUEUE_LENGTH.labels(queue_name=queue_name).set(length)
+    def record_user_session(self, user_id: str):
+        """Record a user session"""
+        self.user_sessions[user_id] += 1
     
-    @staticmethod
-    def set_active_connections(count: int):
-        """Set active connections metric"""
-        ACTIVE_CONNECTIONS.set(count)
+    def record_document_upload(self, user_id: str, file_size: int):
+        """Record a document upload"""
+        self.document_uploads[user_id] += 1
+    
+    def record_chat_message(self, user_id: str):
+        """Record a chat message"""
+        self.chat_messages[user_id] += 1
+    
+    def set_active_connections(self, count: int):
+        """Set the number of active connections"""
+        self.active_connections = count
+    
+    def get_metrics(self) -> str:
+        """Get metrics in Prometheus format"""
+        metrics = []
+        current_time = int(time.time() * 1000)  # Milliseconds
+        
+        # HTTP request metrics
+        for key, count in self.request_counts.items():
+            parts = key.split('_', 2)
+            if len(parts) >= 3:
+                method, path, status = parts[0], parts[1], parts[2]
+                metrics.append(f'http_requests_total{{method="{method}",path="{path}",status="{status}"}} {count} {current_time}')
+        
+        # HTTP request duration metrics
+        for key, durations in self.request_durations.items():
+            if durations:
+                parts = key.split('_', 1)
+                if len(parts) >= 2:
+                    method, path = parts[0], parts[1]
+                    avg_duration = sum(durations) / len(durations)
+                    metrics.append(f'http_request_duration_seconds{{method="{method}",path="{path}"}} {avg_duration:.3f} {current_time}')
+        
+        # Error metrics
+        for key, count in self.error_counts.items():
+            parts = key.split('_', 1)
+            if len(parts) >= 2:
+                error_type, endpoint = parts[0], parts[1]
+                metrics.append(f'http_errors_total{{error_type="{error_type}",endpoint="{endpoint}"}} {count} {current_time}')
+        
+        # Security metrics
+        for event_type, count in self.security_events.items():
+            metrics.append(f'security_events_total{{event_type="{event_type}"}} {count} {current_time}')
+        
+        metrics.append(f'security_blocked_ips_total {len(self.blocked_ips)} {current_time}')
+        
+        # Business metrics
+        for endpoint, count in self.api_calls.items():
+            metrics.append(f'api_calls_total{{endpoint="{endpoint}"}} {count} {current_time}')
+        
+        metrics.append(f'user_sessions_total {len(self.user_sessions)} {current_time}')
+        metrics.append(f'document_uploads_total {sum(self.document_uploads.values())} {current_time}')
+        metrics.append(f'chat_messages_total {sum(self.chat_messages.values())} {current_time}')
+        
+        # System metrics
+        uptime = time.time() - self.start_time
+        metrics.append(f'application_uptime_seconds {uptime:.2f} {current_time}')
+        metrics.append(f'active_connections {self.active_connections} {current_time}')
+        
+        return '\n'.join(metrics)
 
-def metrics_middleware(func):
-    """Decorator to automatically record metrics for functions"""
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        start_time = time.time()
-        try:
-            result = await func(*args, **kwargs)
-            duration = time.time() - start_time
-            
-            # Extract workspace_id if available
-            workspace_id = kwargs.get('workspace_id', 'unknown')
-            
-            # Record metrics based on function name
-            if 'query' in func.__name__:
-                MetricsCollector.record_query(workspace_id, 'success', duration)
-            elif 'vector_search' in func.__name__:
-                MetricsCollector.record_vector_search(workspace_id, duration)
-            elif 'gemini' in func.__name__:
-                MetricsCollector.record_gemini_call(workspace_id, 'success', duration)
-            
-            return result
-        except Exception as e:
-            duration = time.time() - start_time
-            workspace_id = kwargs.get('workspace_id', 'unknown')
-            
-            # Record error metrics
-            if 'query' in func.__name__:
-                MetricsCollector.record_query(workspace_id, 'error', duration)
-            elif 'gemini' in func.__name__:
-                MetricsCollector.record_gemini_call(workspace_id, 'error', duration)
-            
-            raise
-    return wrapper
 
-@contextmanager
-def time_operation(operation_name: str, workspace_id: Optional[str] = None):
-    """Context manager to time operations"""
-    start_time = time.time()
-    try:
-        yield
-    finally:
-        duration = time.time() - start_time
-        if workspace_id:
-            if 'vector_search' in operation_name:
-                MetricsCollector.record_vector_search(workspace_id, duration)
-            elif 'gemini' in operation_name:
-                MetricsCollector.record_gemini_call(workspace_id, 'success', duration)
+# Global metrics collector
+metrics_collector = MetricsCollector()
+
 
 def get_metrics() -> str:
-    """Get Prometheus metrics in text format"""
-    return generate_latest()
+    """Get metrics in Prometheus format"""
+    return metrics_collector.get_metrics()
+
 
 def get_metrics_content_type() -> str:
-    """Get content type for metrics endpoint"""
-    return CONTENT_TYPE_LATEST
+    """Get the content type for metrics"""
+    return "text/plain; version=0.0.4; charset=utf-8"
 
-# Custom metrics for specific business logic
-class BusinessMetrics:
-    """Business-specific metrics"""
-    
-    @staticmethod
-    def record_document_upload(workspace_id: str, file_size: int, processing_time: float):
-        """Record document upload metrics"""
-        # This would be implemented with custom metrics
-        pass
-    
-    @staticmethod
-    def record_embed_code_generation(workspace_id: str):
-        """Record embed code generation"""
-        # This would be implemented with custom metrics
-        pass
-    
-    @staticmethod
-    def record_subscription_change(workspace_id: str, old_tier: str, new_tier: str):
-        """Record subscription tier changes"""
-        # This would be implemented with custom metrics
-        pass
 
-# Health check metrics
-class HealthMetrics:
-    """Health check related metrics"""
-    
-    @staticmethod
-    def record_health_check(component: str, status: str, duration: float):
-        """Record health check results"""
-        # This would be implemented with custom metrics
-        pass
-    
-    @staticmethod
-    def record_dependency_check(dependency: str, status: str, duration: float):
-        """Record dependency health checks"""
-        # This would be implemented with custom metrics
-        pass
+def record_request(method: str, path: str, status_code: int, duration: float):
+    """Record a request metric"""
+    metrics_collector.record_request(method, path, status_code, duration)
+
+
+def record_error(error_type: str, endpoint: str):
+    """Record an error metric"""
+    metrics_collector.record_error(error_type, endpoint)
+
+
+def record_security_event(event_type: str, ip_address: str):
+    """Record a security event"""
+    metrics_collector.record_security_event(event_type, ip_address)
+
+
+def record_failed_login(ip_address: str):
+    """Record a failed login attempt"""
+    metrics_collector.record_failed_login(ip_address)
+
+
+def record_api_call(endpoint: str):
+    """Record an API call"""
+    metrics_collector.record_api_call(endpoint)
+
+
+def record_user_session(user_id: str):
+    """Record a user session"""
+    metrics_collector.record_user_session(user_id)
+
+
+def record_document_upload(user_id: str, file_size: int):
+    """Record a document upload"""
+    metrics_collector.record_document_upload(user_id, file_size)
+
+
+def record_chat_message(user_id: str):
+    """Record a chat message"""
+    metrics_collector.record_chat_message(user_id)
+
+
+def set_active_connections(count: int):
+    """Set the number of active connections"""
+    metrics_collector.set_active_connections(count)

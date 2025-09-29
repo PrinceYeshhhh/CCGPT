@@ -162,7 +162,7 @@ class TestCompleteUserWorkflow:
             "config": {
                 "theme": {"primary": "#4f46e5"},
                 "welcomeMessage": "Hello! How can I help you?",
-                "avatarUrl": "https://example.com/avatar.png"
+                "avatarUrl": "http://localhost:3000/avatar.png"
             }
         }
         response = client.post("/api/v1/embed/generate", json=embed_data, headers=headers)
@@ -203,7 +203,7 @@ class TestCompleteUserWorkflow:
         # Mock Stripe response
         mock_stripe.return_value = MagicMock(
             id="cs_test_123",
-            url="https://checkout.stripe.com/test"
+            url="http://localhost:3000/billing/checkout/test"
         )
         
         # 1. Register and login user
@@ -221,8 +221,8 @@ class TestCompleteUserWorkflow:
         # 3. Create checkout session
         checkout_data = {
             "plan_tier": "pro",
-            "success_url": "https://example.com/success",
-            "cancel_url": "https://example.com/cancel"
+            "success_url": "http://localhost:3000/billing/success",
+            "cancel_url": "http://localhost:3000/billing/cancel"
         }
         response = client.post("/api/v1/billing/create-checkout-session", json=checkout_data, headers=headers)
         assert response.status_code == 200

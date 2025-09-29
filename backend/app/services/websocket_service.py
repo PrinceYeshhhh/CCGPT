@@ -5,6 +5,7 @@ WebSocket service for realtime chat functionality
 import json
 import asyncio
 import uuid
+import time
 from typing import Dict, Set, Optional, Any
 from fastapi import WebSocket, WebSocketDisconnect
 import structlog
@@ -13,7 +14,7 @@ from datetime import datetime, timedelta
 from app.services.rag_service import RAGService
 from app.services.rate_limiting import rate_limiting_service
 from app.services.token_budget import TokenBudgetService
-from app.core.database import SessionLocal
+from app.core.database import WriteSessionLocal as SessionLocal
 
 logger = structlog.get_logger()
 
@@ -371,7 +372,77 @@ class RealtimeChatService:
             "active_sessions": len(active_sessions),
             "sessions": active_sessions
         }
+    
+    async def process_chat_message(
+        self,
+        session_id: str,
+        workspace_id: str,
+        user_id: str,
+        message: str,
+        context: Optional[Dict] = None
+    ) -> Dict[str, Any]:
+        """Process a chat message and return response"""
+        try:
+            # Initialize RAG service if needed
+            if not self.rag_service:
+                from app.services.rag_service import RAGService
+                from app.core.database import get_db
+                db = next(get_db())
+                self.rag_service = RAGService(db)
+            
+            # Process message with RAG
+            response = await self.rag_service.process_query(
+                query=message,
+                workspace_id=workspace_id,
+                session_id=session_id,
+                user_id=user_id
+            )
+            
+            return {
+                "type": "chat_response",
+                "content": response.get("answer", "I'm sorry, I couldn't process that message."),
+                "sources": response.get("sources", []),
+                "timestamp": time.time()
+            }
+            
+        except Exception as e:
+            logger.error("Failed to process chat message", error=str(e))
+            return {
+                "type": "error",
+                "content": "Sorry, I encountered an error processing your message.",
+                "timestamp": time.time()
+            }
+    
+    async def broadcast_typing(
+        self,
+        session_id: str,
+        user_id: str,
+        is_typing: bool
+    ):
+        """Broadcast typing indicator to session"""
+        try:
+            if session_id in self.websocket_manager.active_connections:
+                message = {
+                    "type": "typing",
+                    "user_id": user_id,
+                    "is_typing": is_typing,
+                    "timestamp": time.time()
+                }
+                
+                # Send to all connections in the session
+                for conn_user_id, websocket in self.websocket_manager.active_connections[session_id].items():
+                    if conn_user_id != user_id:  # Don't send to the user who is typing
+                        try:
+                            await websocket.send_json(message)
+                        except Exception as e:
+                            logger.error("Failed to send typing indicator", error=str(e))
+                            
+        except Exception as e:
+            logger.error("Failed to broadcast typing", error=str(e))
 
 
 # Global instance
 realtime_chat_service = RealtimeChatService()
+
+# Backwards-compatibility alias expected by some tests
+WebSocketService = RealtimeChatService

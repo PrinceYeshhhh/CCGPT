@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 from app.core.config import settings
 from app.utils.logger import get_logger, log_security_event
+from app.services.rate_limiting import rate_limiting_service
 
 logger = get_logger(__name__)
 
@@ -161,9 +162,18 @@ class RateLimitMiddleware:
         limit_type, identifier = self._get_rate_limit_info(request)
         
         if limit_type and identifier:
-            is_allowed, rate_limit_info = await rate_limiter.check_rate_limit(
-                identifier, limit_type
+            # Use shared Redis-backed service for consistency across services
+            is_allowed, info = await rate_limiting_service.check_rate_limit(
+                identifier=f"{limit_type}:{identifier}",
+                limit=settings.RATE_LIMIT_REQUESTS,
+                window_seconds=settings.RATE_LIMIT_WINDOW
             )
+            rate_limit_info = {
+                "limit": info.get("limit", settings.RATE_LIMIT_REQUESTS),
+                "remaining": info.get("remaining", 0),
+                "reset_time": info.get("reset_time", 0).timestamp() if hasattr(info.get("reset_time"), "timestamp") else info.get("reset_time", 0),
+                "retry_after": max(0, int(info.get("window_seconds", settings.RATE_LIMIT_WINDOW))) if not is_allowed else 0,
+            }
             
             if not is_allowed:
                 response = JSONResponse(
@@ -241,9 +251,17 @@ def create_rate_limit_dependency(limit_type: str):
             identifier = client_ip
         
         if identifier:
-            is_allowed, rate_limit_info = await rate_limiter.check_rate_limit(
-                identifier, limit_type
+            is_allowed, info = await rate_limiting_service.check_rate_limit(
+                identifier=f"{limit_type}:{identifier}",
+                limit=settings.RATE_LIMIT_REQUESTS,
+                window_seconds=settings.RATE_LIMIT_WINDOW
             )
+            rate_limit_info = {
+                "limit": info.get("limit", settings.RATE_LIMIT_REQUESTS),
+                "remaining": info.get("remaining", 0),
+                "reset_time": info.get("reset_time", 0).timestamp() if hasattr(info.get("reset_time"), "timestamp") else info.get("reset_time", 0),
+                "retry_after": max(0, int(info.get("window_seconds", settings.RATE_LIMIT_WINDOW))) if not is_allowed else 0,
+            }
             
             if not is_allowed:
                 raise HTTPException(

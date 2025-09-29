@@ -101,9 +101,9 @@ make dev
 docker-compose up --build
 
 # Access the application
-# Frontend: http://localhost:5173
-# Backend API: http://localhost:8000
-# API Docs: http://localhost:8000/api/docs
+# Frontend: https://customercaregpt-frontend.vercel.app
+# Backend API: https://customercaregpt-backend-xxxxx-uc.a.run.app
+# API Docs: https://customercaregpt-backend-xxxxx-uc.a.run.app/api/docs
 ```
 
 #### Option 2: Local Development
@@ -130,12 +130,12 @@ make prod-down
 
 ### Available Services
 
-- **Frontend**: http://localhost:5173 (React + Vite)
-- **Backend API**: http://localhost:8000 (FastAPI)
-- **API Documentation**: http://localhost:8000/api/docs
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
-- **ChromaDB**: localhost:8001
+- **Frontend**: https://customercaregpt-frontend.vercel.app (React + Vite)
+- **Backend API**: https://customercaregpt-backend-xxxxx-uc.a.run.app (FastAPI)
+- **API Documentation**: https://customercaregpt-backend-xxxxx-uc.a.run.app/api/docs
+- **PostgreSQL**: Cloud SQL (Google Cloud)
+- **Redis**: Memorystore (Google Cloud)
+- **ChromaDB**: Cloud Run (Google Cloud)
 
 ### Database Management
 
@@ -218,7 +218,7 @@ rq worker -u $REDIS_URL ingest
 
 ```bash
 # Upload a PDF file
-curl -X POST "http://localhost:8000/api/v1/documents/upload" \
+curl -X POST "https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/documents/upload" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -F "file=@sample.pdf"
 
@@ -231,11 +231,11 @@ curl -X POST "http://localhost:8000/api/v1/documents/upload" \
 }
 
 # Check job status
-curl -X GET "http://localhost:8000/api/v1/documents/jobs/abc123" \
+curl -X GET "https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/documents/jobs/abc123" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
 # Get document chunks
-curl -X GET "http://localhost:8000/api/v1/documents/123e4567-e89b-12d3-a456-426614174000/chunks" \
+curl -X GET "https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/documents/123e4567-e89b-12d3-a456-426614174000/chunks" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -372,12 +372,12 @@ The frontend has been unified to use the new Bolt-styled UI while retaining all 
 
 - Location: `frontend/src`
 - Path aliases: `@/*` maps to `frontend/src/*`
-- Env: set `VITE_API_URL` to your backend URL (e.g., `http://localhost:8000`)
+- Env: set `VITE_API_URL` to your backend URL (e.g., `https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1`)
 
 ### Quick Start
 
 1. Copy `.env` values: create `frontend/.env` and set:
-   - `VITE_API_URL=http://localhost:8000`
+   - `VITE_API_URL=https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1`
 2. Install deps: from `frontend/`
    - `npm install`
 3. Run dev server:

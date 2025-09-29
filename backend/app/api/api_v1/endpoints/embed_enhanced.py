@@ -3,8 +3,10 @@ Enhanced embed endpoints for widget generation and management
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Header
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import Optional, List
+from datetime import datetime
 import structlog
 
 from app.core.database import get_db
@@ -286,7 +288,8 @@ async def get_widget_script(
         # Update usage count
         embed_service.increment_usage(code_id)
         
-        return {"script": script_content}
+        # Serve raw JavaScript for direct <script src> embedding
+        return Response(content=script_content, media_type="application/javascript")
         
     except HTTPException:
         raise
@@ -356,10 +359,42 @@ async def widget_chat_message(
     db: Session = Depends(get_db),
     x_client_api_key: Optional[str] = Header(None, alias="X-Client-API-Key"),
     x_embed_code_id: Optional[str] = Header(None, alias="X-Embed-Code-ID"),
-    client_ip: str = Request().client.host
+    origin: Optional[str] = Header(None, alias="Origin"),
+    referer: Optional[str] = Header(None, alias="Referer"),
+    http_request: Request = None
 ):
     """Handle chat messages from widget (with API key authentication)"""
     try:
+        # Determine client IP
+        client_ip = http_request.client.host if http_request and http_request.client else "unknown"
+        
+        # Validate and sanitize input
+        if not request or not isinstance(request, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid request format"
+            )
+        
+        # Sanitize message content
+        message = request.get("message", "")
+        if not message or not isinstance(message, str):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Message is required and must be a string"
+            )
+        
+        # Remove potentially dangerous content
+        import re
+        message = re.sub(r'<script[^>]*>.*?</script>', '', message, flags=re.IGNORECASE | re.DOTALL)
+        message = re.sub(r'javascript:', '', message, flags=re.IGNORECASE)
+        message = message.strip()
+        
+        if len(message) > 1000:  # Limit message length
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Message too long"
+            )
+
         # Rate limiting check
         is_allowed, rate_limit_info = await rate_limiting_service.check_ip_rate_limit(
             ip_address=client_ip,
@@ -401,13 +436,70 @@ async def widget_chat_message(
                 detail="Invalid embed code ID"
             )
         
+        # Verify embed code is active and not expired
+        if not embed_code.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Embed code is inactive"
+            )
+        
+        # Check if embed code has expired
+        if embed_code.expires_at and embed_code.expires_at < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Embed code has expired"
+            )
+
+        # Per-embed rate limit
+        is_allowed_embed, embed_rl = await rate_limiting_service.check_rate_limit(
+            identifier=f"embed:{embed_code.id}",
+            limit=60,
+            window_seconds=60
+        )
+        if not is_allowed_embed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Embed rate limit exceeded. Please try again later.",
+                headers={
+                    "X-RateLimit-Limit": str(embed_rl.get("limit", 60)),
+                    "X-RateLimit-Remaining": str(embed_rl.get("remaining", 0)),
+                    "X-RateLimit-Reset": str(int(embed_rl.get("reset_time").timestamp())) if embed_rl.get("reset_time") else "0"
+                }
+            )
+
+        # Per-workspace rate limit
+        is_allowed_ws, ws_rl = await rate_limiting_service.check_workspace_rate_limit(
+            workspace_id=str(embed_code.workspace_id),
+            limit=120,
+            window_seconds=60
+        )
+        if not is_allowed_ws:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Workspace rate limit exceeded. Please try again later.",
+                headers={
+                    "X-RateLimit-Limit": str(ws_rl.get("limit", 120)),
+                    "X-RateLimit-Remaining": str(ws_rl.get("remaining", 0)),
+                    "X-RateLimit-Reset": str(int(ws_rl.get("reset_time").timestamp())) if ws_rl.get("reset_time") else "0"
+                }
+            )
+        
+        # Validate CORS origin if configured
+        if hasattr(embed_code, 'allowed_origins') and embed_code.allowed_origins:
+            allowed_origins = embed_code.allowed_origins.split(',')
+            if origin and origin not in allowed_origins:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Origin not allowed"
+                )
+        
         # Process the chat message using existing chat service
         from app.services.chat import ChatService
         chat_service = ChatService(db)
         
         response = await chat_service.process_message(
             user_id=embed_code.user_id,
-            message=request.get("message", ""),
+            message=message,  # Use sanitized message
             session_id=request.get("session_id"),
             context={"embed_code_id": str(embed_code.id), "workspace_id": str(embed_code.workspace_id)}
         )

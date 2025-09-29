@@ -88,7 +88,7 @@ alembic upgrade head
    ```
 3. Forward webhooks to your local server:
    ```bash
-   stripe listen --forward-to localhost:8000/api/v1/billing/webhook
+   stripe listen --forward-to https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/billing/webhook
    ```
 4. Copy the webhook signing secret from the CLI output
 5. Update your `.env` file with the CLI webhook secret
@@ -109,7 +109,7 @@ alembic upgrade head
 ### Test Checkout Session Creation
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/billing/create-checkout-session" \
+curl -X POST "https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/billing/create-checkout-session" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -128,7 +128,7 @@ curl -X POST "http://localhost:8000/api/v1/billing/create-checkout-session" \
 ### Test White-Label Purchase
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/white-label/purchase" \
+curl -X POST "https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/white-label/purchase" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -212,14 +212,14 @@ STRIPE_WEBHOOK_SECRET=whsec_your_production_webhook_secret
 ```bash
 # Check subscription status
 curl -H "Authorization: Bearer TOKEN" \
-  http://localhost:8000/api/v1/billing/status
+  https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/billing/status
 
 # Get quota information
 curl -H "Authorization: Bearer TOKEN" \
-  http://localhost:8000/api/v1/billing/quota
+  https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/billing/quota
 
 # Test webhook endpoint
-curl -X POST http://localhost:8000/api/v1/billing/webhook \
+curl -X POST https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/billing/webhook \
   -H "Content-Type: application/json" \
   -d '{"test": "webhook"}'
 ```

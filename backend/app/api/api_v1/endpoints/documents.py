@@ -21,6 +21,10 @@ from app.schemas.document import (
 )
 from app.services.document_service import DocumentService
 from app.core.queue import get_ingest_queue
+from app.models.subscriptions import Subscription
+from app.middleware.quota_middleware import check_quota, increment_usage
+from app.utils.plan_limits import PlanLimits
+from app.utils.file_validation import FileValidator
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -30,14 +34,38 @@ router = APIRouter()
 async def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    subscription = Depends(check_quota)
 ):
     """Upload a new document"""
     try:
-        document_service = DocumentService(db)
+        # Enforce per-plan upload limits using standardized limits
+        workspace_id = str(current_user.workspace_id)
+        subscription = db.query(Subscription).filter(Subscription.workspace_id == workspace_id).first()
         
-        # For now, use user ID as workspace ID (can be enhanced later)
-        workspace_id = str(current_user.id)
+        # Get the plan tier
+        plan_tier = subscription.tier if subscription else 'free'
+        
+        # Count current documents (active/not deleted)
+        doc_count = db.query(Document).filter(
+            Document.workspace_id == workspace_id,
+            Document.status != 'deleted'
+        ).count()
+        
+        # Check document limit using standardized limits
+        if not PlanLimits.check_document_limit(plan_tier, doc_count):
+            limits = PlanLimits.get_limits(plan_tier)
+            max_docs = limits['documents_limit']
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Document upload limit reached for your {plan_tier} plan. You can upload up to {max_docs} document(s)."
+            )
+        
+        # Validate file using standardized validation
+        file_validator = FileValidator()
+        validation_result = file_validator.validate_file(file, plan_tier)
+        
+        document_service = DocumentService(db)
         uploaded_by = str(current_user.id)
         
         # Upload document and enqueue processing
@@ -54,6 +82,9 @@ async def upload_document(
             filename=document.filename,
             job_id=job_id
         )
+        
+        # Increment usage after successful document upload
+        await increment_usage(subscription, db)
         
         return FileUploadResponse(
             document_id=document.id,
@@ -232,9 +263,7 @@ async def delete_document(
             user_id=current_user.id,
             document_id=document_id
         )
-        
         return {"message": "Document deleted successfully"}
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -248,6 +277,26 @@ async def delete_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete document"
         )
+
+@router.post("/{document_id}/reprocess", response_model=JobStatusResponse)
+async def reprocess_document(
+    document_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reprocess a document: re-extract, re-chunk, and re-embed."""
+    try:
+        document_service = DocumentService(db)
+        workspace_id = str(current_user.id)
+        job_id = document_service.reprocess_document(document_id, workspace_id)
+        if not job_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+        return JobStatusResponse(job_id=job_id, status="queued")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to reprocess document", error=str(e), user_id=current_user.id, document_id=document_id)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to reprocess document")
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
@@ -267,11 +316,20 @@ async def get_job_status(
                 detail="Job not found"
             )
         
+        # Try to extract progress/phase if job.result is partial
+        result = job.result if isinstance(job.result, dict) else None
+        progress = None
+        phase = None
+        if result:
+            progress = result.get('progress')
+            phase = result.get('phase')
         return JobStatusResponse(
             job_id=job_id,
             status=job.get_status(),
-            result=job.result,
-            error=str(job.exc_info) if job.exc_info else None
+            result=result,
+            error=str(job.exc_info) if job.exc_info else None,
+            progress=progress,
+            phase=phase
         )
         
     except HTTPException:

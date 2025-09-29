@@ -13,9 +13,10 @@ from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.models.subscriptions import Subscription
-from app.schemas.billing import BillingInfo, UsageStats, CheckoutRequest, CheckoutResponse
+from app.schemas.billing import BillingInfo, UsageStats, CheckoutRequest, CheckoutResponse, PaymentMethod, PaymentMethodsResponse, PaymentMethodInfo, InvoicesResponse, Invoice
 from app.services.stripe_service import stripe_service
 from app.middleware.quota_middleware import get_quota_info, QuotaExceededException
+from app.utils.plan_limits import PlanLimits
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -68,8 +69,11 @@ async def get_billing_status(
     # Calculate storage usage (simplified)
     storage_used = 0  # Would need to calculate from documents
     
-    # Set limits based on plan
+    # Set limits based on new pricing structure
     plan_config = stripe_service.get_plan_config(subscription.tier)
+    
+    # Get standardized limits for the plan tier
+    plan_limits = PlanLimits.get_limits(subscription.tier)
     
     return BillingInfo(
         plan=subscription.tier,
@@ -78,13 +82,15 @@ async def get_billing_status(
         cancel_at_period_end=subscription.status == 'canceled',
         usage=UsageStats(
             queries_used=subscription.queries_this_period,
-            queries_limit=subscription.monthly_query_quota or -1,
+            queries_limit=plan_limits['queries_limit'],
             documents_used=documents_used,
-            documents_limit=5 if subscription.tier == 'free' else -1,
+            documents_limit=plan_limits['documents_limit'],
             storage_used=storage_used,
-            storage_limit=100 * 1024 * 1024 if subscription.tier == 'free' else 1024 * 1024 * 1024
+            storage_limit=plan_limits['storage_limit']
         ),
-        billing_portal_url=f"https://billing.stripe.com/p/login/{subscription.stripe_customer_id}" if subscription.stripe_customer_id else None
+        billing_portal_url=f"http://localhost:3000/billing/portal" if subscription.stripe_customer_id else None,
+        trial_end=subscription.period_end.isoformat() if subscription.tier == 'free_trial' and subscription.period_end else None,
+        is_trial=subscription.tier == 'free_trial'
     )
 
 @router.post("/create-checkout-session", response_model=CheckoutResponse)
@@ -93,7 +99,7 @@ async def create_checkout_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create Stripe checkout session for plan upgrade"""
+    """Create checkout session for plan upgrade with multiple payment methods"""
     
     # Validate plan tier
     if request.plan_tier not in ['starter', 'pro', 'enterprise', 'white_label']:
@@ -111,29 +117,277 @@ async def create_checkout_session(
         )
     
     try:
-        # Create checkout session
-        result = await stripe_service.create_checkout_session(
-            workspace_id=str(workspace.id),
-            plan_tier=request.plan_tier,
-            customer_email=current_user.email,
-            customer_name=current_user.full_name or workspace.name,
-            success_url=request.success_url,
-            cancel_url=request.cancel_url
-        )
-        
-        logger.info(f"Created checkout session for workspace {workspace.id}, plan {request.plan_tier}")
-        
-        return CheckoutResponse(
-            checkout_url=result['url'],
-            plan=request.plan_tier,
-            message="Checkout session created successfully"
-        )
+        # Handle different payment methods
+        if request.payment_method == PaymentMethod.STRIPE:
+            # Create Stripe checkout session
+            result = await stripe_service.create_checkout_session(
+                workspace_id=str(workspace.id),
+                plan_tier=request.plan_tier,
+                customer_email=current_user.email,
+                customer_name=current_user.full_name or workspace.name,
+                success_url=request.success_url,
+                cancel_url=request.cancel_url
+            )
+            
+            logger.info(f"Created Stripe checkout session for workspace {workspace.id}, plan {request.plan_tier}")
+            
+            return CheckoutResponse(
+                checkout_url=result['url'],
+                plan=request.plan_tier,
+                payment_method=request.payment_method.value,
+                message="Stripe checkout session created successfully"
+            )
+            
+        elif request.payment_method == PaymentMethod.CARD:
+            # For direct card payments, we'll use Stripe Payment Intents
+            # This is a simplified implementation - in production, you'd want more robust card handling
+            result = await stripe_service.create_checkout_session(
+                workspace_id=str(workspace.id),
+                plan_tier=request.plan_tier,
+                customer_email=current_user.email,
+                customer_name=current_user.full_name or workspace.name,
+                success_url=request.success_url,
+                cancel_url=request.cancel_url
+            )
+            
+            return CheckoutResponse(
+                checkout_url=result['url'],
+                plan=request.plan_tier,
+                payment_method=request.payment_method.value,
+                message="Card payment session created successfully"
+            )
+            
+        elif request.payment_method == PaymentMethod.UPI:
+            # For UPI payments, generate a payment URL
+            # This is a mock implementation - in production, integrate with UPI providers like Razorpay, PayU, etc.
+            upi_url = f"upi://pay?pa=merchant@upi&pn=CustomerCareGPT&tr={workspace.id}_{request.plan_tier}&am={stripe_service.get_plan_config(request.plan_tier).get('price', 0)}&cu=INR"
+            
+            return CheckoutResponse(
+                upi_payment_url=upi_url,
+                plan=request.plan_tier,
+                payment_method=request.payment_method.value,
+                message="UPI payment URL generated successfully"
+            )
+            
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Payment method {request.payment_method} not supported yet"
+            )
         
     except Exception as e:
         logger.error(f"Error creating checkout session: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create checkout session"
+        )
+
+@router.get("/payment-methods", response_model=PaymentMethodsResponse)
+async def get_payment_methods(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get payment methods for the current user"""
+    try:
+        # Get subscription to check if user has Stripe customer
+        subscription = db.query(Subscription).filter(
+            Subscription.workspace_id == current_user.workspace_id
+        ).first()
+        
+        if not subscription or not subscription.stripe_customer_id:
+            return PaymentMethodsResponse(
+                payment_methods=[],
+                default_method=None,
+                message="No payment methods found"
+            )
+        
+        # In a real implementation, this would fetch from Stripe
+        # For now, return mock data based on subscription
+        payment_methods = []
+        
+        if subscription.tier in ['starter', 'pro', 'enterprise', 'white_label']:
+            payment_methods = [
+                PaymentMethodInfo(
+                    id="pm_card_visa",
+                    type="card",
+                    last4="4242",
+                    brand="visa",
+                    exp_month=12,
+                    exp_year=2027,
+                    is_default=True
+                )
+            ]
+        
+        return PaymentMethodsResponse(
+            payment_methods=payment_methods,
+            default_method="pm_card_visa" if payment_methods else None,
+            message="Payment methods retrieved successfully"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error fetching payment methods: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch payment methods"
+        )
+
+@router.get("/invoices", response_model=InvoicesResponse)
+async def get_invoices(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get billing invoices for the current user"""
+    try:
+        # Get subscription
+        subscription = db.query(Subscription).filter(
+            Subscription.workspace_id == current_user.workspace_id
+        ).first()
+        
+        if not subscription or not subscription.stripe_customer_id:
+            return InvoicesResponse(
+                invoices=[],
+                message="No invoices found"
+            )
+        
+        # In a real implementation, this would fetch from Stripe
+        # For now, return mock data based on subscription
+        invoices = []
+        
+        if subscription.tier in ['starter', 'pro', 'enterprise', 'white_label']:
+            # Generate mock invoices based on plan
+            plan_prices = {
+                'starter': 2000,  # $20
+                'pro': 5000,      # $50
+                'enterprise': 20000,  # $200
+                'white_label': 99900  # $999
+            }
+            
+            price = plan_prices.get(subscription.tier, 0)
+            if price > 0:
+                invoices = [
+                    Invoice(
+                        id=f"inv_{subscription.id}_001",
+                        amount=price,
+                        currency="usd",
+                        status="paid",
+                        created=datetime.utcnow() - timedelta(days=30),
+                        invoice_pdf=f"http://localhost:3000/billing/invoice/{subscription.id}_001.pdf",
+                        description=f"{subscription.tier.title()} Plan - Monthly"
+                    )
+                ]
+                
+                # Add more historical invoices
+                if subscription.tier != 'white_label':  # White label is one-time
+                    for i in range(2, 4):
+                        invoices.append(
+                            Invoice(
+                                id=f"inv_{subscription.id}_{i:03d}",
+                                amount=price,
+                                currency="usd",
+                                status="paid",
+                                created=datetime.utcnow() - timedelta(days=30*i),
+                                invoice_pdf=f"http://localhost:3000/billing/invoice/{subscription.id}_{i:03d}.pdf",
+                                description=f"{subscription.tier.title()} Plan - Monthly"
+                            )
+                        )
+        
+        return InvoicesResponse(
+            invoices=invoices,
+            message=f"Found {len(invoices)} invoices"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error fetching invoices: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch invoices"
+        )
+
+
+@router.get("/invoices/download-all")
+async def download_all_invoices(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Download all invoices as a ZIP file"""
+    try:
+        subscription = db.query(Subscription).filter(
+            Subscription.workspace_id == current_user.workspace_id
+        ).first()
+        
+        if not subscription or not subscription.stripe_customer_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No subscription found"
+            )
+        
+        # Get all invoices
+        invoices = []
+        if subscription.tier in ['starter', 'pro', 'enterprise', 'white_label']:
+            plan_prices = {
+                'starter': 2000,  # $20
+                'pro': 5000,      # $50
+                'enterprise': 20000,  # $200
+                'white_label': 99900  # $999
+            }
+            
+            price = plan_prices.get(subscription.tier, 0)
+            if price > 0:
+                # Generate mock invoices for demo
+                for i in range(1, 4):
+                    invoices.append({
+                        'id': f"inv_{subscription.id}_{i:03d}",
+                        'amount': price,
+                        'currency': 'usd',
+                        'status': 'paid',
+                        'created': datetime.utcnow() - timedelta(days=30*i),
+                        'description': f"{subscription.tier.title()} Plan - Monthly"
+                    })
+        
+        if not invoices:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No invoices found"
+            )
+        
+        # Create a simple ZIP file with invoice data
+        import zipfile
+        import io
+        
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            for invoice in invoices:
+                # Create invoice content
+                invoice_content = f"""
+Invoice ID: {invoice['id']}
+Amount: ${invoice['amount'] / 100:.2f} {invoice['currency'].upper()}
+Status: {invoice['status'].title()}
+Date: {invoice['created'].strftime('%Y-%m-%d')}
+Description: {invoice['description']}
+                """.strip()
+                
+                zip_file.writestr(f"invoice_{invoice['id']}.txt", invoice_content)
+        
+        zip_buffer.seek(0)
+        
+        from fastapi.responses import StreamingResponse
+        
+        return StreamingResponse(
+            io.BytesIO(zip_buffer.read()),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename=all-invoices-{subscription.id}.zip"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating invoice ZIP: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create invoice ZIP file"
         )
 
 @router.post("/portal")
@@ -158,7 +412,7 @@ async def create_billing_portal_session(
         # Create billing portal session
         portal_url = await stripe_service.create_billing_portal_session(
             customer_id=subscription.stripe_customer_id,
-            return_url="https://your-frontend.com/billing"
+            return_url="http://localhost:3000/billing"
         )
         
         return {

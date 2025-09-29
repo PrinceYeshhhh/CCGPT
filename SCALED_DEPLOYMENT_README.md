@@ -66,7 +66,7 @@ export GEMINI_API_KEY="your-gemini-api-key-here"
 
 ```bash
 # Check system health
-curl http://localhost:8000/health/detailed
+curl https://customercaregpt-backend-xxxxx-uc.a.run.app/health/detailed
 
 # Run performance test
 cd backend
@@ -75,12 +75,12 @@ python performance_test.py --rag-queries 100 --concurrent-users 10
 
 ### 3. Access Services
 
-- **API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/api/docs
-- **Health Check**: http://localhost:8000/health
-- **Metrics**: http://localhost:8000/metrics
-- **Prometheus**: http://localhost:9090
-- **Grafana**: http://localhost:3000 (admin/admin)
+- **API**: https://customercaregpt-backend-xxxxx-uc.a.run.app
+- **API Docs**: https://customercaregpt-backend-xxxxx-uc.a.run.app/api/docs
+- **Health Check**: https://customercaregpt-backend-xxxxx-uc.a.run.app/health
+- **Metrics**: https://customercaregpt-backend-xxxxx-uc.a.run.app/metrics
+- **Prometheus**: https://prometheus.customercaregpt.com
+- **Grafana**: https://grafana.customercaregpt.com (admin/admin)
 
 ## 📊 Monitoring & Observability
 
@@ -114,7 +114,7 @@ REDIS_URL=redis://redis:6379
 REDIS_MAX_CONNECTIONS=100
 
 # Vector Database
-CHROMA_URL=http://chromadb:8000
+CHROMA_URL=https://customercaregpt-chromadb-xxxxx-uc.a.run.app
 
 # API
 GEMINI_API_KEY=your-api-key
@@ -212,7 +212,7 @@ docker-compose -f docker-compose.scale.yml restart
 
 ```bash
 # Check system health
-curl http://localhost:8000/health/detailed
+curl https://customercaregpt-backend-xxxxx-uc.a.run.app/health/detailed
 
 # View logs
 docker-compose -f docker-compose.scale.yml logs -f

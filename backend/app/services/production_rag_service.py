@@ -26,6 +26,7 @@ from app.services.production_vector_service import (
 from app.services.gemini_service import GeminiService
 from app.models.chat import ChatSession, ChatMessage
 from app.schemas.rag import RAGQueryResponse, RAGQueryRequest
+from app.utils.cache import analytics_cache
 
 logger = structlog.get_logger()
 
@@ -205,7 +206,8 @@ class ProductionRAGService:
                                query: str,
                                workspace_id: str,
                                session_id: Optional[str] = None,
-                               config: RAGConfig = None) -> RAGQueryResponse:
+                               config: RAGConfig = None,
+                               document_ids: Optional[List[str]] = None) -> RAGQueryResponse:
         """Generate response using full RAG pipeline"""
         if config is None:
             config = self.default_config
@@ -213,8 +215,21 @@ class ProductionRAGService:
         start_time = time.time()
         
         try:
-            # Step 1: Search for relevant documents
-            search_results = await self.search_documents(query, workspace_id, config)
+            # Step 1: Search for relevant documents (optionally filter by selected docs)
+            if document_ids:
+                from app.services.production_vector_service import SearchConfig
+                search_cfg = SearchConfig(
+                    top_k=config.top_k,
+                    similarity_threshold=config.similarity_threshold,
+                    search_mode=config.search_mode,
+                    use_reranking=config.use_reranking,
+                    rerank_top_k=config.rerank_top_k,
+                    use_cache=config.use_cache,
+                    filter_by_metadata={'document_id': {'$in': document_ids}}
+                )
+                search_results = await self.vector_service.search(query=query, workspace_id=workspace_id, config=search_cfg)
+            else:
+                search_results = await self.search_documents(query, workspace_id, config)
             
             if not search_results:
                 return self._create_no_results_response(query, start_time)
@@ -240,7 +255,8 @@ class ProductionRAGService:
                            query: str,
                            workspace_id: str,
                            session_id: Optional[str] = None,
-                           config: RAGConfig = None) -> RAGQueryResponse:
+                           config: RAGConfig = None,
+                           document_ids: Optional[List[str]] = None) -> RAGQueryResponse:
         """Process query with full RAG pipeline (main entry point)"""
         if config is None:
             config = self.default_config
@@ -252,7 +268,7 @@ class ProductionRAGService:
             session = await self._get_or_create_session(workspace_id, session_id)
             
             # Generate response
-            response = await self.generate_response(query, workspace_id, session_id, config)
+            response = await self.generate_response(query, workspace_id, session_id, config, document_ids)
             
             # Save interaction
             await self._save_interaction(
@@ -458,17 +474,13 @@ Instructions:
             )
             self.db.add(user_message)
             
-            # Save assistant response
+            # Save assistant response with analytics-friendly fields
             assistant_message = ChatMessage(
                 session_id=session.id,
                 content=response.answer,
                 role="assistant",
-                metadata={
-                    "workspace_id": workspace_id,
-                    "sources": response.sources,
-                    "confidence": response.confidence,
-                    "processing_time": response.processing_time
-                }
+                sources_used=response.sources,
+                confidence_score=str(response.confidence or "")
             )
             self.db.add(assistant_message)
             
@@ -476,6 +488,11 @@ Instructions:
             session.updated_at = time.time()
             
             self.db.commit()
+            try:
+                # Invalidate analytics cache for this workspace; fall back to user scope if needed
+                analytics_cache.invalidate_workspace_sync(str(session.user_id))
+            except Exception:
+                pass
             
         except Exception as e:
             logger.error("Failed to save interaction", error=str(e))

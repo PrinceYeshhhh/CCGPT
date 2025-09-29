@@ -276,7 +276,7 @@ class ProductionReadinessTester:
         try:
             import httpx
             
-            base_url = "http://localhost:8000"
+            base_url = "https://customercaregpt-backend-xxxxx-uc.a.run.app"
             endpoints = [
                 "/health",
                 "/ready",

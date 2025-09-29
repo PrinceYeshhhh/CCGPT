@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { Bot, Menu, X } from 'lucide-react';
+import { Bot, Menu, X, User as UserIcon, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavbarProps {
   isAuthenticated?: boolean;
@@ -10,8 +11,14 @@ interface NavbarProps {
 }
 
 export function Navbar({ isAuthenticated = false, onLogout }: NavbarProps) {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const effectiveIsAuthed = auth?.isAuthenticated ?? isAuthenticated;
   const [isOpen, setIsOpen] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const location = useLocation();
+  const onLoginClickHref = "/login";
+  const isOnDashboard = location.pathname.startsWith('/dashboard');
 
   const navLinks = [
     { href: '/', label: 'Home' },
@@ -19,6 +26,36 @@ export function Navbar({ isAuthenticated = false, onLogout }: NavbarProps) {
     { href: '/pricing', label: 'Pricing' },
     { href: '/faq', label: 'FAQ' },
   ];
+
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    } else if (auth?.logout) {
+      auth.logout();
+    }
+    setShowUserDropdown(false);
+    navigate('/');
+  };
+
+  const handleSettings = () => {
+    setShowUserDropdown(false);
+    navigate('/dashboard/settings');
+  };
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (showUserDropdown && !target.closest('.user-dropdown')) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
 
   return (
     <nav className="bg-background/95 backdrop-blur-md border-b border-border sticky top-0 z-50 transition-all duration-200">
@@ -49,15 +86,69 @@ export function Navbar({ isAuthenticated = false, onLogout }: NavbarProps) {
           </div>
 
           <div className="hidden md:flex items-center space-x-4">
-            {isAuthenticated ? (
+            {effectiveIsAuthed ? (
               <>
                 <ThemeToggle />
                 <Link to="/dashboard">
                   <Button variant="ghost">Dashboard</Button>
                 </Link>
-                <Button variant="outline" onClick={onLogout}>
-                  Logout
-                </Button>
+                <div className="relative user-dropdown">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowUserDropdown(!showUserDropdown)}
+                    className="flex items-center space-x-2"
+                  >
+                    {auth.user?.profile_picture_url ? (
+                      <img
+                        src={auth.user.profile_picture_url}
+                        alt="Profile"
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        {(auth.user?.username || auth.user?.email || 'U').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="text-left">
+                      <div className="text-sm font-medium text-foreground">
+                        {auth.user?.username || auth.user?.full_name || 'User'}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {auth.user?.email}
+                      </div>
+                    </div>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+
+                  {showUserDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50 border">
+                      <div className="py-1">
+                        <div className="px-4 py-2 border-b">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {auth.user?.username || auth.user?.full_name || 'User'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {auth.user?.email}
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleSettings}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <Settings className="mr-3 h-4 w-4" />
+                          Settings
+                        </button>
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        >
+                          <LogOut className="mr-3 h-4 w-4" />
+                          Sign out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </>
             ) : (
               <>
@@ -100,7 +191,7 @@ export function Navbar({ isAuthenticated = false, onLogout }: NavbarProps) {
                 </Link>
               ))}
               <div className="border-t pt-4 mt-4">
-                {isAuthenticated ? (
+                {effectiveIsAuthed ? (
                   <>
                     <Link
                       to="/dashboard"
@@ -109,12 +200,22 @@ export function Navbar({ isAuthenticated = false, onLogout }: NavbarProps) {
                     >
                       Dashboard
                     </Link>
-                    <button
-                      onClick={onLogout}
-                      className="block w-full text-left px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      Logout
-                    </button>
+                    {isOnDashboard ? (
+                      <button
+                        onClick={onLogout ?? auth.logout}
+                        className="block w-full text-left px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Logout
+                      </button>
+                    ) : (
+                      <Link
+                        to={onLoginClickHref}
+                        className="block px-3 py-2 text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Login
+                      </Link>
+                    )}
                   </>
                 ) : (
                   <>

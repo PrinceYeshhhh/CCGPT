@@ -3,7 +3,7 @@ Database configuration and session management with scaling optimizations
 """
 
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 import redis
 import asyncio
@@ -17,6 +17,17 @@ logger = structlog.get_logger()
 # Enhanced PostgreSQL Database Configuration
 def create_database_engine(url: str, is_read_replica: bool = False):
     """Create optimized database engine"""
+    # SQLite lightweight configuration for local/dev smoke tests
+    if url.startswith("sqlite"):
+        sqlite_config = {
+            'echo': settings.ENVIRONMENT == "development",
+            'connect_args': {
+                'check_same_thread': False,
+            },
+        }
+        return create_engine(url, **sqlite_config)
+
+    # PostgreSQL optimized configuration
     config = {
         'pool_size': 50 if not is_read_replica else 30,
         'max_overflow': 30 if not is_read_replica else 20,
@@ -36,6 +47,8 @@ def create_database_engine(url: str, is_read_replica: bool = False):
 
 # Primary write database
 write_engine = create_database_engine(settings.DATABASE_URL, is_read_replica=False)
+# Expose a conventional name for compatibility with tests/imports
+engine = write_engine
 WriteSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=write_engine)
 
 # Read replicas (if configured)
@@ -53,28 +66,73 @@ ReadSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=read_eng
 
 Base = declarative_base()
 
+# Mock Redis client for when Redis is not available
+class MockRedisClient:
+    """Mock Redis client that does nothing when Redis is not available"""
+    def ping(self):
+        return True
+    
+    def get(self, key):
+        return None
+    
+    def set(self, key, value, ex=None):
+        return True
+    
+    def delete(self, key):
+        return True
+    
+    def exists(self, key):
+        return False
+    
+    def expire(self, key, time):
+        return True
+    
+    def zadd(self, name, mapping):
+        return 0
+    
+    def zremrangebyscore(self, name, min_score, max_score):
+        return 0
+    
+    def zcard(self, name):
+        return 0
+    
+    def zadd(self, name, mapping):
+        return 0
+
 # Enhanced Redis Configuration
 class RedisManager:
     def __init__(self):
-        self.redis_url = settings.REDIS_URL
-        if settings.REDIS_PASSWORD:
-            self.redis_url = self.redis_url.replace("redis://", f"redis://:{settings.REDIS_PASSWORD}@")
+        self.redis_client = None
+        self.redis_available = False
         
-        # Connection pool configuration
-        self.connection_pool = redis.ConnectionPool.from_url(
-            self.redis_url,
-            max_connections=100,
-            retry_on_timeout=True,
-            socket_keepalive=True,
-            socket_keepalive_options={
-                1: 1,  # TCP_KEEPIDLE
-                2: 3,  # TCP_KEEPINTVL
-                3: 5,  # TCP_KEEPCNT
-            },
-            decode_responses=True
-        )
-        
-        self.redis_client = redis.Redis(connection_pool=self.connection_pool)
+        try:
+            self.redis_url = settings.REDIS_URL
+            if settings.REDIS_PASSWORD:
+                self.redis_url = self.redis_url.replace("redis://", f"redis://:{settings.REDIS_PASSWORD}@")
+            
+            # Connection pool configuration
+            self.connection_pool = redis.ConnectionPool.from_url(
+                self.redis_url,
+                max_connections=100,
+                retry_on_timeout=True,
+                socket_keepalive=True,
+                socket_keepalive_options={
+                    1: 1,  # TCP_KEEPIDLE
+                    2: 3,  # TCP_KEEPINTVL
+                    3: 5,  # TCP_KEEPCNT
+                },
+                decode_responses=True
+            )
+            
+            self.redis_client = redis.Redis(connection_pool=self.connection_pool)
+            # Test connection
+            self.redis_client.ping()
+            self.redis_available = True
+            logger.info("Redis connection established successfully")
+        except Exception as e:
+            logger.warning(f"Redis not available, using fallback: {str(e)}")
+            self.redis_available = False
+            self.redis_client = MockRedisClient()
     
     def get_client(self):
         return self.redis_client
@@ -179,6 +237,10 @@ def get_redis():
 async def initialize_database():
     """Initialize database with optimizations"""
     try:
+        # Skip Postgres-specific concurrent index creation on SQLite
+        if settings.DATABASE_URL.startswith("sqlite"):
+            logger.info("SQLite detected; skipping concurrent index creation")
+            return
         # Create indexes for performance
         with db_manager.get_write_session() as db:
             # Document indexes

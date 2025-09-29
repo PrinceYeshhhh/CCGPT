@@ -7,6 +7,8 @@ from typing import List, Dict, Any, Optional
 import structlog
 
 from app.core.config import settings
+from app.services.language_service import language_service
+from app.exceptions import ExternalServiceError
 
 logger = structlog.get_logger()
 
@@ -21,29 +23,60 @@ class GeminiService:
     def _initialize_model(self):
         """Initialize Gemini model"""
         try:
+            if not settings.GEMINI_API_KEY:
+                logger.warning("GEMINI_API_KEY not configured, using fallback mode")
+                self.model = None
+                return
+                
             genai.configure(api_key=settings.GEMINI_API_KEY)
             self.model = genai.GenerativeModel('gemini-pro')
             logger.info("Gemini service initialized successfully")
         except Exception as e:
             logger.error("Failed to initialize Gemini service", error=str(e))
-            raise
+            self.model = None
     
     async def generate_response(
         self,
         user_message: str,
         context: str = "",
-        sources: List[Dict[str, Any]] = None
+        sources: List[Dict[str, Any]] = None,
+        target_language: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate AI response using Gemini"""
         try:
-            # Prepare prompt
-            prompt = self._build_prompt(user_message, context, sources)
+            # Check if model is available
+            if not self.model:
+                return self._generate_fallback_response(user_message, context, sources)
+            
+            # Prepare prompt with language support
+            prompt = self._build_prompt(user_message, context, sources, target_language)
             
             # Generate response
             response = self.model.generate_content(prompt)
             
             # Extract response text
             response_text = response.text if response.text else "I apologize, but I couldn't generate a response."
+            
+            # Translate response if target language is specified and different from default
+            if target_language and target_language != settings.DEFAULT_LANGUAGE:
+                try:
+                    translation_result = await language_service.translate_text(
+                        response_text, 
+                        target_language, 
+                        settings.DEFAULT_LANGUAGE
+                    )
+                    response_text = translation_result["translated_text"]
+                    logger.info(
+                        "Response translated",
+                        target_language=target_language,
+                        confidence=translation_result.get("confidence", 0.8)
+                    )
+                except Exception as e:
+                    logger.warning(
+                        "Translation failed, using original response",
+                        error=str(e),
+                        target_language=target_language
+                    )
             
             # Determine confidence based on response quality
             confidence = self._assess_confidence(response_text, sources)
@@ -65,15 +98,64 @@ class GeminiService:
                 error=str(e),
                 user_message=user_message[:100]
             )
-            raise
+            return self._generate_fallback_response(user_message, context, sources)
+    
+    def _generate_fallback_response(
+        self,
+        user_message: str,
+        context: str = "",
+        sources: List[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Generate a fallback response when Gemini is unavailable"""
+        try:
+            # Simple keyword-based responses for common queries
+            user_lower = user_message.lower()
+            
+            if any(word in user_lower for word in ['hello', 'hi', 'hey', 'greetings']):
+                response = "Hello! I'm here to help you with your questions. How can I assist you today?"
+            elif any(word in user_lower for word in ['help', 'support', 'assistance']):
+                response = "I'm here to help! Please let me know what specific information you're looking for, and I'll do my best to assist you."
+            elif any(word in user_lower for word in ['thank', 'thanks']):
+                response = "You're welcome! Is there anything else I can help you with?"
+            elif any(word in user_lower for word in ['bye', 'goodbye', 'see you']):
+                response = "Goodbye! Feel free to come back anytime if you have more questions."
+            elif context:
+                response = f"Based on the information available, I can help you with questions related to: {context[:200]}... Please ask me something specific about this topic."
+            else:
+                response = "I'm here to help! Please ask me a specific question, and I'll do my best to provide you with accurate information."
+            
+            return {
+                "content": response,
+                "model_used": "fallback",
+                "confidence_score": "medium",
+                "sources_used": self._format_sources(sources) if sources else [],
+                "tokens_used": 0
+            }
+            
+        except Exception as e:
+            logger.error("Fallback response generation failed", error=str(e))
+            return {
+                "content": "I apologize, but I'm having trouble processing your request right now. Please try again later or contact support if the issue persists.",
+                "model_used": "fallback",
+                "confidence_score": "low",
+                "sources_used": [],
+                "tokens_used": 0
+            }
     
     def _build_prompt(
         self,
         user_message: str,
         context: str,
-        sources: List[Dict[str, Any]] = None
+        sources: List[Dict[str, Any]] = None,
+        target_language: Optional[str] = None
     ) -> str:
         """Build prompt for Gemini"""
+        # Get language-specific instructions
+        language_instruction = ""
+        if target_language and target_language != settings.DEFAULT_LANGUAGE:
+            language_name = language_service.get_language_name(target_language)
+            language_instruction = f"Please respond in {language_name} ({target_language}). "
+        
         prompt_parts = [
             "You are CustomerCareGPT, an intelligent customer support assistant. ",
             "Your role is to provide helpful, accurate, and friendly responses to customer inquiries ",
@@ -84,7 +166,8 @@ class GeminiService:
             "3. If you don't know something, say so clearly\n",
             "4. Keep responses concise but comprehensive\n",
             "5. Use a friendly, conversational tone\n",
-            "6. If relevant, provide specific examples or steps\n\n"
+            "6. If relevant, provide specific examples or steps\n",
+            f"7. {language_instruction}Respond in the same language as the customer's question\n\n"
         ]
         
         if context:

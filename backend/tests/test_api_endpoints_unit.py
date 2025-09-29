@@ -431,14 +431,14 @@ class TestBillingEndpoints:
                 mock_service = Mock()
                 mock_service.create_checkout_session.return_value = {
                     "session_id": "cs_test_123",
-                    "checkout_url": "https://checkout.stripe.com/test"
+                    "checkout_url": "http://localhost:3000/billing/checkout/test"
                 }
                 mock_stripe_service.return_value = mock_service
                 
                 checkout_data = {
                     "plan_tier": "pro",
-                    "success_url": "https://example.com/success",
-                    "cancel_url": "https://example.com/cancel"
+                    "success_url": "http://localhost:3000/billing/success",
+                    "cancel_url": "http://localhost:3000/billing/cancel"
                 }
                 headers = {"Authorization": "Bearer test_token"}
                 response = client.post("/api/v1/billing/create-checkout-session", json=checkout_data, headers=headers)

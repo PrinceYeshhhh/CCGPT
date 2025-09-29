@@ -1,342 +1,256 @@
 """
-Security middleware for production hardening
-Implements security headers, input validation, and security policies
+Comprehensive security middleware for CustomerCareGPT
 """
 
-from fastapi import Request, Response, HTTPException
+import time
+import hashlib
+import secrets
+from typing import Dict, Any, Optional, List
+from fastapi import Request, Response, HTTPException, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
-import re
+from fastapi.middleware.cors import CORSMiddleware
 import structlog
-from typing import List, Optional
-import time
-from urllib.parse import urlparse
+import re
+import json
+
+from app.core.config import settings
 
 logger = structlog.get_logger()
 
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Add security headers to all responses"""
-    
-    def __init__(self, app: ASGIApp):
-        super().__init__(app)
-        self.security_headers = {
-            "X-Content-Type-Options": "nosniff",
-            "X-Frame-Options": "DENY",
-            "X-XSS-Protection": "1; mode=block",
-            "Referrer-Policy": "strict-origin-when-cross-origin",
-            "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
-            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
-            "Content-Security-Policy": (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                "font-src 'self' https://fonts.gstatic.com; "
-                "img-src 'self' data: https:; "
-                "connect-src 'self' https://api.gemini.google.com https://api.stripe.com; "
-                "frame-src 'none'; "
-                "object-src 'none'; "
-                "base-uri 'self'; "
-                "form-action 'self'"
-            )
-        }
+    """Add comprehensive security headers"""
     
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         
-        # Add security headers
-        for header, value in self.security_headers.items():
-            response.headers[header] = value
+        # Security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        
+        # Content Security Policy
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https:; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
+        )
+        response.headers["Content-Security-Policy"] = csp
+        
+        # HSTS (only in production)
+        if settings.ENVIRONMENT == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+        
+        # Cache control for sensitive endpoints
+        if request.url.path.startswith("/api/v1/auth") or request.url.path.startswith("/api/v1/billing"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
         
         return response
 
+
 class InputValidationMiddleware(BaseHTTPMiddleware):
-    """Validate and sanitize input data"""
+    """Validate and sanitize all input data"""
     
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app):
         super().__init__(app)
-        self.max_request_size = 10 * 1024 * 1024  # 10MB
         self.suspicious_patterns = [
-            r'<script[^>]*>.*?</script>',  # Script tags
-            r'javascript:',  # JavaScript URLs
-            r'vbscript:',  # VBScript URLs
-            r'on\w+\s*=',  # Event handlers
-            r'<iframe[^>]*>',  # Iframe tags
-            r'<object[^>]*>',  # Object tags
-            r'<embed[^>]*>',  # Embed tags
-            r'<link[^>]*>',  # Link tags
-            r'<meta[^>]*>',  # Meta tags
-            r'<style[^>]*>',  # Style tags
-            r'expression\s*\(',  # CSS expressions
-            r'url\s*\(',  # CSS URLs
-            r'@import',  # CSS imports
-            r'<[^>]*>',  # HTML tags (general)
+            r"<script[^>]*>.*?</script>",  # XSS
+            r"javascript:",  # XSS
+            r"on\w+\s*=",  # Event handlers
+            r"union\s+select",  # SQL injection
+            r"drop\s+table",  # SQL injection
+            r"delete\s+from",  # SQL injection
+            r"insert\s+into",  # SQL injection
+            r"update\s+set",  # SQL injection
+            r"exec\s*\(",  # Command injection
+            r"system\s*\(",  # Command injection
+            r"eval\s*\(",  # Code injection
+            r"<iframe[^>]*>",  # Clickjacking
+            r"<object[^>]*>",  # Object injection
+            r"<embed[^>]*>",  # Embed injection
         ]
         self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.suspicious_patterns]
     
     async def dispatch(self, request: Request, call_next):
-        # Check request size
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > self.max_request_size:
-            logger.warning(f"Request too large: {content_length} bytes", client_ip=request.client.host)
-            raise HTTPException(status_code=413, detail="Request too large")
+        # Skip validation for certain endpoints
+        if request.url.path in ["/health", "/ready", "/metrics"]:
+            return await call_next(request)
         
-        # Validate request body for suspicious content
+        # Validate request body
         if request.method in ["POST", "PUT", "PATCH"]:
             try:
                 body = await request.body()
                 if body:
+                    # Check for suspicious patterns in body
                     body_str = body.decode('utf-8', errors='ignore')
-                    
-                    # Check for suspicious patterns
                     for pattern in self.compiled_patterns:
                         if pattern.search(body_str):
                             logger.warning(
                                 "Suspicious input detected",
+                                path=request.url.path,
                                 pattern=pattern.pattern,
-                                client_ip=request.client.host,
-                                path=request.url.path
+                                client_ip=request.client.host if request.client else "unknown"
                             )
-                            raise HTTPException(
-                                status_code=400,
-                                detail="Invalid input detected"
+                            return JSONResponse(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                content={"detail": "Invalid input detected"}
                             )
-                
-                # Recreate request with validated body
-                async def receive():
-                    return {"type": "http.request", "body": body}
-                
-                request._receive = receive
-                
-            except UnicodeDecodeError:
-                logger.warning("Invalid encoding in request body", client_ip=request.client.host)
-                raise HTTPException(status_code=400, detail="Invalid encoding")
+            except Exception as e:
+                logger.error("Input validation error", error=str(e))
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"detail": "Invalid request format"}
+                )
         
-        response = await call_next(request)
-        return response
+        # Validate query parameters
+        for param_name, param_value in request.query_params.items():
+            if isinstance(param_value, str):
+                for pattern in self.compiled_patterns:
+                    if pattern.search(param_value):
+                        logger.warning(
+                            "Suspicious query parameter",
+                            param=param_name,
+                            value=param_value,
+                            client_ip=request.client.host if request.client else "unknown"
+                        )
+                        return JSONResponse(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            content={"detail": "Invalid query parameter"}
+                        )
+        
+        return await call_next(request)
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Enhanced rate limiting with IP-based tracking"""
+    """Global rate limiting middleware"""
     
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app):
         super().__init__(app)
-        self.rate_limits = {
-            "default": {"requests": 100, "window": 60},  # 100 requests per minute
-            "/api/v1/auth/login": {"requests": 5, "window": 60},  # 5 login attempts per minute
-            "/api/v1/auth/register": {"requests": 3, "window": 60},  # 3 registrations per minute
-            "/api/v1/rag/query": {"requests": 60, "window": 60},  # 60 queries per minute
-            "/api/v1/documents/upload": {"requests": 10, "window": 60},  # 10 uploads per minute
-        }
-        self.client_requests = {}  # In production, use Redis
+        self.requests = {}  # In-memory store (use Redis in production)
+        self.cleanup_interval = 60  # seconds
+        self.last_cleanup = time.time()
     
-    def get_client_ip(self, request: Request) -> str:
-        """Get client IP address"""
-        # Check for forwarded headers
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip
-        
-        return request.client.host if request.client else "unknown"
-    
-    def is_rate_limited(self, client_ip: str, path: str) -> bool:
-        """Check if client is rate limited"""
+    async def dispatch(self, request: Request, call_next):
+        # Cleanup old entries periodically
         current_time = time.time()
+        if current_time - self.last_cleanup > self.cleanup_interval:
+            self._cleanup_old_entries(current_time)
+            self.last_cleanup = current_time
         
-        # Get rate limit for path or use default
-        rate_limit = self.rate_limits.get(path, self.rate_limits["default"])
-        max_requests = rate_limit["requests"]
-        window = rate_limit["window"]
+        # Get client identifier
+        client_ip = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "")
+        identifier = f"{client_ip}:{hashlib.md5(user_agent.encode()).hexdigest()[:8]}"
         
-        # Clean old entries
-        if client_ip in self.client_requests:
-            self.client_requests[client_ip] = [
-                req_time for req_time in self.client_requests[client_ip]
-                if current_time - req_time < window
+        # Rate limiting rules
+        window = 60  # 1 minute
+        limit = settings.RATE_LIMIT_REQUESTS
+        
+        # Check rate limit
+        current_time = int(time.time())
+        window_start = current_time - window
+        
+        # Clean old entries for this identifier
+        if identifier in self.requests:
+            self.requests[identifier] = [
+                req_time for req_time in self.requests[identifier]
+                if req_time > window_start
             ]
         else:
-            self.client_requests[client_ip] = []
+            self.requests[identifier] = []
         
         # Check if limit exceeded
-        if len(self.client_requests[client_ip]) >= max_requests:
-            return True
-        
-        # Add current request
-        self.client_requests[client_ip].append(current_time)
-        return False
-    
-    async def dispatch(self, request: Request, call_next):
-        client_ip = self.get_client_ip(request)
-        path = str(request.url.path)
-        
-        # Skip rate limiting for health checks
-        if path in ["/health", "/ready", "/metrics"]:
-            return await call_next(request)
-        
-        if self.is_rate_limited(client_ip, path):
+        if len(self.requests[identifier]) >= limit:
             logger.warning(
                 "Rate limit exceeded",
-                client_ip=client_ip,
-                path=path
+                identifier=identifier,
+                requests=len(self.requests[identifier]),
+                limit=limit
             )
             return JSONResponse(
-                status_code=429,
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={
-                    "error": "Rate limit exceeded",
-                    "message": "Too many requests. Please try again later.",
-                    "retry_after": 60
+                    "detail": "Rate limit exceeded. Please try again later.",
+                    "retry_after": window
                 },
-                headers={"Retry-After": "60"}
+                headers={
+                    "Retry-After": str(window),
+                    "X-RateLimit-Limit": str(limit),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(current_time + window)
+                }
             )
         
+        # Add current request
+        self.requests[identifier].append(current_time)
+        
+        # Process request
         response = await call_next(request)
+        
+        # Add rate limit headers
+        remaining = limit - len(self.requests[identifier])
+        response.headers["X-RateLimit-Limit"] = str(limit)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        response.headers["X-RateLimit-Reset"] = str(current_time + window)
+        
         return response
+    
+    def _cleanup_old_entries(self, current_time: int):
+        """Remove old entries from memory"""
+        window_start = current_time - 60
+        for identifier in list(self.requests.keys()):
+            self.requests[identifier] = [
+                req_time for req_time in self.requests[identifier]
+                if req_time > window_start
+            ]
+            if not self.requests[identifier]:
+                del self.requests[identifier]
 
-class CORSMiddleware(BaseHTTPMiddleware):
-    """Enhanced CORS middleware with security controls"""
-    
-    def __init__(self, app: ASGIApp, allowed_origins: List[str] = None):
-        super().__init__(app)
-        self.allowed_origins = allowed_origins or []
-        self.allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-        self.allowed_headers = [
-            "Accept",
-            "Accept-Language",
-            "Content-Language",
-            "Content-Type",
-            "Authorization",
-            "X-Requested-With",
-            "X-API-Key"
-        ]
-        self.max_age = 86400  # 24 hours
-    
-    def is_origin_allowed(self, origin: str) -> bool:
-        """Check if origin is allowed"""
-        if not origin:
-            return False
-        
-        # Allow localhost for development
-        if origin.startswith("http://localhost") or origin.startswith("https://localhost"):
-            return True
-        
-        # Check against allowed origins
-        for allowed_origin in self.allowed_origins:
-            if allowed_origin == "*":
-                return True
-            if origin == allowed_origin:
-                return True
-            if allowed_origin.startswith("*."):
-                domain = allowed_origin[2:]
-                if origin.endswith(domain):
-                    return True
-        
-        return False
-    
-    async def dispatch(self, request: Request, call_next):
-        origin = request.headers.get("origin")
-        
-        # Handle preflight requests
-        if request.method == "OPTIONS":
-            if origin and not self.is_origin_allowed(origin):
-                return JSONResponse(
-                    status_code=403,
-                    content={"error": "CORS policy violation"}
-                )
-            
-            response = JSONResponse(content={})
-        else:
-            response = await call_next(request)
-        
-        # Add CORS headers
-        if origin and self.is_origin_allowed(origin):
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-        elif not origin:
-            # Same-origin request
-            response.headers["Access-Control-Allow-Origin"] = "*"
-        
-        response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allowed_methods)
-        response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allowed_headers)
-        response.headers["Access-Control-Max-Age"] = str(self.max_age)
-        response.headers["Vary"] = "Origin"
-        
-        return response
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Log all requests for security monitoring"""
     
-    def __init__(self, app: ASGIApp):
-        super().__init__(app)
-        self.sensitive_paths = [
-            "/api/v1/auth/login",
-            "/api/v1/auth/register",
-            "/api/v1/billing/",
-            "/api/v1/rag/query"
-        ]
-    
-    def get_client_ip(self, request: Request) -> str:
-        """Get client IP address"""
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            return forwarded_for.split(",")[0].strip()
-        
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip
-        
-        return request.client.host if request.client else "unknown"
-    
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
-        client_ip = self.get_client_ip(request)
         
         # Log request
         logger.info(
             "Request started",
             method=request.method,
             path=request.url.path,
-            client_ip=client_ip,
-            user_agent=request.headers.get("user-agent", "unknown")
+            query_params=dict(request.query_params),
+            client_ip=request.client.host if request.client else "unknown",
+            user_agent=request.headers.get("user-agent", ""),
+            content_length=request.headers.get("content-length", "0")
         )
         
-        try:
-            response = await call_next(request)
-            
-            # Calculate processing time
-            process_time = time.time() - start_time
-            
-            # Log response
-            logger.info(
-                "Request completed",
-                method=request.method,
-                path=request.url.path,
-                status_code=response.status_code,
-                process_time=process_time,
-                client_ip=client_ip
-            )
-            
-            # Add processing time header
-            response.headers["X-Process-Time"] = str(process_time)
-            
-            return response
-            
-        except Exception as e:
-            process_time = time.time() - start_time
-            
-            # Log error
-            logger.error(
-                "Request failed",
-                method=request.method,
-                path=request.url.path,
-                error=str(e),
-                process_time=process_time,
-                client_ip=client_ip
-            )
-            
-            raise
+        # Process request
+        response = await call_next(request)
+        
+        # Log response
+        process_time = time.time() - start_time
+        logger.info(
+            "Request completed",
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            process_time=process_time,
+            client_ip=request.client.host if request.client else "unknown"
+        )
+        
+        return response
+
 
 class SecurityExceptionHandler:
     """Handle security-related exceptions"""
@@ -345,25 +259,121 @@ class SecurityExceptionHandler:
     def handle_security_exception(request: Request, exc: Exception) -> JSONResponse:
         """Handle security exceptions with appropriate responses"""
         
-        if isinstance(exc, HTTPException):
-            if exc.status_code == 413:
-                return JSONResponse(
-                    status_code=413,
-                    content={"error": "Request too large", "message": "Request size exceeds limit"}
-                )
-            elif exc.status_code == 400:
-                return JSONResponse(
-                    status_code=400,
-                    content={"error": "Bad request", "message": "Invalid input detected"}
-                )
-            elif exc.status_code == 429:
-                return JSONResponse(
-                    status_code=429,
-                    content={"error": "Rate limit exceeded", "message": "Too many requests"}
-                )
+        # Log security exception
+        logger.warning(
+            "Security exception",
+            path=request.url.path,
+            method=request.method,
+            client_ip=request.client.host if request.client else "unknown",
+            error_type=type(exc).__name__,
+            error_message=str(exc)
+        )
         
-        # Generic security error
-        return JSONResponse(
-            status_code=500,
-            content={"error": "Internal server error", "message": "An error occurred"}
+        # Don't expose internal errors in production
+        if settings.ENVIRONMENT == "production":
+            if isinstance(exc, HTTPException):
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail}
+                )
+            else:
+                return JSONResponse(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    content={"detail": "Internal server error"}
+                )
+        else:
+            # Development mode - show more details
+            if isinstance(exc, HTTPException):
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail}
+                )
+            else:
+                return JSONResponse(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    content={
+                        "detail": "Internal server error",
+                        "error_type": type(exc).__name__,
+                        "error_message": str(exc)
+                    }
+                )
+
+
+class CSRFProtectionMiddleware(BaseHTTPMiddleware):
+    """CSRF protection middleware"""
+    
+    def __init__(self, app):
+        super().__init__(app)
+        self.exempt_paths = ["/health", "/ready", "/metrics", "/api/v1/auth/login"]
+    
+    async def dispatch(self, request: Request, call_next):
+        # Skip CSRF check for exempt paths
+        if request.url.path in self.exempt_paths:
+            return await call_next(request)
+        
+        # Skip CSRF check for GET, HEAD, OPTIONS
+        if request.method in ["GET", "HEAD", "OPTIONS"]:
+            return await call_next(request)
+        
+        # Check for CSRF token
+        csrf_token = request.headers.get("X-CSRF-Token")
+        if not csrf_token:
+            logger.warning(
+                "Missing CSRF token",
+                path=request.url.path,
+                method=request.method,
+                client_ip=request.client.host if request.client else "unknown"
+            )
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "CSRF token required"}
+            )
+        
+        # Validate CSRF token (simplified - use proper session-based validation in production)
+        if not self._validate_csrf_token(csrf_token):
+            logger.warning(
+                "Invalid CSRF token",
+                path=request.url.path,
+                method=request.method,
+                client_ip=request.client.host if request.client else "unknown"
+            )
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "Invalid CSRF token"}
+            )
+        
+        return await call_next(request)
+    
+    def _validate_csrf_token(self, token: str) -> bool:
+        """Validate CSRF token (simplified implementation)"""
+        # In production, implement proper session-based CSRF validation
+        return len(token) >= 32 and token.isalnum()
+
+
+# Enhanced CORS middleware with security considerations
+class SecurityCORSMiddleware(CORSMiddleware):
+    """Enhanced CORS middleware with security features"""
+    
+    def __init__(self, app, allowed_origins: List[str]):
+        super().__init__(
+            app=app,
+            allow_origins=allowed_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+            allow_headers=[
+                "Accept",
+                "Accept-Language",
+                "Content-Language",
+                "Content-Type",
+                "Authorization",
+                "X-CSRF-Token",
+                "X-Requested-With",
+                "X-Client-Version"
+            ],
+            expose_headers=[
+                "X-RateLimit-Limit",
+                "X-RateLimit-Remaining",
+                "X-RateLimit-Reset"
+            ],
+            max_age=3600  # 1 hour
         )

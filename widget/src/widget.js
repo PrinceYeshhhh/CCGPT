@@ -8,7 +8,7 @@
 
   // Configuration
   const CONFIG = {
-    apiUrl: 'http://localhost:8000',
+    apiUrl: 'https://customercaregpt-backend-xxxxx-uc.a.run.app',
     codeId: null,
     title: 'Customer Support',
     placeholder: 'Ask me anything...',

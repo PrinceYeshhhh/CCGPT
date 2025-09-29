@@ -18,6 +18,7 @@ from app.services.production_vector_service import SearchMode
 from app.services.production_rag_system import ChunkingStrategy
 from app.schemas.rag import RAGQueryResponse, RAGQueryRequest
 from app.schemas.common import SuccessResponse, ErrorResponse
+from app.models.subscriptions import Subscription
 
 logger = structlog.get_logger()
 
@@ -134,6 +135,14 @@ async def query_documents(
     - **stream_response**: Whether to stream the response
     """
     try:
+        # Enforce subscription query quota per workspace
+        sub = db.query(Subscription).filter(Subscription.workspace_id == request.workspace_id).first()
+        if sub and sub.monthly_query_quota is not None and sub.queries_this_period >= sub.monthly_query_quota:
+            plan_name = sub.tier.replace('_', ' ').title()
+            raise HTTPException(
+                status_code=402, 
+                detail=f"Query quota exceeded for your {plan_name} plan. You have used {sub.queries_this_period}/{sub.monthly_query_quota} queries. Please upgrade your plan or wait for reset."
+            )
         # Create RAG service
         rag_service = ProductionRAGService(db)
         
@@ -154,7 +163,8 @@ async def query_documents(
             query=request.query,
             workspace_id=request.workspace_id,
             session_id=request.session_id,
-            config=config
+            config=config,
+            document_ids=request.document_ids or None
         )
         
         return response

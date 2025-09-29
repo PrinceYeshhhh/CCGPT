@@ -44,6 +44,8 @@ class VectorCollectionStats(BaseModel):
 
 class VectorEmbeddingStats(BaseModel):
     """Embedding service statistics"""
+    model_config = {"protected_namespaces": ()}
+    
     model_name: str = Field(..., description="Embedding model name")
     embedding_dimension: int = Field(..., description="Embedding dimension")
     model_loaded: bool = Field(..., description="Whether model is loaded")

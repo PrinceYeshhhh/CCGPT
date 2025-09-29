@@ -40,7 +40,7 @@ SECRET_KEY=your_secret_key_here
 ENVIRONMENT=development
 
 # Frontend Configuration
-REACT_APP_API_URL=http://localhost:8000
+REACT_APP_API_URL=https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1
 
 # File Upload Settings
 MAX_FILE_SIZE=10485760  # 10MB
@@ -50,7 +50,7 @@ ALLOWED_EXTENSIONS=pdf,docx,csv
 CHROMA_PERSIST_DIRECTORY=./chroma_db
 
 # CORS Settings
-CORS_ORIGINS=http://localhost:3000,http://localhost:3001
+CORS_ORIGINS=https://customercaregpt-frontend.vercel.app,https://customercaregpt-frontend-git-main.vercel.app
 ```
 
 ### 3. Get a Google Gemini API Key
@@ -84,9 +84,9 @@ This will start:
 
 ### 6. Access the Application
 
-- **Admin Dashboard**: http://localhost:3000
-- **API Documentation**: http://localhost:8000/api/docs
-- **Health Check**: http://localhost:8000/health
+- **Admin Dashboard**: https://customercaregpt-frontend.vercel.app
+- **API Documentation**: https://customercaregpt-backend-xxxxx-uc.a.run.app/api/docs
+- **Health Check**: https://customercaregpt-backend-xxxxx-uc.a.run.app/health
 
 ## Development Setup
 
@@ -161,7 +161,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ### 1. Create an Account
 
-1. Go to http://localhost:3000
+1. Go to https://customercaregpt-frontend.vercel.app
 2. Click "Create account"
 3. Fill in your details
 4. Sign in
@@ -191,7 +191,7 @@ Add the embed code to your website:
     primaryColor: '#007bff'
   };
 </script>
-<script src="http://localhost:8000/widget/widget.js"></script>
+<script src="https://customercaregpt-backend-xxxxx-uc.a.run.app/widget/widget.js"></script>
 ```
 
 ## API Usage
@@ -202,7 +202,7 @@ All API endpoints require authentication. Include the JWT token in the Authoriza
 
 ```bash
 curl -H "Authorization: Bearer your-jwt-token" \
-     http://localhost:8000/api/v1/documents/
+     https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/documents/
 ```
 
 ### Upload Document
@@ -212,7 +212,7 @@ curl -X POST \
      -H "Authorization: Bearer your-jwt-token" \
      -F "file=@document.pdf" \
      -F "title=My Document" \
-     http://localhost:8000/api/v1/documents/upload
+     https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/documents/upload
 ```
 
 ### Send Chat Message
@@ -221,7 +221,7 @@ curl -X POST \
 curl -X POST \
      -H "Content-Type: application/json" \
      -d '{"message": "Hello, how can I help you?"}' \
-     http://localhost:8000/api/v1/chat/message
+     https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1/chat/message
 ```
 
 ## Troubleshooting
@@ -278,8 +278,8 @@ docker-compose up -d
 
 ### Health Checks
 
-- Backend: http://localhost:8000/health
-- Frontend: http://localhost:3000
+- Backend: https://customercaregpt-backend-xxxxx-uc.a.run.app/health
+- Frontend: https://customercaregpt-frontend.vercel.app
 - Database: Check container status
 
 ### Metrics

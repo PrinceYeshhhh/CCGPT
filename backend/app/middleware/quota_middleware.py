@@ -12,6 +12,7 @@ from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.models.subscriptions import Subscription
 from app.models.workspace import Workspace
+from app.services.trial_service import TrialService
 
 logger = logging.getLogger(__name__)
 
@@ -43,16 +44,22 @@ async def check_quota(
     ).first()
     
     if not subscription:
-        # No active subscription - check if workspace has free tier
-        workspace = db.query(Workspace).filter(Workspace.id == current_user.workspace_id).first()
-        if not workspace or workspace.plan == 'free':
-            # Free tier - check against free tier limits
-            free_quota = 100  # Free tier gets 100 queries
-            # This would need to be tracked separately or in subscription table
-            # For now, we'll allow free tier users
-            logger.info(f"Free tier user {current_user.id} - allowing request")
+        # No active subscription - check trial status
+        trial_service = TrialService(db)
+        trial_info = trial_service.check_trial_expiration(str(current_user.workspace_id))
+        
+        if trial_info["is_trial"] and not trial_info["is_expired"]:
+            # Active trial - allow request
+            logger.info(f"Trial user {current_user.id} - allowing request")
             return None
+        elif trial_info["is_trial"] and trial_info["is_expired"]:
+            # Expired trial
+            raise QuotaExceededException(
+                "Your free trial has expired. Please subscribe to continue.",
+                {"tier": "free_trial", "status": "expired", "trial_expired": True}
+            )
         else:
+            # No trial, no subscription
             raise QuotaExceededException(
                 "No active subscription found. Please subscribe to continue.",
                 {"tier": "none", "status": "inactive"}
@@ -81,6 +88,9 @@ async def check_quota(
         logger.info(f"Workspace {current_user.workspace_id} approaching quota limit: {subscription.quota_usage_percentage:.1f}%")
     
     return subscription
+
+# Backwards-compatibility alias expected by some tests
+QuotaMiddleware = check_quota  # type: ignore
 
 async def increment_usage(
     subscription: Optional[Subscription] = Depends(check_quota),
@@ -126,7 +136,7 @@ def get_quota_info(
     ).first()
     
     if not subscription:
-        # Free tier
+        # Free tier - 100 queries, 1 document
         return {
             "tier": "free",
             "status": "active",
@@ -134,7 +144,9 @@ def get_quota_info(
             "quota_limit": 100,
             "remaining": 100,
             "usage_percentage": 0.0,
-            "is_unlimited": False
+            "is_unlimited": False,
+            "documents_limit": 1,
+            "storage_limit": 10 * 1024 * 1024  # 10MB
         }
     
     return {

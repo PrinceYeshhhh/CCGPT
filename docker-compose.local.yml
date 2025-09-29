@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  # Redis for caching and job queue
+  redis:
+    image: redis:7-alpine
+    container_name: customercaregpt-redis-local
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ChromaDB for vector storage
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: customercaregpt-chromadb-local
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_HOST=0.0.0.0
+      - CHROMA_SERVER_HTTP_PORT=8000
+      - CHROMA_SERVER_AUTH_CREDENTIALS=admin:local-dev-password
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: customercaregpt-backend-local
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./dev.db
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_URL=http://chromadb:8000
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - CORS_ORIGINS=https://customercaregpt-frontend.vercel.app,https://customercaregpt-frontend-git-main.vercel.app,http://localhost:3000,http://localhost:5173
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,customercaregpt-frontend.vercel.app
+      - PUBLIC_BASE_URL=http://localhost:8000
+      - API_BASE_URL=http://localhost:8000
+      - ENABLE_RATE_LIMITING=false
+      - ENABLE_SECURITY_HEADERS=true
+      - ENABLE_CSP=false
+      - ENABLE_HSTS=false
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # RQ Worker for background tasks
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: customercaregpt-worker-local
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+      - ./data:/app/data
+    environment:
+      - DATABASE_URL=sqlite:///./dev.db
+      - REDIS_URL=redis://redis:6379/0
+      - CHROMA_URL=http://chromadb:8000
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      redis:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    command: python -m rq worker --url redis://redis:6379/0 document_processing
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  chroma_data:

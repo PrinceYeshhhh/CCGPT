@@ -3,6 +3,7 @@ Embed code management endpoints
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import List
 import structlog
@@ -269,7 +270,8 @@ async def get_widget_script(
         # Update usage count
         embed_service.increment_usage(code_id)
         
-        return {"script": script_content}
+        # Serve raw JavaScript for direct <script src> embedding
+        return Response(content=script_content, media_type="application/javascript")
         
     except HTTPException:
         raise

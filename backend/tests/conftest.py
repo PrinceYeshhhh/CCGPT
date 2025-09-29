@@ -215,10 +215,10 @@ def mock_stripe_service():
         mock_instance = MagicMock()
         mock_instance.create_checkout_session.return_value = MagicMock(
             id="cs_test_123",
-            url="https://checkout.stripe.com/test"
+            url="http://localhost:3000/billing/checkout/test"
         )
         mock_instance.create_billing_portal_session.return_value = MagicMock(
-            url="https://billing.stripe.com/test"
+            url="http://localhost:3000/billing/portal/test"
         )
         mock.return_value = mock_instance
         yield mock_instance

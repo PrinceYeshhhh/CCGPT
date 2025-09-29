@@ -44,7 +44,7 @@ async def test_embed_service():
             text_color="#333333",
             position="bottom-left",
             show_avatar=True,
-            avatar_url="https://example.com/avatar.png",
+            avatar_url="http://localhost:3000/avatar.png",
             welcome_message="Welcome to our support!",
             max_messages=100,
             enable_sound=True,
@@ -279,7 +279,7 @@ def test_widget_examples():
         print("\n1. Basic Widget Embedding:")
         print("""
         <!-- Simple embedding -->
-        <script src="https://api.customercaregpt.com/embed/widget/abc123" 
+        <script src="http://localhost:8000/api/v1/embed/widget/abc123" 
                 data-embed-id="abc123" 
                 data-api-key="key123">
         </script>
@@ -308,7 +308,7 @@ def test_widget_examples():
             `
         };
         </script>
-        <script src="https://api.customercaregpt.com/embed/widget/abc123"></script>
+        <script src="http://localhost:8000/api/v1/embed/widget/abc123"></script>
         """)
         
         print("\n3. Programmatic Control:")

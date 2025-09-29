@@ -388,14 +388,14 @@ class TestStripeService:
             # Mock checkout session
             mock_session = Mock()
             mock_session.id = "cs_test_123"
-            mock_session.url = "https://checkout.stripe.com/test"
+            mock_session.url = "http://localhost:3000/billing/checkout/test"
             mock_create.return_value = mock_session
             
             service = StripeService()
             result = await service.create_checkout_session("pro", "test_workspace", "test@example.com", "Test User")
             
             assert result["session_id"] == "cs_test_123"
-            assert result["url"] == "https://checkout.stripe.com/test"
+            assert result["url"] == "http://localhost:3000/billing/checkout/test"
             mock_create.assert_called_once()
     
     @pytest.mark.asyncio
@@ -403,14 +403,14 @@ class TestStripeService:
     async def test_create_billing_portal_session(self, mock_create):
         """Test billing portal session creation"""
         mock_session = Mock()
-        mock_session.url = "https://billing.stripe.com/test"
+        mock_session.url = "http://localhost:3000/billing/portal/test"
         mock_create.return_value = mock_session
         
         service = StripeService()
         result = await service.create_billing_portal_session("test_customer", "https://example.com/return")
         
         # The method returns a string URL, not a dict
-        assert result == "https://billing.stripe.com/test"
+        assert result == "http://localhost:3000/billing/portal/test"
         mock_create.assert_called_once()
     
     def test_verify_webhook_signature(self, stripe_service):

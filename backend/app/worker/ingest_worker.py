@@ -13,6 +13,7 @@ from app.models.document import Document, DocumentChunk
 from app.utils.file_parser import extract_text_from_file
 from app.utils.chunker import chunk_text, create_chunk_metadata
 from app.utils.storage import get_storage_adapter
+from app.services.vector_service import VectorService
 
 logger = structlog.get_logger()
 
@@ -33,6 +34,7 @@ def process_document(document_id: str) -> Dict[str, Any]:
     """
     db = SessionLocal()
     storage = get_storage_adapter()
+    vector = VectorService()
     
     try:
         # Get document
@@ -63,6 +65,8 @@ def process_document(document_id: str) -> Dict[str, Any]:
         
         # Process each text block
         all_chunks = []
+        processed = 0
+        total_blocks = len(text_blocks)
         for block_text, block_metadata in text_blocks:
             # Chunk the text block
             chunks = chunk_text(block_text)
@@ -75,6 +79,8 @@ def process_document(document_id: str) -> Dict[str, Any]:
                     block_metadata
                 )
                 all_chunks.append((chunk_text_content, chunk_metadata))
+            processed += 1
+            # Optional: store progress in document.error as JSON or in a side-channel (skipping DB writes for perf)
         
         # Save chunks to database
         chunk_objects = []
@@ -92,6 +98,26 @@ def process_document(document_id: str) -> Dict[str, Any]:
         db.bulk_save_objects(chunk_objects)
         db.commit()
         
+        # Index embeddings in vector database
+        try:
+            raw_chunks = []
+            for c in chunk_objects:
+                raw_chunks.append({
+                    "chunk_id": str(c.id),
+                    "text": c.text,
+                    "metadata": {
+                        "document_id": str(document.id),
+                        "workspace_id": str(document.workspace_id),
+                        "chunk_index": c.chunk_index,
+                        **(c.metadata or {})
+                    }
+                })
+            # Note: VectorService.add_document_chunks expects document_id and workspace_id as strings
+            import asyncio
+            asyncio.run(vector.add_document_chunks(document_id=str(document.id), chunks=raw_chunks, workspace_id=str(document.workspace_id)))
+        except Exception as e:
+            logger.error("Vector indexing failed", error=str(e), document_id=document_id)
+        
         # Update document status to done
         document.status = "done"
         db.commit()
@@ -107,7 +133,9 @@ def process_document(document_id: str) -> Dict[str, Any]:
             "status": "success",
             "document_id": document_id,
             "chunks_created": len(all_chunks),
-            "message": "Document processed successfully"
+            "message": "Document processed successfully",
+            "progress": 100,
+            "phase": "complete"
         }
         
     except Exception as e:
@@ -128,7 +156,9 @@ def process_document(document_id: str) -> Dict[str, Any]:
             "status": "failed",
             "document_id": document_id,
             "error": str(e),
-            "message": "Document processing failed"
+            "message": "Document processing failed",
+            "progress": 0,
+            "phase": "error"
         }
         
     finally:

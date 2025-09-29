@@ -163,7 +163,7 @@ def test_chat_models():
             user_label="Customer A",
             visitor_ip="192.168.1.1",
             user_agent="Mozilla/5.0...",
-            referrer="https://example.com"
+            referrer="http://localhost:3000"
         )
         print(f"✅ ChatSessionCreate: {session_create.workspace_id}")
         

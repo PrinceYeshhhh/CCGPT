@@ -21,6 +21,8 @@ class Workspace(Base):
     logo_url = Column(String(500), nullable=True)
     website_url = Column(String(500), nullable=True)
     support_email = Column(String(255), nullable=True)
+    custom_domain = Column(String(255), nullable=True)
+    widget_domain = Column(String(255), nullable=True)
     timezone = Column(String(50), default="UTC")
     plan = Column(String(50), default="free")  # 'free', 'starter', 'pro', 'enterprise', 'white_label'
     is_active = Column(Boolean, default=True)
@@ -33,6 +35,7 @@ class Workspace(Base):
     documents = relationship("Document", back_populates="workspace")
     chat_sessions = relationship("ChatSession", back_populates="workspace")
     embed_codes = relationship("EmbedCode", back_populates="workspace")
+    team_members = relationship("TeamMember", back_populates="workspace")
     
     def __repr__(self):
         return f"<Workspace(id={self.id}, name='{self.name}', plan='{self.plan}')>"

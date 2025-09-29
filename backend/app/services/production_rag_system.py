@@ -21,7 +21,10 @@ from sqlalchemy.orm import Session
 
 # File processing
 import PyPDF2
-import pymupdf as fitz
+try:
+    import fitz  # PyMuPDF canonical import
+except Exception:  # pragma: no cover
+    fitz = None
 from docx import Document as DocxDocument
 import openpyxl
 from markdown import markdown

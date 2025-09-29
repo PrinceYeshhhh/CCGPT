@@ -3,15 +3,21 @@ WebSocket endpoints for realtime chat functionality
 """
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import Optional
+from urllib.parse import parse_qs
+from sqlalchemy.orm import Session
 import structlog
+import time
 
 from app.core.database import get_db
 from app.models.user import User
 from app.services.auth import AuthService
+from app.services.embed_service import EmbedService
+from app.db.session import SessionLocal
 from app.api.api_v1.dependencies import get_current_user
 from app.services.websocket_service import realtime_chat_service
+from app.services.auth import AuthService
+from app.services.websocket_security import websocket_security_service
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -21,68 +27,144 @@ router = APIRouter()
 async def websocket_chat_endpoint(
     websocket: WebSocket,
     session_id: str,
-    workspace_id: str,
-    user_id: str,
-    token: Optional[str] = None
+    token: Optional[str] = None,
+    client_api_key: Optional[str] = None
 ):
     """
-    WebSocket endpoint for realtime chat
+    WebSocket endpoint for realtime chat with enhanced security
     
     Args:
         session_id: Chat session identifier
-        workspace_id: Workspace identifier
-        user_id: User identifier
-        token: Optional authentication token
+        token: Optional JWT authentication token
+        client_api_key: Optional API key for embed widget
     """
+    connection_id = f"{session_id}_{int(time.time())}"
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    
     try:
         # Validate session_id format
         if not session_id or len(session_id) < 10:
             await websocket.close(code=4000, reason="Invalid session ID")
             return
         
-        # TODO: Add proper authentication for WebSocket connections
-        # For now, we'll accept the connection without token validation
-        # In production, you should validate the token here
+        # Authenticate connection
+        auth_result = await websocket_security_service.authenticate_connection(
+            websocket, token, client_api_key
+        )
+        if not auth_result:
+            await websocket.close(code=4401, reason="Authentication failed")
+            return
+        
+        resolved_user_id = auth_result["user_id"]
+        resolved_workspace_id = auth_result["workspace_id"]
+        
+        # Check connection limits
+        if not await websocket_security_service.check_connection_limits(resolved_user_id, client_ip):
+            await websocket.close(code=4403, reason="Connection limit exceeded")
+            return
+        
+        # Register connection
+        await websocket_security_service.register_connection(
+            connection_id, resolved_user_id, client_ip, auth_result
+        )
+        
+        # Accept the WebSocket connection
+        await websocket.accept()
         
         logger.info(
-            "WebSocket connection attempt",
+            "WebSocket connected",
             session_id=session_id,
-            workspace_id=workspace_id,
-            user_id=user_id
+            workspace_id=resolved_workspace_id,
+            user_id=resolved_user_id,
+            connection_id=connection_id
         )
         
-        # Handle the WebSocket connection
-        await realtime_chat_service.handle_websocket_connection(
-            websocket=websocket,
-            session_id=session_id,
-            workspace_id=workspace_id,
-            user_id=user_id
-        )
-        
+        # Handle WebSocket messages
+        while True:
+            try:
+                # Receive message
+                data = await websocket.receive_json()
+                
+                # Validate message
+                if not websocket_security_service.validate_message(data):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Invalid message format"
+                    })
+                    continue
+                
+                # Check rate limits
+                if not await websocket_security_service.check_message_rate_limit(resolved_user_id):
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "Rate limit exceeded"
+                    })
+                    continue
+                
+                # Record message for rate limiting
+                await websocket_security_service.record_message(resolved_user_id)
+                
+                # Process message based on type
+                if data["type"] == "chat":
+                    # Handle chat message
+                    response = await realtime_chat_service.process_chat_message(
+                        session_id=session_id,
+                        workspace_id=resolved_workspace_id,
+                        user_id=resolved_user_id,
+                        message=data.get("content", ""),
+                        context=auth_result
+                    )
+                    await websocket.send_json(response)
+                
+                elif data["type"] == "ping":
+                    await websocket.send_json({"type": "pong"})
+                
+                elif data["type"] == "typing":
+                    # Broadcast typing indicator
+                    await realtime_chat_service.broadcast_typing(
+                        session_id=session_id,
+                        user_id=resolved_user_id,
+                        is_typing=True
+                    )
+                
+                elif data["type"] == "stop_typing":
+                    await realtime_chat_service.broadcast_typing(
+                        session_id=session_id,
+                        user_id=resolved_user_id,
+                        is_typing=False
+                    )
+                
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                logger.error("WebSocket message error", error=str(e))
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Message processing failed"
+                })
+    
     except WebSocketDisconnect:
         logger.info(
             "WebSocket disconnected",
             session_id=session_id,
-            user_id=user_id
+            user_id=resolved_user_id if 'resolved_user_id' in locals() else "unknown"
         )
     except Exception as e:
         logger.error(
             "WebSocket error",
             error=str(e),
-            session_id=session_id,
-            user_id=user_id
+            session_id=session_id
         )
-        try:
-            await websocket.close(code=4000, reason="Internal server error")
-        except:
-            pass
+    finally:
+        # Unregister connection
+        await websocket_security_service.unregister_connection(connection_id)
 
 
 @router.get("/stats")
 async def get_websocket_stats():
     """Get WebSocket connection statistics"""
     try:
-        stats = realtime_chat_service.get_connection_stats()
+        stats = websocket_security_service.get_connection_stats()
         return {
             "status": "success",
             "data": stats

@@ -1,0 +1,29 @@
+# CustomerCareGPT Google Cloud Memorystore Redis Configuration
+# This file contains the Redis instance configuration
+
+# Redis Instance
+apiVersion: redis.cnrm.cloud.google.com/v1beta1
+kind: RedisInstance
+metadata:
+  name: customercaregpt-redis
+  labels:
+    app: customercaregpt
+spec:
+  region: us-central1
+  tier: BASIC
+  memorySizeGb: 1
+  redisVersion: REDIS_6_X
+  displayName: "CustomerCareGPT Redis Cache"
+  authorizedNetwork: projects/YOUR_PROJECT_ID/global/networks/default
+  redisConfigs:
+    maxmemory-policy: allkeys-lru
+    timeout: "300"
+    tcp-keepalive: "60"
+  maintenancePolicy:
+    weeklyMaintenanceWindow:
+    - day: SUNDAY
+      startTime:
+        hours: 3
+        minutes: 0
+  redisAuthEnabled: false
+  transitEncryptionMode: DISABLED

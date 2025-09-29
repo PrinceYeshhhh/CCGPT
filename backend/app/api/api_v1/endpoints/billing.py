@@ -61,23 +61,35 @@ async def get_billing_info(
     # Determine plan based on workspace settings or default to free
     plan = getattr(workspace, 'plan', 'free')
     
-    # Set limits based on plan
+    # Set limits based on new pricing structure
     if plan == 'free':
         queries_limit = 100
+        documents_limit = 1
+        storage_limit = 10 * 1024 * 1024  # 10MB
+    elif plan == 'free_trial':
+        queries_limit = 100
+        documents_limit = 1
+        storage_limit = 10 * 1024 * 1024  # 10MB
+    elif plan == 'starter':
+        queries_limit = 7000
         documents_limit = 5
         storage_limit = 100 * 1024 * 1024  # 100MB
     elif plan == 'pro':
-        queries_limit = 10000
-        documents_limit = -1  # unlimited
-        storage_limit = 1000 * 1024 * 1024  # 1GB
+        queries_limit = 50000
+        documents_limit = 25
+        storage_limit = 500 * 1024 * 1024  # 500MB
     elif plan == 'enterprise':
         queries_limit = -1  # unlimited
         documents_limit = -1  # unlimited
         storage_limit = 10 * 1024 * 1024 * 1024  # 10GB
+    elif plan == 'white_label':
+        queries_limit = -1  # unlimited
+        documents_limit = -1  # unlimited
+        storage_limit = -1  # unlimited
     else:
         queries_limit = 100
-        documents_limit = 5
-        storage_limit = 100 * 1024 * 1024
+        documents_limit = 1
+        storage_limit = 10 * 1024 * 1024
     
     # Check if billing is active (simplified - in real implementation, check Stripe)
     billing_status = "active"  # This would come from Stripe webhook data
@@ -88,7 +100,7 @@ async def get_billing_info(
     billing_portal_url = None
     if plan != 'free':
         # In real implementation: get from Stripe
-        billing_portal_url = f"https://billing.stripe.com/p/login/{workspace.id}"
+        billing_portal_url = f"http://localhost:3000/billing/portal/{workspace.id}"
     
     return BillingInfo(
         plan=plan,
@@ -144,25 +156,37 @@ async def get_usage_stats(
     
     total_storage = sum([doc.file_size or 0 for doc in storage_used])
     
-    # Determine plan and limits
+    # Determine plan and limits based on new pricing structure
     plan = getattr(workspace, 'plan', 'free')
     
     if plan == 'free':
         queries_limit = 100
+        documents_limit = 1
+        storage_limit = 10 * 1024 * 1024
+    elif plan == 'free_trial':
+        queries_limit = 100
+        documents_limit = 1
+        storage_limit = 10 * 1024 * 1024
+    elif plan == 'starter':
+        queries_limit = 7000
         documents_limit = 5
         storage_limit = 100 * 1024 * 1024
     elif plan == 'pro':
-        queries_limit = 10000
-        documents_limit = -1
-        storage_limit = 1000 * 1024 * 1024
+        queries_limit = 50000
+        documents_limit = 25
+        storage_limit = 500 * 1024 * 1024
     elif plan == 'enterprise':
         queries_limit = -1
         documents_limit = -1
         storage_limit = 10 * 1024 * 1024 * 1024
+    elif plan == 'white_label':
+        queries_limit = -1
+        documents_limit = -1
+        storage_limit = -1
     else:
         queries_limit = 100
-        documents_limit = 5
-        storage_limit = 100 * 1024 * 1024
+        documents_limit = 1
+        storage_limit = 10 * 1024 * 1024
     
     return UsageStats(
         queries_used=queries_used,
@@ -201,7 +225,7 @@ async def create_checkout_session(
     # 3. Handle webhooks to update workspace plan
     
     # For now, return a mock response
-    checkout_url = f"https://checkout.stripe.com/pay/{workspace.id}_{plan}"
+    checkout_url = f"http://localhost:3000/billing/checkout/{workspace.id}_{plan}"
     
     return {
         "checkout_url": checkout_url,

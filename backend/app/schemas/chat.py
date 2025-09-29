@@ -20,6 +20,8 @@ class ChatMessageCreate(ChatMessageBase):
 
 class ChatMessageResponse(ChatMessageBase):
     """Chat message response schema"""
+    model_config = {"protected_namespaces": (), "from_attributes": True}
+    
     id: uuid.UUID
     role: str
     model_used: Optional[str] = None
@@ -29,9 +31,6 @@ class ChatMessageResponse(ChatMessageBase):
     confidence_score: Optional[str] = None
     is_flagged: bool = False
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class ChatSessionResponse(BaseModel):

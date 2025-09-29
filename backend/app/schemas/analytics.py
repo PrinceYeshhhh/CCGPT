@@ -69,3 +69,33 @@ class EmbedCodeAnalytics(BaseModel):
     last_used: Optional[datetime] = None
     is_active: bool
     created_at: datetime
+
+
+class HourlyStat(BaseModel):
+    """Aggregated hourly statistics across a date range"""
+    hour: int  # 0-23
+    sessions_count: int
+    messages_count: int
+
+
+class SatisfactionStat(BaseModel):
+    """Satisfaction statistics over time"""
+    date: date
+    satisfied: int
+    unsatisfied: int
+
+
+class KPIValue(BaseModel):
+    current: float
+    previous: float
+    delta_pct: float | None = None
+    delta_ms: float | None = None
+
+
+class KPISummary(BaseModel):
+    window_days: int
+    queries: KPIValue
+    sessions: KPIValue
+    active_sessions: dict
+    avg_response_time_ms: dict
+    top_questions_current: List[Dict[str, Any]]

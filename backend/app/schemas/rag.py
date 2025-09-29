@@ -12,6 +12,8 @@ class RAGQueryRequest(BaseModel):
     workspace_id: str = Field(..., description="Workspace identifier")
     session_id: Optional[str] = Field(None, description="Optional session ID for conversation continuity")
     query: str = Field(..., description="User query", min_length=1, max_length=1000)
+    document_ids: Optional[List[str]] = Field(None, description="Limit retrieval to specific document IDs")
+    top_k: Optional[int] = Field(10, description="Number of chunks to retrieve")
 
 
 class RAGSource(BaseModel):
@@ -25,6 +27,8 @@ class RAGSource(BaseModel):
 
 class RAGQueryResponse(BaseModel):
     """RAG query response schema"""
+    model_config = {"protected_namespaces": ()}
+    
     answer: str = Field(..., description="AI-generated answer")
     sources: List[RAGSource] = Field(..., description="Cited sources")
     response_time_ms: int = Field(..., description="Response time in milliseconds")

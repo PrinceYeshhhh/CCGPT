@@ -26,13 +26,32 @@ class StripeService:
         
         # Plan definitions
         self.plans = {
+            'free_trial': {
+                'name': 'Free Trial',
+                'price_id': None,  # No Stripe price for trial
+                'monthly_query_quota': 100,
+                'seats': 1,
+                'documents_limit': 1,
+                'storage_limit': 10 * 1024 * 1024,  # 10MB
+                'trial_days': 7,
+                'features': [
+                    '7-day free trial',
+                    '100 queries total',
+                    '1 document upload',
+                    'Basic analytics',
+                    'Email support'
+                ]
+            },
             'starter': {
                 'name': 'Starter',
                 'price_id': os.getenv('STRIPE_STARTER_PRICE_ID', 'price_starter'),
-                'monthly_query_quota': 5000,
+                'monthly_query_quota': 7000,
                 'seats': 1,
+                'documents_limit': 5,
+                'storage_limit': 100 * 1024 * 1024,  # 100MB
+                'trial_days': 0,  # No trial for paid plans
                 'features': [
-                    'Up to 5,000 queries/month',
+                    '7,000 queries/month',
                     'Up to 5 documents',
                     'Basic analytics',
                     'Email support'
@@ -41,15 +60,18 @@ class StripeService:
             'pro': {
                 'name': 'Pro',
                 'price_id': os.getenv('STRIPE_PRO_PRICE_ID', 'price_pro'),
-                'monthly_query_quota': 100000,
+                'monthly_query_quota': 50000,
                 'seats': 5,
+                'documents_limit': 25,
+                'storage_limit': 500 * 1024 * 1024,  # 500MB
+                'trial_days': 0,  # No trial for paid plans
                 'features': [
-                    'Up to 100,000 queries/month',
-                    'Unlimited documents',
+                    '50,000 queries/month',
+                    'Up to 25 documents',
                     'Advanced analytics',
                     'Priority support',
-                    'Custom branding',
-                    'API access'
+                    'API access',
+                    'Custom branding'
                 ]
             },
             'enterprise': {
@@ -57,6 +79,9 @@ class StripeService:
                 'price_id': os.getenv('STRIPE_ENTERPRISE_PRICE_ID', 'price_enterprise'),
                 'monthly_query_quota': None,  # Unlimited
                 'seats': -1,  # Unlimited
+                'documents_limit': -1,  # Unlimited
+                'storage_limit': 10 * 1024 * 1024 * 1024,  # 10GB
+                'trial_days': 0,  # No trial for paid plans
                 'features': [
                     'Unlimited queries',
                     'Unlimited documents',
@@ -64,7 +89,8 @@ class StripeService:
                     '24/7 phone support',
                     'Custom integrations',
                     'Dedicated account manager',
-                    'SLA guarantee'
+                    'SLA guarantee',
+                    'White-label options'
                 ]
             },
             'white_label': {
@@ -72,13 +98,18 @@ class StripeService:
                 'price_id': os.getenv('STRIPE_WHITE_LABEL_PRICE_ID', 'price_white_label'),
                 'monthly_query_quota': None,  # One-time purchase
                 'seats': -1,  # Unlimited
+                'documents_limit': -1,  # Unlimited
+                'storage_limit': -1,  # Unlimited
+                'trial_days': 0,  # No trial for one-time purchase
                 'features': [
                     'One-time purchase',
                     'Unlimited queries',
                     'Unlimited documents',
                     'Full white-label solution',
                     'Custom domain support',
-                    'Priority support'
+                    'Priority support',
+                    'Source code access',
+                    'Custom integrations'
                 ]
             }
         }

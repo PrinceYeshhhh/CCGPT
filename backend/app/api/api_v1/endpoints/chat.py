@@ -19,6 +19,7 @@ from app.schemas.chat import (
 from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.api.api_v1.dependencies import get_current_user
+from app.middleware.quota_middleware import check_quota, increment_usage
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -28,7 +29,8 @@ router = APIRouter()
 async def send_message(
     request: ChatRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    subscription = Depends(check_quota)
 ):
     """Send a message and get AI response"""
     try:
@@ -41,6 +43,9 @@ async def send_message(
             session_id=request.session_id,
             context=request.context
         )
+        
+        # Increment usage after successful message processing
+        await increment_usage(subscription, db)
         
         logger.info(
             "Message processed successfully",

@@ -27,7 +27,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    try {
+      const root = window.document.documentElement;
+      root.classList.add('disable-transitions');
+      setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+      window.setTimeout(() => {
+        root.classList.remove('disable-transitions');
+      }, 150);
+    } catch {
+      setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+    }
   };
 
   return (
