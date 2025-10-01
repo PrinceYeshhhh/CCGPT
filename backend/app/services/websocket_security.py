@@ -11,6 +11,7 @@ from app.services.auth import AuthService
 from app.services.embed_service import EmbedService
 from app.core.database import WriteSessionLocal as SessionLocal
 import structlog
+from app.core.config import settings
 
 logger = structlog.get_logger()
 
@@ -40,6 +41,17 @@ class WebSocketSecurityService:
     ) -> Optional[Dict[str, str]]:
         """Authenticate WebSocket connection"""
         try:
+            # Optional origin check for embed usage when CORS is restricted
+            try:
+                origin = websocket.headers.get('origin') or websocket.headers.get('Origin')
+                allowed = getattr(settings, 'CORS_ORIGINS', ["*"])
+                if allowed and isinstance(allowed, list) and "*" not in allowed and origin:
+                    if origin not in allowed:
+                        logger.warning("WebSocket origin rejected", origin=origin)
+                        return None
+            except Exception:
+                # Fail open to avoid breaking behavior in permissive environments
+                pass
             if token:
                 # JWT token authentication (dashboard users)
                 auth_service = AuthService(db=None)

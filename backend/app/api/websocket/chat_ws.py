@@ -157,7 +157,10 @@ async def websocket_chat_endpoint(
         )
     finally:
         # Unregister connection
-        await websocket_security_service.unregister_connection(connection_id)
+        try:
+            await websocket_security_service.unregister_connection(connection_id)
+        except Exception:
+            pass
 
 
 @router.get("/stats")

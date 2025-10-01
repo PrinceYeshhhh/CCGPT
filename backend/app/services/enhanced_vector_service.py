@@ -31,10 +31,24 @@ class EnhancedVectorService:
         self._initialize_chromadb()
     
     def _initialize_chromadb(self):
-        """Initialize ChromaDB client"""
+        """Initialize ChromaDB client (safe no-op if unavailable)."""
         try:
+            # Allow disabling via environment for local/dev
+            import os
+            if os.getenv("CHROMA_DISABLED", "false").lower() == "true":
+                logger.warning("ChromaDB disabled via CHROMA_DISABLED env var; vector search will be inactive")
+                self.client = None
+                return
+
+            # Prefer HTTP client if a URL is provided; otherwise skip initialization
+            chroma_host = settings.CHROMA_URL.replace("http://", "").replace("https://", "") if settings.CHROMA_URL else None
+            if not chroma_host:
+                logger.warning("CHROMA_URL not set; vector search will be inactive")
+                self.client = None
+                return
+
             self.client = chromadb.HttpClient(
-                host=settings.CHROMA_URL.replace("http://", "").replace("https://", ""),
+                host=chroma_host,
                 port=8001,
                 settings=Settings(
                     anonymized_telemetry=False,
@@ -43,11 +57,16 @@ class EnhancedVectorService:
             )
             logger.info("ChromaDB client initialized successfully")
         except Exception as e:
-            logger.error("Failed to initialize ChromaDB client", error=str(e))
-            raise
+            # Do not crash app if Chroma is unavailable; degrade gracefully
+            logger.error("Failed to initialize ChromaDB client; vector search disabled", error=str(e))
+            self.client = None
     
     async def get_collection(self, workspace_id: str):
         """Get or create collection for workspace"""
+        if self.client is None:
+            logger.warning("Vector service inactive; returning empty collection for workspace", workspace_id=workspace_id)
+            return None
+
         if workspace_id not in self.collections:
             try:
                 collection_name = f"workspace_{workspace_id}"
@@ -58,7 +77,7 @@ class EnhancedVectorService:
                 logger.info(f"Collection created/retrieved for workspace {workspace_id}")
             except Exception as e:
                 logger.error(f"Failed to get collection for workspace {workspace_id}", error=str(e))
-                raise
+                return None
         
         return self.collections[workspace_id]
     
@@ -168,7 +187,9 @@ class EnhancedVectorService:
         
         try:
             collection = await self.get_collection(workspace_id)
-            
+            if collection is None:
+                return []
+
             search_results = collection.query(
                 query_texts=[query],
                 n_results=top_k
@@ -226,6 +247,8 @@ class EnhancedVectorService:
         """Add documents to collection"""
         try:
             collection = await self.get_collection(workspace_id)
+            if collection is None:
+                return True
             
             # Batch add documents
             batch_size = 100
@@ -258,6 +281,8 @@ class EnhancedVectorService:
         """Delete documents from collection"""
         try:
             collection = await self.get_collection(workspace_id)
+            if collection is None:
+                return True
             collection.delete(ids=document_ids)
             
             # Invalidate cache for this workspace
@@ -274,6 +299,8 @@ class EnhancedVectorService:
         """Get collection statistics"""
         try:
             collection = await self.get_collection(workspace_id)
+            if collection is None:
+                return {'workspace_id': workspace_id, 'document_count': 0}
             count = collection.count()
             
             return {
@@ -290,6 +317,13 @@ class EnhancedVectorService:
         """Check vector service health"""
         try:
             # Test connection
+            if self.client is None:
+                return {
+                    'status': 'inactive',
+                    'collections_count': 0,
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+
             collections = self.client.list_collections()
             
             return {

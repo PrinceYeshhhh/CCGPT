@@ -107,7 +107,7 @@ class AnalyticsService:
                 ChatSession.is_active == True
             ).count()
             
-            # Total messages
+            # Total messages (ensure indexed fields used)
             total_messages = self.db.query(ChatMessage).join(ChatSession).filter(
                 ChatSession.workspace_id == workspace_id,
                 ChatMessage.created_at >= start_date,
@@ -147,6 +147,7 @@ class AnalyticsService:
             ).scalar() or 0
             
             # Daily session counts
+            # Daily session counts (group by date on indexed column)
             daily_sessions = self.db.query(
                 func.date(ChatSession.created_at).label('date'),
                 func.count(ChatSession.id).label('count')
@@ -191,14 +192,12 @@ class AnalyticsService:
                 Document.created_at <= end_date
             ).group_by(Document.status).all()
             
-            # Total chunks
-            total_chunks = self.db.query(func.count(Document.id)).join(
-                Document, Document.id == Document.id
-            ).filter(
+            # Total chunks (placeholder based on documents; replace with real chunk table if present)
+            total_chunks = self.db.query(Document).filter(
                 Document.workspace_id == workspace_id,
                 Document.created_at >= start_date,
                 Document.created_at <= end_date
-            ).scalar() or 0
+            ).count()
             
             return {
                 "total_documents": total_documents,

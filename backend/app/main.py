@@ -24,6 +24,7 @@ from app.middleware.security import (
 )
 from app.middleware.security_headers import SecurityHeadersMiddleware as NewSecurityHeadersMiddleware, create_cors_middleware
 from app.utils.error_monitoring import error_monitor, create_error_response, log_api_call
+from app.utils.observability import init_observability
 
 # Configure structured logging
 structlog.configure(
@@ -47,6 +48,9 @@ structlog.configure(
 logger = structlog.get_logger()
 
 # Rely on Alembic migrations for schema management in all environments
+
+# Initialize observability (safe no-op if disabled)
+init_observability("customercaregpt-backend")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -99,7 +103,11 @@ if settings.ENABLE_CORS:
 
 # Mount static files (skip in testing)
 if not os.getenv("TESTING"):
-    app.mount("/static", StaticFiles(directory="uploads"), name="static")
+    # Resolve uploads directory relative to project structure and ensure it exists
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    uploads_dir = os.path.abspath(os.path.join(base_dir, "uploads"))
+    os.makedirs(uploads_dir, exist_ok=True)
+    app.mount("/static", StaticFiles(directory=uploads_dir), name="static")
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")

@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { DashboardAccessControl } from '@/components/dashboard/DashboardAccessControl';
 import toast from 'react-hot-toast';
+import { ApiNotification } from '@/types';
 
 export function DashboardLayout() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export function DashboardLayout() {
   const [showVerifyBanner, setShowVerifyBanner] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<ApiNotification[]>([]);
 
   React.useEffect(() => {
     (async () => {

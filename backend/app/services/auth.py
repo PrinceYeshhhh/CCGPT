@@ -22,6 +22,11 @@ from app.schemas.auth import TokenData
 from app.services.user import UserService
 from app.services.token_revocation import token_revocation_service
 import httpx
+try:
+    import redis  # type: ignore
+    REDIS_AVAILABLE = True
+except Exception:  # pragma: no cover
+    REDIS_AVAILABLE = False
 
 logger = structlog.get_logger()
 
@@ -45,6 +50,19 @@ class AuthService:
         self.db = db  # type: ignore
         self.user_service = UserService(db) if db is not None else None  # type: ignore
         self._otp_store: dict[str, dict] = {}
+        # Prefer Redis for OTP storage if available; fallback to in-memory
+        self._otp_redis = None
+        if REDIS_AVAILABLE:
+            try:
+                self._otp_redis = redis.Redis(
+                    host=getattr(settings, 'REDIS_HOST', 'localhost'),
+                    port=getattr(settings, 'REDIS_PORT', 6379),
+                    db=getattr(settings, 'REDIS_DB', 0),
+                    decode_responses=True,
+                    socket_timeout=2,
+                )
+            except Exception:
+                self._otp_redis = None
         self._login_attempts: dict[str, dict] = {}  # Track failed login attempts
         self._password_history: dict[str, list] = {}  # Track password history
     
@@ -432,7 +450,16 @@ class AuthService:
     def generate_and_send_otp(self, mobile_phone: str) -> bool:
         """Generate and 'send' OTP to a phone number. Replace with Twilio/SNS."""
         code = f"{random.randint(100000, 999999)}"
-        self._otp_store[mobile_phone] = {"code": code, "expires_at": datetime.utcnow() + timedelta(minutes=10)}
+        expires_at = datetime.utcnow() + timedelta(minutes=10)
+        # Store OTP in Redis with TTL when available to support multi-instance deployments
+        if self._otp_redis:
+            try:
+                self._otp_redis.setex(f"otp:{mobile_phone}", timedelta(minutes=10), code)
+            except Exception:
+                # Fallback to in-memory on transient Redis errors
+                self._otp_store[mobile_phone] = {"code": code, "expires_at": expires_at}
+        else:
+            self._otp_store[mobile_phone] = {"code": code, "expires_at": expires_at}
         # Integrate SMS provider (Twilio/SNS). If not configured, return True for dev.
         try:
             if settings.SMS_PROVIDER == 'twilio' and settings.TWILIO_ACCOUNT_SID and settings.TWILIO_AUTH_TOKEN and settings.TWILIO_FROM_NUMBER:
@@ -456,15 +483,30 @@ class AuthService:
         return True
 
     def verify_otp(self, mobile_phone: str, code: str) -> bool:
+        """Verify OTP against Redis or in-memory store with expiry and consume on success."""
+        # Try Redis first
+        if self._otp_redis:
+            try:
+                stored = self._otp_redis.get(f"otp:{mobile_phone}")
+                if stored and stored == code:
+                    try:
+                        self._otp_redis.delete(f"otp:{mobile_phone}")
+                    except Exception:
+                        pass
+                    return True
+                return False
+            except Exception:
+                # Fall through to in-memory
+                pass
+        # In-memory fallback
         record = self._otp_store.get(mobile_phone)
         if not record:
             return False
-        if record["expires_at"] < datetime.utcnow():
+        if record.get("expires_at") and record["expires_at"] < datetime.utcnow():
             self._otp_store.pop(mobile_phone, None)
             return False
-        if record["code"] != code:
+        if record.get("code") != code:
             return False
-        # Mark verified and delete
         self._otp_store.pop(mobile_phone, None)
         return True
 

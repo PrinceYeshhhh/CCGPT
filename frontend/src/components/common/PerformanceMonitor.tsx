@@ -1,213 +1,266 @@
-import React, { useEffect } from 'react';
-import { usePerformance } from '@/hooks/usePerformance';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Activity, Zap, AlertTriangle, CheckCircle, Clock, Cpu, MousePointer } from 'lucide-react';
+import { 
+  Activity, 
+  Zap, 
+  Clock, 
+  MemoryStick, 
+  AlertTriangle,
+  CheckCircle,
+  X
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface PerformanceMetrics {
+  lcp: number | null;
+  fid: number | null;
+  cls: number | null;
+  fcp: number | null;
+  ttfb: number | null;
+  pageLoadTime: number | null;
+  memoryUsage: number | null;
+  performanceScore: number | null;
+}
 
 interface PerformanceMonitorProps {
   showDetails?: boolean;
   className?: string;
+  onClose?: () => void;
 }
 
-export function PerformanceMonitor({ showDetails = false, className = '' }: PerformanceMonitorProps) {
-  const { 
-    metrics, 
-    isLoading, 
-    error, 
-    getPerformanceSummary, 
-    getPerformanceScore 
-  } = usePerformance({
-    enableWebVitals: true,
-    enableCustomMetrics: true,
-    enableUserTracking: true,
-    enableErrorTracking: true,
-    reportInterval: 30000, // 30 seconds
+export function PerformanceMonitor({ 
+  showDetails = false, 
+  className,
+  onClose 
+}: PerformanceMonitorProps) {
+  const [metrics, setMetrics] = useState<PerformanceMetrics>({
+    lcp: null,
+    fid: null,
+    cls: null,
+    fcp: null,
+    ttfb: null,
+    pageLoadTime: null,
+    memoryUsage: null,
+    performanceScore: null,
   });
+  const [isVisible, setIsVisible] = useState(showDetails);
 
-  const summary = getPerformanceSummary();
-  const score = getPerformanceScore();
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Get performance metrics
+    const getPerformanceMetrics = () => {
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      const paint = performance.getEntriesByType('paint');
+      
+      const fcp = paint.find(entry => entry.name === 'first-contentful-paint')?.startTime || null;
+      const lcp = performance.getEntriesByType('largest-contentful-paint')[0]?.startTime || null;
+      
+      const pageLoadTime = navigation ? navigation.loadEventEnd - navigation.navigationStart : null;
+      const ttfb = navigation ? navigation.responseStart - navigation.requestStart : null;
+      
+      // Memory usage (if available)
+      const memory = (performance as any).memory;
+      const memoryUsage = memory ? memory.usedJSHeapSize / 1024 / 1024 : null; // Convert to MB
+      
+      // Calculate performance score
+      let score = 100;
+      if (lcp && lcp > 4000) score -= 30;
+      else if (lcp && lcp > 2500) score -= 15;
+      
+      if (fcp && fcp > 3000) score -= 20;
+      else if (fcp && fcp > 1500) score -= 10;
+      
+      if (pageLoadTime && pageLoadTime > 5000) score -= 25;
+      else if (pageLoadTime && pageLoadTime > 3000) score -= 15;
+      
+      if (memoryUsage && memoryUsage > 100) score -= 15;
+      else if (memoryUsage && memoryUsage > 50) score -= 10;
+
+      setMetrics({
+        lcp,
+        fid: null, // FID requires user interaction
+        cls: null, // CLS requires layout shift tracking
+        fcp,
+        ttfb,
+        pageLoadTime,
+        memoryUsage,
+        performanceScore: Math.max(0, score),
+      });
+    };
+
+    // Get metrics after page load
+    if (document.readyState === 'complete') {
+      getPerformanceMetrics();
+    } else {
+      window.addEventListener('load', getPerformanceMetrics);
+    }
+
+    // Update metrics periodically
+    const interval = setInterval(getPerformanceMetrics, 5000);
+
+    return () => {
+      window.removeEventListener('load', getPerformanceMetrics);
+      clearInterval(interval);
+    };
+  }, []);
 
   const getScoreColor = (score: number) => {
-    if (score >= 90) return 'text-green-600';
-    if (score >= 70) return 'text-yellow-600';
-    return 'text-red-600';
+    if (score >= 90) return 'text-green-500';
+    if (score >= 70) return 'text-yellow-500';
+    return 'text-red-500';
   };
 
-  const getScoreBadgeVariant = (score: number) => {
-    if (score >= 90) return 'default';
-    if (score >= 70) return 'secondary';
-    return 'destructive';
+  const getScoreIcon = (score: number) => {
+    if (score >= 90) return <CheckCircle className="h-4 w-4 text-green-500" />;
+    if (score >= 70) return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    return <X className="h-4 w-4 text-red-500" />;
   };
 
-  const getHealthIcon = (score: number) => {
-    if (score >= 90) return <CheckCircle className="h-4 w-4 text-green-600" />;
-    if (score >= 70) return <AlertTriangle className="h-4 w-4 text-yellow-600" />;
-    return <AlertTriangle className="h-4 w-4 text-red-600" />;
+  const formatValue = (value: number | null, unit: string = 'ms') => {
+    if (value === null) return 'N/A';
+    return `${Math.round(value)}${unit}`;
   };
 
-  if (error) {
+  if (!isVisible) {
     return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5" />
-            Performance Monitor
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-red-600 text-sm">
-            Failed to load performance data: {error}
-          </div>
-        </CardContent>
-      </Card>
+      <Button
+        onClick={() => setIsVisible(true)}
+        className="fixed bottom-4 right-4 z-50"
+        size="sm"
+        variant="outline"
+      >
+        <Activity className="h-4 w-4 mr-2" />
+        Performance
+      </Button>
     );
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className={cn("fixed bottom-4 right-4 z-50 w-80 max-h-96 overflow-y-auto", className)}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
           <Activity className="h-5 w-5" />
-          Performance Monitor
-          {isLoading && <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />}
-        </CardTitle>
-        <CardDescription>
-          Real-time performance metrics and Core Web Vitals
+            <CardTitle className="text-sm">Performance Monitor</CardTitle>
+          </div>
+          <Button
+            onClick={() => {
+              setIsVisible(false);
+              onClose?.();
+            }}
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        <CardDescription className="text-xs">
+          Real-time performance metrics
         </CardDescription>
       </CardHeader>
+      
       <CardContent className="space-y-4">
         {/* Performance Score */}
+        <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {getHealthIcon(score)}
-            <span className="font-medium">Performance Score</span>
+            <span className="text-sm font-medium">Performance Score</span>
+            <div className="flex items-center space-x-2">
+              {getScoreIcon(metrics.performanceScore || 0)}
+              <span className={cn("text-sm font-bold", getScoreColor(metrics.performanceScore || 0))}>
+                {metrics.performanceScore || 0}
+              </span>
+            </div>
           </div>
-          <Badge variant={getScoreBadgeVariant(score)} className="text-sm">
-            {score}/100
-          </Badge>
+          <Progress 
+            value={metrics.performanceScore || 0} 
+            className="h-2"
+          />
         </div>
-        <Progress value={score} className="h-2" />
 
         {/* Core Web Vitals */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Zap className="h-4 w-4 text-blue-600" />
-              <span>LCP</span>
+        <div className="space-y-3">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Core Web Vitals
+          </h4>
+          
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-1">
+                <Zap className="h-3 w-3" />
+                <span className="font-medium">LCP</span>
+              </div>
+              <div className="text-muted-foreground">
+                {formatValue(metrics.lcp)}
             </div>
-            <div className="text-lg font-semibold">{summary.lcp}</div>
-            <div className="text-xs text-gray-500">Largest Contentful Paint</div>
           </div>
           
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <MousePointer className="h-4 w-4 text-green-600" />
-              <span>FID</span>
+            <div className="space-y-1">
+              <div className="flex items-center space-x-1">
+                <Clock className="h-3 w-3" />
+                <span className="font-medium">FCP</span>
             </div>
-            <div className="text-lg font-semibold">{summary.fid}</div>
-            <div className="text-xs text-gray-500">First Input Delay</div>
+              <div className="text-muted-foreground">
+                {formatValue(metrics.fcp)}
+            </div>
           </div>
           
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <span>CLS</span>
+            <div className="space-y-1">
+              <div className="flex items-center space-x-1">
+                <Activity className="h-3 w-3" />
+                <span className="font-medium">TTFB</span>
             </div>
-            <div className="text-lg font-semibold">{summary.cls}</div>
-            <div className="text-xs text-gray-500">Cumulative Layout Shift</div>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-purple-600" />
-              <span>API</span>
-            </div>
-            <div className="text-lg font-semibold">{summary.apiResponseTime}</div>
-            <div className="text-xs text-gray-500">API Response Time</div>
+              <div className="text-muted-foreground">
+                {formatValue(metrics.ttfb)}
           </div>
         </div>
 
-        {showDetails && (
-          <>
-            {/* Additional Metrics */}
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Additional Metrics</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Page Load:</span>
-                  <span className="font-medium">{summary.pageLoadTime}</span>
+            <div className="space-y-1">
+              <div className="flex items-center space-x-1">
+                <MemoryStick className="h-3 w-3" />
+                <span className="font-medium">Memory</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Memory:</span>
-                  <span className="font-medium">
-                    {metrics.memoryUsage ? `${metrics.memoryUsage.toFixed(1)}MB` : 'N/A'}
-                  </span>
+              <div className="text-muted-foreground">
+                {formatValue(metrics.memoryUsage, 'MB')}
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Clicks:</span>
-                  <span className="font-medium">{metrics.clickCount}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Scroll Depth:</span>
-                  <span className="font-medium">{metrics.scrollDepth}%</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Time on Page:</span>
-                  <span className="font-medium">
-                    {metrics.timeOnPage ? `${Math.round(metrics.timeOnPage / 1000)}s` : 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Errors:</span>
-                  <span className="font-medium text-red-600">{metrics.errorCount}</span>
                 </div>
               </div>
             </div>
 
-            {/* Performance Recommendations */}
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Recommendations</h4>
-              <div className="space-y-2 text-sm">
-                {score < 70 && (
-                  <div className="flex items-start gap-2 text-yellow-700">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>Consider optimizing page load performance</span>
+        {/* Page Load Time */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium">Page Load Time</span>
+            <span className="text-xs text-muted-foreground">
+              {formatValue(metrics.pageLoadTime)}
+            </span>
                   </div>
-                )}
-                {parseFloat(summary.lcp.replace('ms', '')) > 2500 && (
-                  <div className="flex items-start gap-2 text-orange-700">
-                    <Zap className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>LCP is above recommended threshold (2.5s)</span>
                   </div>
-                )}
-                {parseFloat(summary.fid.replace('ms', '')) > 100 && (
-                  <div className="flex items-start gap-2 text-orange-700">
-                    <MousePointer className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>FID is above recommended threshold (100ms)</span>
-                  </div>
-                )}
-                {parseFloat(summary.cls) > 0.1 && (
-                  <div className="flex items-start gap-2 text-orange-700">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>CLS is above recommended threshold (0.1)</span>
-                  </div>
-                )}
-                {metrics.errorCount > 0 && (
-                  <div className="flex items-start gap-2 text-red-700">
-                    <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>Consider investigating JavaScript errors</span>
-                  </div>
-                )}
-                {score >= 90 && (
-                  <div className="flex items-start gap-2 text-green-700">
-                    <CheckCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>Excellent performance! Keep up the good work.</span>
-                  </div>
+
+        {/* Performance Tips */}
+        {metrics.performanceScore && metrics.performanceScore < 70 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Optimization Tips
+            </h4>
+            <div className="space-y-1 text-xs text-muted-foreground">
+              {metrics.lcp && metrics.lcp > 2500 && (
+                <div>• Optimize images and reduce LCP</div>
+              )}
+              {metrics.fcp && metrics.fcp > 1500 && (
+                <div>• Minimize render-blocking resources</div>
+              )}
+              {metrics.memoryUsage && metrics.memoryUsage > 50 && (
+                <div>• Reduce memory usage</div>
+              )}
+              {metrics.pageLoadTime && metrics.pageLoadTime > 3000 && (
+                <div>• Optimize bundle size</div>
                 )}
               </div>
             </div>
-          </>
         )}
       </CardContent>
     </Card>

@@ -15,14 +15,7 @@ import {
   Plus
 } from 'lucide-react';
 import { api } from '@/lib/api';
-
-interface Document {
-  id: string;
-  name: string;
-  status: 'processing' | 'embedded' | 'active' | 'failed';
-  uploadedAt: string;
-  size: number;
-}
+import { Document, ApiDocument, ApiResponse } from '@/types';
 
 export function Documents() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -38,9 +31,9 @@ export function Documents() {
   const fetchDocuments = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await api.get('/documents/');
-      const items = res.data as any[];
-      const mapped: Document[] = items.map((d: any) => ({
+      const res: ApiResponse<ApiDocument[]> = await api.get('/documents/');
+      const items = res.data || [];
+      const mapped: Document[] = items.map((d: ApiDocument) => ({
         id: d.id ?? String(d.document_id ?? d.uuid ?? d.name ?? Math.random()),
         name: d.name ?? d.filename ?? 'Document',
         status: (d.status ?? 'active') as Document['status'],

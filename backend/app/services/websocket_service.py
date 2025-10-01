@@ -15,6 +15,8 @@ from app.services.rag_service import RAGService
 from app.services.rate_limiting import rate_limiting_service
 from app.services.token_budget import TokenBudgetService
 from app.core.database import WriteSessionLocal as SessionLocal
+from app.core.database import redis_manager
+from app.core.config import settings
 
 logger = structlog.get_logger()
 
@@ -80,7 +82,16 @@ class WebSocketManager:
         if session_id in self.active_connections and user_id in self.active_connections[session_id]:
             try:
                 websocket = self.active_connections[session_id][user_id]
-                await websocket.send_text(json.dumps(message))
+                # Apply basic backpressure timeout to avoid blocking indefinitely
+                try:
+                    await asyncio.wait_for(websocket.send_text(json.dumps(message)), timeout=5)
+                except asyncio.TimeoutError:
+                    logger.warning(
+                        "WebSocket send timeout; disconnecting slow client",
+                        session_id=session_id,
+                        user_id=user_id,
+                    )
+                    self.disconnect(session_id, user_id)
             except Exception as e:
                 logger.error(
                     "Failed to send WebSocket message",
@@ -93,9 +104,19 @@ class WebSocketManager:
     
     async def broadcast_to_session(self, session_id: str, message: Dict[str, Any]):
         """Broadcast a message to all users in a session"""
+        # Local broadcast (always enabled to preserve current behavior)
         if session_id in self.active_connections:
-            for user_id, websocket in self.active_connections[session_id].items():
+            for user_id in list(self.active_connections[session_id].keys()):
                 await self.send_message(session_id, user_id, message)
+        # Optional pub/sub publish for multi-node (no-op if redis or flag unavailable)
+        try:
+            if getattr(settings, 'WS_PUBSUB_ENABLED', False):
+                r = redis_manager.get_client()
+                if r:
+                    r.publish(f"ws:session:{session_id}", json.dumps(message))
+        except Exception:
+            # Fail silently to avoid impacting current behavior
+            pass
     
     def get_session_info(self, session_id: str) -> Optional[Dict[str, Any]]:
         """Get session metadata"""

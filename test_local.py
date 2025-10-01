@@ -45,7 +45,7 @@ def test_local_backend_health():
                 log_status(f"✅ {description} ({endpoint}) is healthy", "SUCCESS")
             else:
                 log_status(f"❌ {description} ({endpoint}) returned status {response.status_code}", "ERROR")
-        except requests.RequestError as e:
+        except requests.exceptions.RequestException as e:
             log_status(f"❌ {description} ({endpoint}) not accessible: {e}", "ERROR")
 
 def test_cors_configuration():
@@ -77,7 +77,7 @@ def test_cors_configuration():
         else:
             log_status(f"❌ CORS preflight failed with status {response.status_code}", "ERROR")
             
-    except requests.RequestError as e:
+    except requests.exceptions.RequestException as e:
         log_status(f"❌ CORS test failed: {e}", "ERROR")
 
 def test_api_endpoints():
@@ -99,7 +99,7 @@ def test_api_endpoints():
                 log_status(f"✅ {endpoint} is accessible", "SUCCESS")
             else:
                 log_status(f"⚠️  {endpoint} returned status {response.status_code}", "WARNING")
-        except requests.RequestError as e:
+        except requests.exceptions.RequestException as e:
             log_status(f"❌ {endpoint} not accessible: {e}", "ERROR")
     
     # Test protected endpoints (should return 401/403)
@@ -117,7 +117,7 @@ def test_api_endpoints():
                 log_status(f"✅ {endpoint} properly protected (status {response.status_code})", "SUCCESS")
             else:
                 log_status(f"⚠️  {endpoint} returned unexpected status {response.status_code}", "WARNING")
-        except requests.RequestError as e:
+        except requests.exceptions.RequestException as e:
             log_status(f"❌ {endpoint} not accessible: {e}", "ERROR")
 
 def test_database_connectivity():
@@ -144,7 +144,7 @@ def test_database_connectivity():
         else:
             log_status(f"❌ Debug connectivity test failed with status {response.status_code}", "ERROR")
             
-    except requests.RequestError as e:
+        except requests.exceptions.RequestException as e:
         log_status(f"❌ Database connectivity test failed: {e}", "ERROR")
 
 def test_frontend_connectivity():
@@ -171,7 +171,7 @@ def test_frontend_connectivity():
         else:
             log_status(f"❌ Backend not reachable from frontend simulation: {response.status_code}", "ERROR")
             
-    except requests.RequestError as e:
+        except requests.exceptions.RequestException as e:
         log_status(f"❌ Frontend connectivity test failed: {e}", "ERROR")
 
 def main():

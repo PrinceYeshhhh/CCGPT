@@ -443,7 +443,10 @@ class EmbedService:
     // WebSocket connection
     function connectWebSocket() {{
         try {{
-            const wsUrl = `${{CONFIG.apiUrl.replace('http', 'ws')}}/ws/chat/${{sessionId || 'new'}}?client_api_key=${{CONFIG.clientApiKey}}&embed_code_id=${{CONFIG.embedCodeId}}`;
+            const base = CONFIG.apiUrl;
+            // Robustly derive ws scheme while preserving host (supports https->wss, http->ws)
+            const wsBase = base.startsWith('https') ? base.replace('https', 'wss') : base.replace('http', 'ws');
+            const wsUrl = `${{wsBase}}/ws/chat/${{sessionId || 'new'}}?client_api_key=${{CONFIG.clientApiKey}}&embed_code_id=${{CONFIG.embedCodeId}}`;
             ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {{

@@ -59,6 +59,28 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
+    // Offline handling
+    try {
+      if (typeof navigator !== 'undefined' && navigator && (navigator as any).onLine === false) {
+        toast.error('You appear to be offline. Please check your connection.');
+        return Promise.reject(error);
+      }
+    } catch {}
+
+    // Lightweight retry for idempotent GETs and transient network/server errors
+    const config = error.config || {};
+    const method = (config.method || '').toLowerCase();
+    const shouldRetry = method === 'get' || method === 'head';
+    const status = error?.response?.status;
+    const transient = !status || (status >= 500 && status < 600) || status === 429;
+    const maxRetries = 3;
+    config.__retryCount = config.__retryCount || 0;
+    if (shouldRetry && transient && config.__retryCount < maxRetries) {
+      config.__retryCount += 1;
+      const backoff = Math.min(1000 * Math.pow(2, config.__retryCount - 1), 4000);
+      return new Promise((resolve) => setTimeout(resolve, backoff)).then(() => api(config));
+    }
+
     // Handle different types of errors
     if (error.response) {
       const status = error.response.status;

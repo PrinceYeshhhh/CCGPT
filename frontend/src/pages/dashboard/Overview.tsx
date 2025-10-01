@@ -18,6 +18,13 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { LoadingCard, LoadingSpinner, LoadingChart } from '@/components/common/LoadingStates';
 import { CurrentPlanDisplay } from '@/components/dashboard/CurrentPlanDisplay';
 import toast from 'react-hot-toast';
+import { 
+  ApiAnalyticsOverview, 
+  ApiUsageStats, 
+  ApiKpis, 
+  ApiBillingInfo, 
+  ApiResponse 
+} from '@/types';
 
 export function Overview() {
   const navigate = useNavigate();
@@ -34,7 +41,7 @@ export function Overview() {
   });
   const [topQuestions, setTopQuestions] = React.useState<{ question: string; count: number }[]>([]);
   const [chartData, setChartData] = React.useState<{ date: string; queries: number }[]>([]);
-  const [billingInfo, setBillingInfo] = React.useState<any>(null);
+  const [billingInfo, setBillingInfo] = React.useState<ApiBillingInfo | null>(null);
 
   const fetchData = async (isRefresh = false) => {
     try {
@@ -53,11 +60,11 @@ export function Overview() {
         api.get('/billing/status'),
       ]);
 
-      const o = overviewRes.data || {};
-      const k = kpisRes.data || {};
-      const b = billingInfoRes.data || {};
+      const o: ApiAnalyticsOverview = overviewRes.data || {};
+      const k: ApiKpis = kpisRes.data || {};
+      const b: ApiBillingInfo = billingInfoRes.data || {};
       setBillingInfo(b);
-      const monthlyQueries = (usage30dRes.data || []).reduce((acc: number, d: any) => acc + (d.messages_count ?? 0), 0);
+      const monthlyQueries = (usage30dRes.data as ApiUsageStats[] || []).reduce((acc: number, d: ApiUsageStats) => acc + (d.messages_count ?? 0), 0);
       const limit = Number(b?.usage?.queries_limit ?? 1000);
       const used = Number(b?.usage?.queries_used ?? monthlyQueries);
       
@@ -81,7 +88,7 @@ export function Overview() {
       }));
       setTopQuestions(tq);
       
-      const u = (usage7dRes.data || []).map((d: any) => ({ 
+      const u = (usage7dRes.data as ApiUsageStats[] || []).map((d: ApiUsageStats) => ({ 
         date: String(d.date), 
         queries: d.messages_count ?? 0 
       }));

@@ -14,14 +14,7 @@ import {
 import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { WidgetPreview } from '@/components/common/WidgetPreview';
-
-type EmbedCode = {
-  id: string;
-  code_name: string;
-  embed_script: string;
-  is_active: boolean;
-  usage_count: number;
-};
+import { ApiEmbedCode, ApiWorkspaceSettings } from '@/types';
 
 export function Embed() {
   const [copied, setCopied] = useState(false);
@@ -43,7 +36,7 @@ export function Embed() {
     enableWebSocket: true,
   });
 
-  const [codes, setCodes] = useState<EmbedCode[]>([]);
+  const [codes, setCodes] = useState<ApiEmbedCode[]>([]);
   const [loading, setLoading] = useState(false);
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
@@ -55,13 +48,7 @@ export function Embed() {
     setLoading(true);
     try {
       const res = await api.get('/embed/codes');
-      const list = (res.data || []).map((c: any) => ({
-        id: String(c.id),
-        code_name: c.code_name,
-        embed_script: c.embed_script,
-        is_active: c.is_active,
-        usage_count: c.usage_count,
-      })) as EmbedCode[];
+      const list = (res.data || []) as ApiEmbedCode[];
       setCodes(list);
     } catch (e) {
       // toast handled globally

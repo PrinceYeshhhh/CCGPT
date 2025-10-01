@@ -442,8 +442,35 @@ class ProductionVectorService:
     
     async def _bm25_search(self, query: str, workspace_id: str, config: SearchConfig) -> List[SearchResult]:
         """BM25 search for hybrid retrieval"""
-        # This would be implemented with BM25 index
-        # For now, return empty results
+        # Minimal placeholder: return empty list if library unavailable
+        if not self.bm25_available:
+            return []
+        # If BM25 available, attempt a naive sparse scoring using collection documents
+        try:
+            if not self.collection:
+                return []
+            # Pull a small candidate set via vector as corpus sample to avoid full scan
+            vector_candidates = await self._similarity_search(query, workspace_id, SearchConfig(top_k=max(50, config.top_k)))
+            if not vector_candidates:
+                return []
+            docs = [r.text for r in vector_candidates]
+            bm25 = BM25Okapi([d.split() for d in docs])
+            scores = bm25.get_scores(query.split())
+            scored = []
+            for i, r in enumerate(vector_candidates):
+                sr = SearchResult(
+                    chunk_id=r.chunk_id,
+                    document_id=r.document_id,
+                    text=r.text,
+                    score=float(scores[i]) if i < len(scores) else 0.0,
+                    metadata=r.metadata,
+                    search_method="bm25",
+                    rank=i + 1,
+                )
+                scored.append(sr)
+            scored.sort(key=lambda x: x.score, reverse=True)
+            return scored[:config.top_k]
+        except Exception:
         return []
     
     async def _generate_query_variations(self, query: str) -> List[str]:
