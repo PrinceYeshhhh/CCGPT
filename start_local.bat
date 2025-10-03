@@ -11,22 +11,47 @@ set ENVIRONMENT=development
 set DEBUG=True
 set LOG_LEVEL=DEBUG
 set DATABASE_URL=sqlite:///./dev.db
-set REDIS_URL=redis://localhost:6379/0
+set REDIS_URL=
 set CHROMA_PERSIST_DIRECTORY=./chroma-test
 set GEMINI_API_KEY=dummy
 set STRIPE_API_KEY=sk_test_dummy
 set STRIPE_WEBHOOK_SECRET=
 set STRIPE_SUCCESS_URL=http://localhost:5173/billing/success
 set STRIPE_CANCEL_URL=http://localhost:5173/billing/cancel
+set ENABLE_RATE_LIMITING=false
 
-start cmd /c "uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+REM Start backend via robust dev_server (auto-picks free port; fixes PYTHONPATH)
+start cmd /c "python -m app.dev_server"
 cd ..
 
 REM Frontend env
 cd frontend
-set VITE_API_URL=http://localhost:8000/api/v1
-set VITE_WS_URL=ws://localhost:8000/ws
-set VITE_API_BASE_URL=http://localhost:8000
+REM Auto-detect selected backend port written by dev_server
+set DEFAULT_BACKEND_PORT=8000
+
+REM Wait up to ~10 seconds for dev_server to write the port file
+set SELECTED_BACKEND_PORT=
+set /a __wait_count=0
+:wait_port_file
+if exist "..\backend\.backend_port" (
+  for /f "usebackq delims=" %%p in ("..\backend\.backend_port") do set SELECTED_BACKEND_PORT=%%p
+)
+if "%SELECTED_BACKEND_PORT%"=="" (
+  if %__wait_count% GEQ 20 goto use_default_port
+  set /a __wait_count+=1
+  ping -n 1 127.0.0.1 >nul
+  goto wait_port_file
+)
+goto have_port
+
+:use_default_port
+set SELECTED_BACKEND_PORT=%DEFAULT_BACKEND_PORT%
+
+:have_port
+
+set VITE_API_URL=http://127.0.0.1:%SELECTED_BACKEND_PORT%
+set VITE_API_BASE_URL=http://127.0.0.1:%SELECTED_BACKEND_PORT%/api/v1
+set VITE_WS_URL=ws://127.0.0.1:%SELECTED_BACKEND_PORT%/ws
 set NODE_ENV=development
 
 start cmd /c "npm run dev"

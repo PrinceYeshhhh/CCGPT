@@ -139,7 +139,7 @@ class EmbedService:
 (function() {{
     // CustomerCareGPT Widget
     const config = {{
-        apiUrl: '{settings.API_BASE_URL or "http://localhost:8000"}',
+        apiUrl: '{settings.API_BASE_URL}',
         codeId: '{config.get("code_id", "")}',
         title: '{config.get("title", "Customer Support")}',
         placeholder: '{config.get("placeholder", "Ask me anything...")}',

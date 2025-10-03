@@ -242,55 +242,42 @@ async def initialize_database():
             logger.info("SQLite detected; skipping concurrent index creation")
             return
         # Create indexes for performance
-        with db_manager.get_write_session() as db:
+        # CREATE INDEX CONCURRENTLY cannot run inside a transaction; use autocommit
+        with db_manager.get_write_session().bind.connect() as conn:
+            conn = conn.execution_options(isolation_level="AUTOCOMMIT")
+
             # Document indexes
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_workspace_status 
-                ON documents(workspace_id, status)
-            """))
-            
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_documents_workspace_uploaded 
-                ON documents(workspace_id, uploaded_at)
-            """))
-            
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_documents_workspace_status ON documents(workspace_id, status)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_documents_workspace_uploaded ON documents(workspace_id, uploaded_at)"
+            ))
+
             # Chunk indexes
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chunks_workspace_id 
-                ON document_chunks(workspace_id)
-            """))
-            
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chunks_document_workspace 
-                ON document_chunks(document_id, workspace_id)
-            """))
-            
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_chunks_workspace_id ON document_chunks(workspace_id)"
+            ))
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_chunks_document_workspace ON document_chunks(document_id, workspace_id)"
+            ))
+
             # Chat session indexes
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_sessions_workspace_created 
-                ON chat_sessions(workspace_id, created_at)
-            """))
-            
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_chat_sessions_workspace_created ON chat_sessions(workspace_id, created_at)"
+            ))
+
             # Chat message indexes
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_chat_messages_session_created 
-                ON chat_messages(session_id, created_at)
-            """))
-            
-            # Embedding indexes
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_embeddings_workspace_id 
-                ON embeddings(workspace_id)
-            """))
-            
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_chat_messages_session_created ON chat_messages(session_id, created_at)"
+            ))
+
             # User indexes
-            db.execute(text("""
-                CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_workspace_id 
-                ON users(workspace_id)
-            """))
-            
-            db.commit()
-            logger.info("Database indexes created successfully")
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_users_workspace_id ON users(workspace_id)"
+            ))
+
+            logger.info("Database indexes ensured successfully")
             
     except Exception as e:
         logger.error("Failed to initialize database indexes", error=str(e))

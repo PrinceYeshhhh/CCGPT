@@ -166,6 +166,15 @@ echo 2. Test the health endpoints
 echo 3. Set up monitoring and alerting
 echo 4. Configure custom domain (optional)
 
+REM Auto-configure backend env vars
+if not "%BACKEND_URL%"=="" (
+  echo 🔧 Setting backend env vars PUBLIC_BASE_URL and API_BASE_URL...
+  gcloud run services update customercaregpt-backend --platform managed --region %REGION% --set-env-vars "PUBLIC_BASE_URL=%BACKEND_URL%,API_BASE_URL=%BACKEND_URL%" >nul 2>&1
+  echo ✅ Backend env updated:
+  echo    PUBLIC_BASE_URL=%BACKEND_URL%
+  echo    API_BASE_URL=%BACKEND_URL%
+)
+
 goto :eof
 
 REM Function to check deployment status

@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, and_
 import structlog
-import redis
+from app.core.database import redis_manager
 from functools import lru_cache
 
 from app.core.config import settings
@@ -26,12 +26,8 @@ class AnalyticsService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.redis_client = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            db=settings.REDIS_DB,
-            decode_responses=True
-        )
+        # Use central Redis manager so REDIS_URL is honored in Cloud Run
+        self.redis_client = redis_manager.get_client()
     
     async def get_dashboard_metrics(self, workspace_id: str, days: int = 30) -> Dict[str, Any]:
         """Get comprehensive dashboard metrics with caching"""

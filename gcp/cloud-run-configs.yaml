@@ -26,6 +26,10 @@ spec:
         ports:
         - containerPort: 8000
         env:
+        - name: PUBLIC_BASE_URL
+          value: "https://customercaregpt-backend-xxxxx-uc.a.run.app"
+        - name: API_BASE_URL
+          value: "https://customercaregpt-backend-xxxxx-uc.a.run.app"
         - name: DEBUG
           value: "false"
         - name: LOG_LEVEL
@@ -41,13 +45,19 @@ spec:
         - name: ENABLE_CORS
           value: "true"
         - name: CORS_ORIGINS
-          value: "https://your-domain.com,https://www.your-domain.com"
+          value: "https://customercaregpt-frontend.vercel.app,https://customercaregpt-frontend-git-main.vercel.app"
         - name: CORS_ALLOW_CREDENTIALS
           value: "true"
         - name: CORS_ALLOW_METHODS
           value: "GET,POST,PUT,DELETE,OPTIONS"
         - name: CORS_ALLOW_HEADERS
           value: "Content-Type,Authorization,X-Requested-With"
+        - name: ALLOWED_HOSTS
+          value: "customercaregpt-backend-xxxxx-uc.a.run.app,customercaregpt-frontend.vercel.app"
+        - name: STRIPE_SUCCESS_URL
+          value: "https://customercaregpt-frontend.vercel.app/billing/success"
+        - name: STRIPE_CANCEL_URL
+          value: "https://customercaregpt-frontend.vercel.app/billing/cancel"
         - name: RATE_LIMIT_WORKSPACE_PER_MIN
           value: "60"
         - name: RATE_LIMIT_EMBED_PER_MIN

@@ -33,14 +33,18 @@ def init_observability(service_name: str = "customercaregpt-backend") -> None:
         except Exception:
             sqlalchemy_available = False
 
-        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "")
 
         resource = Resource.create({
             "service.name": service_name,
         })
         provider = TracerProvider(resource=resource)
         trace.set_tracer_provider(provider)
-        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{otlp_endpoint}/v1/traces"))
+        endpoint = f"{otlp_endpoint}/v1/traces" if otlp_endpoint else None
+        if not endpoint:
+            logger.info("OpenTelemetry enabled but OTLP endpoint not set; skipping exporter init")
+            return
+        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
         provider.add_span_processor(processor)
 
         # Defer FastAPI instrumentation to caller (needs app instance)

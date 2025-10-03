@@ -236,7 +236,7 @@ class EmbedService:
                 embed_code_id=embed_code_id,
                 client_api_key=client_api_key,
                 config=config,
-                api_url=settings.API_BASE_URL or "http://localhost:8000"
+                api_url=settings.API_BASE_URL
             )
         
         # Default enhanced template
@@ -246,7 +246,7 @@ class EmbedService:
     
     // Configuration
     const CONFIG = {{
-        apiUrl: '{settings.API_BASE_URL or "http://localhost:8000"}',
+        apiUrl: '{settings.API_BASE_URL}',
         embedCodeId: '{embed_code_id}',
         clientApiKey: '{client_api_key}',
         title: '{config.get("title", "Customer Support")}',
@@ -442,11 +442,11 @@ class EmbedService:
     
     // WebSocket connection
     function connectWebSocket() {{
-        try {{
-            const base = CONFIG.apiUrl;
-            // Robustly derive ws scheme while preserving host (supports https->wss, http->ws)
-            const wsBase = base.startsWith('https') ? base.replace('https', 'wss') : base.replace('http', 'ws');
-            const wsUrl = `${{wsBase}}/ws/chat/${{sessionId || 'new'}}?client_api_key=${{CONFIG.clientApiKey}}&embed_code_id=${{CONFIG.embedCodeId}}`;
+            try {{
+                const base = CONFIG.apiUrl;
+                // Robustly derive ws scheme while preserving host (supports https->wss, http->ws)
+                const wsBase = base.startsWith('https') ? base.replace('https', 'wss') : base.replace('http', 'ws');
+                const wsUrl = `${{wsBase}}/ws/chat/${{sessionId || 'new'}}?client_api_key=${{CONFIG.clientApiKey}}&embed_code_id=${{CONFIG.embedCodeId}}`;
             ws = new WebSocket(wsUrl);
             
             ws.onopen = () => {{
@@ -794,7 +794,7 @@ class EmbedService:
     def get_embed_snippet(self, embed_code: EmbedCode) -> str:
         """Get the HTML snippet for embedding"""
         return f"""
-<script src="{settings.API_BASE_URL or 'http://localhost:8000'}/api/v1/embed/widget/{embed_code.id}" 
+<script src="{settings.API_BASE_URL}/api/v1/embed/widget/{embed_code.id}" 
         data-embed-id="{embed_code.id}" 
         data-api-key="{embed_code.client_api_key}">
 </script>

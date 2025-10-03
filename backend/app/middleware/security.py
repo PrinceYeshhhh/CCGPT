@@ -15,6 +15,7 @@ import re
 import json
 
 from app.core.config import settings
+from app.core.database import redis_manager
 
 logger = structlog.get_logger()
 
@@ -33,17 +34,31 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
         
         # Content Security Policy
-        csp = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: https:; "
-            "connect-src 'self' https:; "
-            "frame-ancestors 'none'; "
-            "base-uri 'self'; "
-            "form-action 'self'"
-        )
+        # In development, allow http/ws to enable local FE/BE communication
+        if settings.ENVIRONMENT != "production":
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data: https: http:; "
+                "connect-src 'self' http: https: ws: wss: data:; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
+            )
+        else:
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data: https:; "
+                "connect-src 'self' https: wss:; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
+            )
         response.headers["Content-Security-Policy"] = csp
         
         # HSTS (only in production)
@@ -133,87 +148,69 @@ class InputValidationMiddleware(BaseHTTPMiddleware):
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Global rate limiting middleware"""
+    """Global rate limiting middleware (Redis-backed with fallback)."""
     
     def __init__(self, app):
         super().__init__(app)
-        self.requests = {}  # In-memory store (use Redis in production)
-        self.cleanup_interval = 60  # seconds
+        self.requests = {}
+        self.cleanup_interval = 60
         self.last_cleanup = time.time()
+        self.redis = redis_manager.get_client()
     
     async def dispatch(self, request: Request, call_next):
-        # Cleanup old entries periodically
-        current_time = time.time()
-        if current_time - self.last_cleanup > self.cleanup_interval:
-            self._cleanup_old_entries(current_time)
-            self.last_cleanup = current_time
-        
-        # Get client identifier
         client_ip = request.client.host if request.client else "unknown"
         user_agent = request.headers.get("user-agent", "")
         identifier = f"{client_ip}:{hashlib.md5(user_agent.encode()).hexdigest()[:8]}"
-        
-        # Rate limiting rules
-        window = 60  # 1 minute
+        window = 60
         limit = settings.RATE_LIMIT_REQUESTS
+        now = int(time.time())
+        bucket = now // window
+        key = f"rate:{identifier}:{bucket}"
         
-        # Check rate limit
-        current_time = int(time.time())
-        window_start = current_time - window
+        allowed = True
+        count = 0
+        try:
+            count = self.redis.incr(key)
+            if count == 1:
+                try:
+                    self.redis.expire(key, window)
+                except Exception:
+                    pass
+            if count > limit:
+                allowed = False
+        except Exception:
+            # Fallback in-memory
+            current_time = time.time()
+            if current_time - self.last_cleanup > self.cleanup_interval:
+                self._cleanup_old_entries(int(current_time))
+                self.last_cleanup = current_time
+            window_start = int(current_time) - window
+            self.requests.setdefault(identifier, [])
+            self.requests[identifier] = [t for t in self.requests[identifier] if t > window_start]
+            if len(self.requests[identifier]) >= limit:
+                allowed = False
+            else:
+                self.requests[identifier].append(int(current_time))
+                count = len(self.requests[identifier])
         
-        # Clean old entries for this identifier
-        if identifier in self.requests:
-            self.requests[identifier] = [
-                req_time for req_time in self.requests[identifier]
-                if req_time > window_start
-            ]
-        else:
-            self.requests[identifier] = []
-        
-        # Check if limit exceeded
-        if len(self.requests[identifier]) >= limit:
-            logger.warning(
-                "Rate limit exceeded",
-                identifier=identifier,
-                requests=len(self.requests[identifier]),
-                limit=limit
-            )
+        if not allowed:
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={
-                    "detail": "Rate limit exceeded. Please try again later.",
-                    "retry_after": window
-                },
-                headers={
-                    "Retry-After": str(window),
-                    "X-RateLimit-Limit": str(limit),
-                    "X-RateLimit-Remaining": "0",
-                    "X-RateLimit-Reset": str(current_time + window)
-                }
+                content={"detail": "Rate limit exceeded. Please try again later.", "retry_after": window},
+                headers={"Retry-After": str(window), "X-RateLimit-Limit": str(limit), "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": str(now + window)}
             )
         
-        # Add current request
-        self.requests[identifier].append(current_time)
-        
-        # Process request
         response = await call_next(request)
-        
-        # Add rate limit headers
-        remaining = limit - len(self.requests[identifier])
+        remaining = max(0, limit - int(count))
         response.headers["X-RateLimit-Limit"] = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Reset"] = str(current_time + window)
-        
+        response.headers["X-RateLimit-Reset"] = str(now + window)
         return response
     
     def _cleanup_old_entries(self, current_time: int):
-        """Remove old entries from memory"""
         window_start = current_time - 60
         for identifier in list(self.requests.keys()):
-            self.requests[identifier] = [
-                req_time for req_time in self.requests[identifier]
-                if req_time > window_start
-            ]
+            self.requests[identifier] = [t for t in self.requests[identifier] if t > window_start]
             if not self.requests[identifier]:
                 del self.requests[identifier]
 
@@ -313,6 +310,11 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         
         # Skip CSRF check for GET, HEAD, OPTIONS
         if request.method in ["GET", "HEAD", "OPTIONS"]:
+            return await call_next(request)
+        
+        # If Authorization Bearer token present, treat as API call and skip CSRF (CORS + Auth protects)
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
             return await call_next(request)
         
         # Check for CSRF token

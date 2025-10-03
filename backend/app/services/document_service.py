@@ -179,10 +179,9 @@ class DocumentService:
             ).delete(synchronize_session=False)
             self.db.commit()
 
-            # Delete file from storage
+            # Delete file from storage using adapter
             try:
-                if document.path and os.path.exists(document.path):
-                    os.remove(document.path)
+                await self.storage.delete_file(document.path)
             except Exception:
                 pass
 

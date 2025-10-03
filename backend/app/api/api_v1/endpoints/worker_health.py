@@ -28,7 +28,7 @@ async def check_worker_health():
         
         # Check Redis connection
         try:
-            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            redis_url = os.getenv("REDIS_URL") or getattr(settings, 'REDIS_URL', '') or ""
             r = redis.from_url(redis_url)
             r.ping()
             health_status["redis_connected"] = True
@@ -77,7 +77,7 @@ async def check_worker_health():
 async def get_queue_stats():
     """Get queue statistics"""
     try:
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        redis_url = os.getenv("REDIS_URL") or getattr(settings, 'REDIS_URL', '') or ""
         r = redis.from_url(redis_url)
         
         # Get queue statistics

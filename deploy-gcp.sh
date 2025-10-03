@@ -248,6 +248,20 @@ show_urls() {
     echo "2. Test the health endpoints"
     echo "3. Set up monitoring and alerting"
     echo "4. Configure custom domain (optional)"
+
+    # Auto-configure backend environment variables with discovered URLs
+    if [ -n "$BACKEND_URL" ]; then
+      echo -e "${YELLOW}🔧 Setting backend env vars PUBLIC_BASE_URL and API_BASE_URL...${NC}"
+      gcloud run services update customercaregpt-backend \
+        --platform managed \
+        --region "$REGION" \
+        --set-env-vars "PUBLIC_BASE_URL=$BACKEND_URL,API_BASE_URL=$BACKEND_URL" >/dev/null 2>&1 || true
+    fi
+
+    # Display confirmation
+    echo -e "${GREEN}✅ Backend env updated with:${NC}"
+    echo "   PUBLIC_BASE_URL=$BACKEND_URL"
+    echo "   API_BASE_URL=$BACKEND_URL"
 }
 
 # Function to check deployment status

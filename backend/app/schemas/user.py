@@ -72,9 +72,20 @@ class UserCreate(UserBase):
 
 
 class UserLogin(BaseModel):
-    """User login schema - can login with either email or mobile"""
-    identifier: str  # Can be email or mobile
+    """User login schema - accepts either identifier or email + password"""
+    identifier: Optional[str] = None  # Can be email or mobile
+    email: Optional[str] = None       # Backward compatibility for clients sending 'email'
     password: str
+
+    @validator('identifier', pre=True, always=True)
+    def coerce_identifier(cls, v, values):
+        """Allow 'email' field as an alias for identifier if identifier missing"""
+        if v and isinstance(v, str) and v.strip():
+            return v
+        email = values.get('email')
+        if email and isinstance(email, str) and email.strip():
+            return email
+        raise ValueError('Email or mobile phone number is required')
 
     @validator('identifier')
     def validate_identifier(cls, v):

@@ -47,13 +47,18 @@ class EnhancedVectorService:
                 self.client = None
                 return
 
+            headers = None
+            api_key = (getattr(settings, "CHROMA_AUTH_CREDENTIALS", "") or "").strip()
+            if api_key:
+                headers = {"X-API-Key": api_key}
             self.client = chromadb.HttpClient(
                 host=chroma_host,
                 port=8001,
                 settings=Settings(
                     anonymized_telemetry=False,
                     allow_reset=True
-                )
+                ),
+                headers=headers
             )
             logger.info("ChromaDB client initialized successfully")
         except Exception as e:

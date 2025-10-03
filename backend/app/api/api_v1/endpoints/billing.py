@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.models.workspace import Workspace
@@ -99,8 +100,18 @@ async def get_billing_info(
     # Generate billing portal URL (this would be from Stripe)
     billing_portal_url = None
     if plan != 'free':
-        # In real implementation: get from Stripe
-        billing_portal_url = f"http://localhost:3000/billing/portal/{workspace.id}"
+        # In real implementation: get from Stripe; fallback to configured success URL base
+        fe_base = getattr(settings, 'STRIPE_SUCCESS_URL', None) or getattr(settings, 'PUBLIC_BASE_URL', '')
+        # If STRIPE_SUCCESS_URL provided, strip path to derive FE base domain
+        try:
+            from urllib.parse import urlparse
+            if fe_base:
+                parsed = urlparse(fe_base)
+                fe_base = f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            pass
+        if fe_base:
+            billing_portal_url = f"{fe_base}/billing/portal/{workspace.id}"
     
     return BillingInfo(
         plan=plan,
@@ -224,8 +235,16 @@ async def create_checkout_session(
     # 2. Return the checkout URL
     # 3. Handle webhooks to update workspace plan
     
-    # For now, return a mock response
-    checkout_url = f"http://localhost:3000/billing/checkout/{workspace.id}_{plan}"
+    # For now, return a mock response using configured frontend base
+    fe_base = getattr(settings, 'STRIPE_SUCCESS_URL', None) or getattr(settings, 'PUBLIC_BASE_URL', '')
+    try:
+        from urllib.parse import urlparse
+        if fe_base:
+            parsed = urlparse(fe_base)
+            fe_base = f"{parsed.scheme}://{parsed.netloc}"
+    except Exception:
+        pass
+    checkout_url = f"{fe_base}/billing/checkout/{workspace.id}_{plan}" if fe_base else None
     
     return {
         "checkout_url": checkout_url,

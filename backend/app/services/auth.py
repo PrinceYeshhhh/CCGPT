@@ -54,13 +54,19 @@ class AuthService:
         self._otp_redis = None
         if REDIS_AVAILABLE:
             try:
-                self._otp_redis = redis.Redis(
-                    host=getattr(settings, 'REDIS_HOST', 'localhost'),
-                    port=getattr(settings, 'REDIS_PORT', 6379),
-                    db=getattr(settings, 'REDIS_DB', 0),
-                    decode_responses=True,
-                    socket_timeout=2,
-                )
+                # Prefer REDIS_URL when available for cloud deployments
+                redis_url = getattr(settings, 'REDIS_URL', None)
+                if redis_url:
+                    import redis as _r
+                    self._otp_redis = _r.from_url(redis_url, decode_responses=True, socket_timeout=2)
+                else:
+                    self._otp_redis = redis.Redis(
+                        host=getattr(settings, 'REDIS_HOST', 'localhost'),
+                        port=getattr(settings, 'REDIS_PORT', 6379),
+                        db=getattr(settings, 'REDIS_DB', 0),
+                        decode_responses=True,
+                        socket_timeout=2,
+                    )
             except Exception:
                 self._otp_redis = None
         self._login_attempts: dict[str, dict] = {}  # Track failed login attempts
@@ -531,7 +537,7 @@ class AuthService:
                         },
                         json={
                             'personalizations': [{ 'to': [{ 'email': email }] }],
-                            'from': { 'email': settings.SES_FROM_EMAIL or 'no-reply@example.com' },
+                            'from': { 'email': (getattr(settings, 'FROM_EMAIL', None) or settings.SES_FROM_EMAIL or 'no-reply@example.com') },
                             'subject': subject,
                             'content': [
                                 { 'type': 'text/plain', 'value': body_text },

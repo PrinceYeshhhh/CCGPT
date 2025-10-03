@@ -1,4 +1,181 @@
 """
+Analytics endpoints to support dashboard Overview in frontend
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+import structlog
+
+from app.core.database import get_db
+from app.api.api_v1.dependencies import get_current_user
+from app.models.user import User
+from app.models.chat import ChatSession, ChatMessage
+from app.models.document import Document
+from app.services.analytics_service import AnalyticsService
+
+logger = structlog.get_logger()
+router = APIRouter()
+
+
+@router.get("/overview")
+async def analytics_overview(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return top-line KPIs used by the dashboard Overview."""
+    try:
+        workspace_id = str(current_user.workspace_id)
+        # Totals
+        total_messages = db.query(ChatMessage).join(ChatSession).filter(
+            ChatSession.workspace_id == workspace_id
+        ).count()
+        active_sessions = db.query(ChatSession).filter(
+            ChatSession.workspace_id == workspace_id,
+            ChatSession.is_active == True
+        ).count()
+        # Average response time (assistant messages) over last 30 days
+        end = datetime.utcnow()
+        start = end - timedelta(days=30)
+        avg_response_time_ms = db.query(func.avg(ChatMessage.response_time_ms)).join(ChatSession).filter(
+            ChatSession.workspace_id == workspace_id,
+            ChatMessage.role == "assistant",
+            ChatMessage.created_at >= start,
+            ChatMessage.created_at < end,
+            ChatMessage.response_time_ms.isnot(None)
+        ).scalar()
+
+        # Top questions (most frequent normalized user messages over last 30 days)
+        # Normalize by trimming and lowercasing (simple approach)
+        normalized = func.lower(func.trim(ChatMessage.content))
+        top_rows = (
+            db.query(normalized.label("question"), func.count().label("count"))
+            .join(ChatSession)
+            .filter(
+                ChatSession.workspace_id == workspace_id,
+                ChatMessage.role == "user",
+                ChatMessage.created_at >= start,
+                ChatMessage.created_at < end,
+            )
+            .group_by(normalized)
+            .order_by(func.count().desc())
+            .limit(5)
+            .all()
+        )
+        top_questions: List[Dict[str, Any]] = [
+            {"question": (row.question or "").strip(), "count": int(row.count or 0)} for row in top_rows if (row.question or "").strip()
+        ]
+
+        return {
+            "total_messages": total_messages,
+            "active_sessions": active_sessions,
+            "avg_response_time": avg_response_time_ms,
+            "top_questions": top_questions,
+        }
+    except Exception as e:
+        logger.error("analytics_overview failed", error=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load overview")
+
+
+@router.get("/usage-stats")
+async def analytics_usage_stats(
+    days: int = Query(30, ge=1, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return daily usage counts for the last N days suitable for charts."""
+    try:
+        workspace_id = str(current_user.workspace_id)
+        end = datetime.utcnow()
+        start = end - timedelta(days=days)
+
+        # Count user messages per day
+        results: List[Dict[str, Any]] = []
+        for i in range(days):
+            day_start = (start + timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+            count = db.query(ChatMessage).join(ChatSession).filter(
+                ChatSession.workspace_id == workspace_id,
+                ChatMessage.role == "user",
+                ChatMessage.created_at >= day_start,
+                ChatMessage.created_at < day_end,
+            ).count()
+            results.append({"date": day_start.date().isoformat(), "messages_count": count})
+        return results
+    except Exception as e:
+        logger.error("analytics_usage_stats failed", error=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load usage stats")
+
+
+@router.get("/kpis")
+async def analytics_kpis(
+    days: int = Query(30, ge=7, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Return KPI deltas for the last period (simple comparisons)."""
+    try:
+        workspace_id = str(current_user.workspace_id)
+        end = datetime.utcnow()
+        start = end - timedelta(days=days)
+        prev_start = start - timedelta(days=days)
+        prev_end = start
+
+        def count_messages(s: datetime, e: datetime) -> int:
+            return db.query(ChatMessage).join(ChatSession).filter(
+                ChatSession.workspace_id == workspace_id,
+                ChatMessage.role == "user",
+                ChatMessage.created_at >= s,
+                ChatMessage.created_at < e,
+            ).count()
+
+        cur_msgs = count_messages(start, end)
+        prev_msgs = count_messages(prev_start, prev_end)
+        delta_pct = 0.0 if prev_msgs == 0 else ((cur_msgs - prev_msgs) / max(prev_msgs, 1)) * 100.0
+
+        # Sessions delta
+        cur_sessions = db.query(ChatSession).filter(
+            ChatSession.workspace_id == workspace_id,
+            ChatSession.created_at >= start,
+            ChatSession.created_at < end,
+        ).count()
+        prev_sessions = db.query(ChatSession).filter(
+            ChatSession.workspace_id == workspace_id,
+            ChatSession.created_at >= prev_start,
+            ChatSession.created_at < prev_end,
+        ).count()
+        sessions_delta = cur_sessions - prev_sessions
+
+        # Avg response time (assistant messages) current vs previous window
+        def avg_rt(s: datetime, e: datetime):
+            return db.query(func.avg(ChatMessage.response_time_ms)).join(ChatSession).filter(
+                ChatSession.workspace_id == workspace_id,
+                ChatMessage.role == "assistant",
+                ChatMessage.created_at >= s,
+                ChatMessage.created_at < e,
+                ChatMessage.response_time_ms.isnot(None)
+            ).scalar()
+        cur_rt = avg_rt(start, end)
+        prev_rt = avg_rt(prev_start, prev_end)
+        # Delta in ms (if both present)
+        if cur_rt is not None and prev_rt is not None:
+            rt_delta = float(cur_rt) - float(prev_rt)
+        else:
+            rt_delta = 0
+
+        return {
+            "queries": {"current": cur_msgs, "previous": prev_msgs, "delta_pct": delta_pct},
+            "sessions": {"current": cur_sessions, "previous": prev_sessions, "delta": sessions_delta},
+            "avg_response_time_ms": {"current": cur_rt, "previous": prev_rt, "delta_ms": rt_delta},
+            "active_sessions": {"current": cur_sessions, "previous": prev_sessions, "delta": sessions_delta},
+        }
+    except Exception as e:
+        logger.error("analytics_kpis failed", error=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load KPIs")
+
+"""
 Analytics endpoints for usage statistics and insights
 """
 

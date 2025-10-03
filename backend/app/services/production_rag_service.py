@@ -25,6 +25,7 @@ from app.services.production_vector_service import (
 )
 from app.services.gemini_service import GeminiService
 from app.models.chat import ChatSession, ChatMessage
+from app.models.document import Document, DocumentChunk
 from app.schemas.rag import RAGQueryResponse, RAGQueryRequest
 from app.utils.cache import analytics_cache
 
@@ -449,11 +450,11 @@ Instructions:
             if session:
                 return session
         
-        # Create new session
+        # Create new session with minimal required fields
         session = ChatSession(
             workspace_id=workspace_id,
             user_id=1,  # Default user ID
-            title=f"Session {uuid.uuid4().hex[:8]}"
+            session_id=str(uuid.uuid4())
         )
         self.db.add(session)
         self.db.commit()
@@ -508,15 +509,15 @@ Instructions:
                                   chunks: List[Chunk]) -> int:
         """Save document and chunks to database"""
         try:
-            # Create document record
+            # Create document record (aligned with model fields)
             document = Document(
                 filename=file_path.split('/')[-1],
-                file_path=file_path,
                 content_type=content_type,
                 workspace_id=workspace_id,
-                user_id=1,  # Default user ID
-                file_size=0,  # Would calculate actual size
-                status="processed"
+                uploaded_by=1,  # Default user
+                size=0,
+                path=file_path,
+                status="done"
             )
             self.db.add(document)
             self.db.flush()  # Get document ID
@@ -528,10 +529,9 @@ Instructions:
                 
                 chunk_record = DocumentChunk(
                     document_id=document.id,
-                    chunk_id=chunk.chunk_id,
+                    workspace_id=workspace_id,
                     text=chunk.text,
-                    metadata=chunk.metadata,
-                    embedding=None,  # Would store actual embedding
+                    chunk_metadata=chunk.metadata,
                     chunk_index=chunk.chunk_index
                 )
                 self.db.add(chunk_record)

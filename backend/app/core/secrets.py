@@ -66,7 +66,7 @@ class SecretsManager:
         if not VAULT_AVAILABLE:
             raise ImportError("hvac is not installed. Install with: pip install hvac")
         if not self._client:
-            vault_url = os.getenv("VAULT_URL", "http://localhost:8200")
+            vault_url = os.getenv("VAULT_URL", "")
             vault_token = os.getenv("VAULT_TOKEN")
             if not vault_token:
                 raise ValueError("VAULT_TOKEN environment variable is required")

@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import logging
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.models.workspace import Workspace
@@ -88,7 +89,11 @@ async def get_billing_status(
             storage_used=storage_used,
             storage_limit=plan_limits['storage_limit']
         ),
-        billing_portal_url=f"http://localhost:3000/billing/portal" if subscription.stripe_customer_id else None,
+        billing_portal_url=(
+            (lambda fb: f"{fb}/billing/portal")(
+                (lambda s: f"{s.scheme}://{s.netloc}")(__import__('urllib.parse').urlparse(getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', '')))
+            if (getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', '')) else None
+        ) if subscription.stripe_customer_id else None,
         trial_end=subscription.period_end.isoformat() if subscription.tier == 'free_trial' and subscription.period_end else None,
         is_trial=subscription.tier == 'free_trial'
     )
@@ -264,6 +269,7 @@ async def get_invoices(
             
             price = plan_prices.get(subscription.tier, 0)
             if price > 0:
+                base = (lambda s: f"{s.scheme}://{s.netloc}")(__import__('urllib.parse').urlparse(getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', ''))) if (getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', '')) else ''
                 invoices = [
                     Invoice(
                         id=f"inv_{subscription.id}_001",
@@ -271,7 +277,7 @@ async def get_invoices(
                         currency="usd",
                         status="paid",
                         created=datetime.utcnow() - timedelta(days=30),
-                        invoice_pdf=f"http://localhost:3000/billing/invoice/{subscription.id}_001.pdf",
+                        invoice_pdf=(f"{base}/billing/invoice/{subscription.id}_001.pdf" if base else None),
                         description=f"{subscription.tier.title()} Plan - Monthly"
                     )
                 ]
@@ -286,7 +292,7 @@ async def get_invoices(
                                 currency="usd",
                                 status="paid",
                                 created=datetime.utcnow() - timedelta(days=30*i),
-                                invoice_pdf=f"http://localhost:3000/billing/invoice/{subscription.id}_{i:03d}.pdf",
+                                invoice_pdf=(f"{base}/billing/invoice/{subscription.id}_{i:03d}.pdf" if base else None),
                                 description=f"{subscription.tier.title()} Plan - Monthly"
                             )
                         )
@@ -410,9 +416,16 @@ async def create_billing_portal_session(
     
     try:
         # Create billing portal session
+        # Derive frontend base from STRIPE_SUCCESS_URL or PUBLIC_BASE_URL
+        from urllib.parse import urlparse
+        _fb = getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', '')
+        _ret = None
+        if _fb:
+            _p = urlparse(_fb)
+            _ret = f"{_p.scheme}://{_p.netloc}/billing"
         portal_url = await stripe_service.create_billing_portal_session(
             customer_id=subscription.stripe_customer_id,
-            return_url="http://localhost:3000/billing"
+            return_url=_ret or None
         )
         
         return {

@@ -61,9 +61,22 @@ app = FastAPI(
     redoc_url="/api/redoc",
 )
 
-# Add security middleware (order matters!) - only if enabled
+# IMPORTANT: Install CORS first so preflight requests are handled before other middleware
+if settings.ENABLE_CORS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)],
+        allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+        allow_methods=settings.CORS_ALLOW_METHODS,
+        allow_headers=settings.CORS_ALLOW_HEADERS,
+    )
+
+# Security and request middlewares (order after CORS)
 if settings.ENABLE_SECURITY_HEADERS:
     app.add_middleware(NewSecurityHeadersMiddleware)
+
+if settings.ENABLE_REQUEST_LOGGING:
+    app.add_middleware(RequestLoggingMiddleware)
 
 if settings.ENABLE_INPUT_VALIDATION:
     app.add_middleware(InputValidationMiddleware)
@@ -75,14 +88,6 @@ if settings.ENABLE_RATE_LIMITING:
 if settings.ENVIRONMENT == "production":
     app.add_middleware(CSRFProtectionMiddleware)
 
-# CORS is handled by create_cors_middleware below
-
-if settings.ENABLE_REQUEST_LOGGING:
-    app.add_middleware(RequestLoggingMiddleware)
-
-# Add security middleware
-app.add_middleware(NewSecurityHeadersMiddleware)
-
 # Add trusted host middleware (skip in testing)
 if not os.getenv("TESTING"):
     allowed_hosts = getattr(settings, "ALLOWED_HOSTS", ["*"])
@@ -91,15 +96,7 @@ if not os.getenv("TESTING"):
         allowed_hosts=allowed_hosts
     )
 
-# Add CORS middleware with security restrictions (must be last)
-if settings.ENABLE_CORS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS if isinstance(settings.CORS_ORIGINS, list) else [str(settings.CORS_ORIGINS)],
-        allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
-        allow_methods=settings.CORS_ALLOW_METHODS,
-        allow_headers=settings.CORS_ALLOW_HEADERS,
-    )
+# CORS already installed earlier
 
 # Mount static files (skip in testing)
 if not os.getenv("TESTING"):

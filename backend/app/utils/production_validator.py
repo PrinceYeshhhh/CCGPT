@@ -500,7 +500,9 @@ class ProductionValidator:
         """Validate health check endpoints"""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get("http://localhost:8000/health")
+                base = getattr(settings, 'API_BASE_URL', None) or getattr(settings, 'PUBLIC_BASE_URL', None) or ""
+                url = f"{base}/health" if base else "/health"
+                response = await client.get(url)
                 if response.status_code == 200:
                     self.validation_results["health_checks"] = {
                         "status": "passed",

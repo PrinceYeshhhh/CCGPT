@@ -144,31 +144,44 @@ class ProductionVectorService:
             self.embedding_dimension = 384
     
     def _initialize_vector_database(self):
-        """Initialize ChromaDB vector database"""
-        if CHROMADB_AVAILABLE:
-            try:
-                # Create ChromaDB client
-                self.chroma_client = chromadb.PersistentClient(
-                    path=settings.CHROMA_DB_PATH,
-                    settings=Settings(
-                        anonymized_telemetry=False,
-                        allow_reset=True
-                    )
-                )
-                
-                # Create or get collection
-                self.collection = self.chroma_client.get_or_create_collection(
-                    name=self.collection_name,
-                    metadata={"hnsw:space": "cosine"}
-                )
-                
-                logger.info("ChromaDB initialized successfully")
-            except Exception as e:
-                logger.error("Failed to initialize ChromaDB", error=str(e))
+        """Initialize ChromaDB vector database (HTTP client for Cloud Run)."""
+        if not CHROMADB_AVAILABLE:
+            logger.warning("ChromaDB not available")
+            self.chroma_client = None
+            self.collection = None
+            return
+
+        try:
+            if not getattr(settings, "CHROMA_URL", None):
+                logger.warning("CHROMA_URL not set; vector search will be inactive")
                 self.chroma_client = None
                 self.collection = None
-        else:
-            logger.warning("ChromaDB not available")
+                return
+
+            chroma_host = settings.CHROMA_URL.replace("http://", "").replace("https://", "")
+            headers = None
+            api_key = (getattr(settings, "CHROMA_AUTH_CREDENTIALS", "") or "").strip()
+            if api_key:
+                headers = {"X-API-Key": api_key}
+            self.chroma_client = chromadb.HttpClient(
+                host=chroma_host,
+                port=8001,
+                settings=Settings(
+                    anonymized_telemetry=False,
+                    allow_reset=True
+                ),
+                headers=headers
+            )
+
+            # Create or get collection
+            self.collection = self.chroma_client.get_or_create_collection(
+                name=self.collection_name,
+                metadata={"hnsw:space": "cosine"}
+            )
+
+            logger.info("ChromaDB (HTTP) initialized successfully", host=chroma_host)
+        except Exception as e:
+            logger.error("Failed to initialize ChromaDB (HTTP)", error=str(e))
             self.chroma_client = None
             self.collection = None
     

@@ -1,12 +1,18 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '/api/v1') as string;
+// Prefer relative proxy in Vite dev to avoid loopback/CORS issues
+const isDev = typeof window !== 'undefined' && window.location && window.location.port === '5173';
+let API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '/api/v1') as string;
+if (isDev) {
+  API_BASE_URL = '/api/v1';
+}
 
-console.log('API Configuration:', { 
+console.log('API Configuration:', {
+  isDev,
   VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
   VITE_API_URL: import.meta.env.VITE_API_URL,
-  API_BASE_URL 
+  API_BASE_URL
 });
 
 export const api = axios.create({

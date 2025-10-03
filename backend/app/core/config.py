@@ -6,6 +6,20 @@ from pydantic_settings import BaseSettings
 from pydantic import field_validator
 from typing import List, Optional, Union
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Preload environment files for local/dev setups before Settings() is instantiated.
+# Order of precedence: .env.local, .env, local.env (all optional)
+if os.getenv("ENVIRONMENT", "development").lower() not in ["production", "staging", "testing", "test"]:
+    try:
+        backend_root = Path(__file__).resolve().parents[2]
+        for candidate in [backend_root / ".env.local", backend_root / ".env", backend_root / "local.env"]:
+            if candidate.exists():
+                load_dotenv(dotenv_path=str(candidate), override=False)
+    except Exception:
+        # Do not fail settings import if dotenv loading has issues
+        pass
 
 class Settings(BaseSettings):
     """Application settings"""
@@ -85,17 +99,20 @@ class Settings(BaseSettings):
     
     # Email Provider
     EMAIL_PROVIDER: str = "ses"  # or "sendgrid"
-    SES_FROM_EMAIL: str = ""
+    FROM_EMAIL: str = "noreply@customercaregpt.com"
+    SES_FROM_EMAIL: str = ""  # Legacy; fallback to FROM_EMAIL
     SENDGRID_API_KEY: str = ""
     PUBLIC_BASE_URL: str = "http://localhost:8000"
     
     # Storage Configuration
     USE_S3: bool = False
+    USE_GCS: bool = False
     UPLOAD_DIR: str = "uploads"
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     AWS_REGION: str = "us-east-1"
     S3_BUCKET_NAME: str = ""
+    GCS_BUCKET_NAME: str = ""
     STRIPE_WHITE_LABEL_PRICE_ID: str = ""
     
     # Application
@@ -106,8 +123,16 @@ class Settings(BaseSettings):
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     CORS_ALLOW_HEADERS: List[str] = [
-        "Authorization", "Content-Type", "X-Client-API-Key", 
-        "X-Embed-Code-ID", "X-Workspace-ID", "Origin", "Referer"
+        "Authorization",
+        "Content-Type",
+        "X-Client-API-Key",
+        "X-Embed-Code-ID",
+        "X-Workspace-ID",
+        "X-Requested-With",
+        "X-Client-Version",
+        "X-CSRF-Token",
+        "Origin",
+        "Referer"
     ]
     ALLOWED_HOSTS: Union[List[str], str] = ["localhost", "127.0.0.1", "0.0.0.0", "testserver"]
     
@@ -171,7 +196,6 @@ class Settings(BaseSettings):
     # Widget Configuration
     WIDGET_DEFAULT_TITLE: str = "Customer Support"
     WIDGET_DEFAULT_PLACEHOLDER: str = "Ask me anything..."
-    WIDGET_DEFAULT_WELCOME_MESSAGE: str = "Hello! How can I help you today?"
     WIDGET_DEFAULT_PRIMARY_COLOR: str = "#4f46e5"
     WIDGET_DEFAULT_SECONDARY_COLOR: str = "#f8f9fa"
     WIDGET_DEFAULT_TEXT_COLOR: str = "#111111"
