@@ -53,6 +53,300 @@ jobs:
 
       - name: Run unit tests
         env:
+          PYTHONPATH: .
+        run: |
+          mkdir -p ../artifacts
+          pytest tests/unit -q -n auto \
+            --junitxml=../artifacts/backend-unit-junit.xml \
+            --cov=app --cov-report=xml:../artifacts/backend-unit-coverage.xml --cov-report=term-missing
+
+      - name: Upload unit artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-unit-artifacts
+          path: artifacts
+          retention-days: 7
+
+  backend-integration:
+    runs-on: ubuntu-latest
+    needs: backend-unit
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 6379:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-xdist pytest-asyncio httpx
+      - name: Wait for services
+        run: |
+          python - <<'PY'
+          import socket, time, sys
+          def wait(host, port, name):
+              for _ in range(120):
+                  try:
+                      with socket.create_connection((host, port), timeout=2):
+                          print(name, "ready"); return
+                  except OSError:
+                      time.sleep(1)
+              sys.exit(f"{name} not ready")
+          wait("localhost", 5432, "postgres")
+          wait("localhost", 6379, "redis")
+          PY
+      - name: Run integration tests
+        env:
+          PYTHONPATH: .
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: ${{ secrets.SECRET_KEY != '' && secrets.SECRET_KEY || 'ci-secret' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' && secrets.GEMINI_API_KEY || 'ci-placeholder' }}
+        run: |
+          mkdir -p ../artifacts
+          pytest tests/integration -q -n auto \
+            --junitxml=../artifacts/backend-integration-junit.xml \
+            --cov=app --cov-report=xml:../artifacts/backend-integration-coverage.xml --cov-report=term-missing
+      - name: Upload integration artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-integration-artifacts
+          path: artifacts
+          retention-days: 7
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run type-check
+      - name: Test
+        run: |
+          npm run test:ci || npm test -- --run
+      - name: Build
+        run: npm run build
+      - name: Upload frontend artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-artifacts
+          path: |
+            dist
+            coverage
+            junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [backend-integration, frontend]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      - name: Compose up
+        run: |
+          docker compose -f docker-compose.yml up -d
+          for i in {1..60}; do
+            curl -fsS http://localhost:8000/health && break || sleep 2
+          done
+      - name: Run E2E (backend)
+        working-directory: backend
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p ../artifacts
+          pytest tests/e2e -q --junitxml=../artifacts/e2e-junit.xml || true
+      - name: Compose logs (on failure)
+        if: failure()
+        run: docker compose -f docker-compose.yml logs --no-color > compose-logs.txt
+      - name: Upload E2E artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-artifacts
+          path: |
+            artifacts
+            compose-logs.txt
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Compose down
+        if: always()
+        run: docker compose -f docker-compose.yml down -v
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [backend-unit, frontend]
+    if: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: ${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build backend image (push)
+        if: ${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/customercaregpt-backend:latest
+            ${{ secrets.DOCKER_USERNAME }}/customercaregpt-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image (push)
+        if: ${{ secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '' && github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/customercaregpt-frontend:latest
+            ${{ secrets.DOCKER_USERNAME }}/customercaregpt-frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build backend image (no push)
+        if: ${{ !(secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '') }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: local/customercaregpt-backend:${{ github.sha }}
+
+      - name: Build frontend image (no push)
+        if: ${{ !(secrets.DOCKER_USERNAME != '' && secrets.DOCKER_PASSWORD != '') }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          tags: local/customercaregpt-frontend:${{ github.sha }}
+
+  summarize:
+    runs-on: ubuntu-latest
+    needs: [backend-unit, backend-integration, frontend, e2e]
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- backend-unit: ${{ needs.backend-unit.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- backend-integration: ${{ needs.backend-integration.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- frontend: ${{ needs.frontend.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- e2e: ${{ needs.e2e.result }}" >> $GITHUB_STEP_SUMMARY
+
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "22"
+  TESTING: "1"
+
+jobs:
+  backend-unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install deps and tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov pytest-xdist pytest-asyncio httpx flake8 mypy junit-xml
+
+      - name: Lint (flake8)
+        run: |
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Type check (mypy)
+        run: |
+          mypy app/ --ignore-missing-imports
+
+      - name: Run unit tests
+        env:
           PYTHONPATH: backend
         run: |
           mkdir -p ../artifacts
