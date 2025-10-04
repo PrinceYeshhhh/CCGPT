@@ -16,7 +16,13 @@ export default defineConfig({
     typecheck: {
       enabled: false
     },
-    testTimeout: 10000, // 10 second timeout
+    testTimeout: 5000, // 5 second timeout
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        singleThread: false
+      }
+    },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

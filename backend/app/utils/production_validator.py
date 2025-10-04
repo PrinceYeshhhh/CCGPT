@@ -182,7 +182,7 @@ class ProductionValidator:
         """Validate ChromaDB connectivity"""
         try:
             start_time = time.time()
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(f"{settings.CHROMA_URL}/api/v1/heartbeat")
                 latency = (time.time() - start_time) * 1000
             
@@ -223,7 +223,7 @@ class ProductionValidator:
                 return
             
             start_time = time.time()
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(
                     "https://generativelanguage.googleapis.com/v1beta/models",
                     params={"key": settings.GEMINI_API_KEY}

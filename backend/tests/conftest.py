@@ -31,8 +31,8 @@ from app.core.database import get_db, Base
 # Import all models to ensure relationships are resolved
 from app.models import User, Workspace, Document, DocumentChunk, ChatSession, ChatMessage, EmbedCode, Subscription
 
-# Test database configuration
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
+# Test database configuration - use in-memory SQLite for speed
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
@@ -49,21 +49,24 @@ def event_loop():
     yield loop
     loop.close()
 
+@pytest.fixture(scope="session", autouse=True)
+def setup_database():
+    """Create database tables once per session."""
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
+
 @pytest.fixture(scope="function")
 def db_session() -> Generator:
     """Create a fresh database session for each test."""
-    # Create tables
-    Base.metadata.create_all(bind=engine)
-    
     # Create session
     session = TestingSessionLocal()
     
     try:
         yield session
     finally:
+        session.rollback()
         session.close()
-        # Drop tables after test
-        Base.metadata.drop_all(bind=engine)
 
 @pytest.fixture(scope="function")
 def client(db_session) -> Generator:

@@ -56,7 +56,7 @@ jobs:
           PYTHONPATH: backend
         run: |
           mkdir -p ../artifacts
-          pytest tests/unit -q -n auto \
+          pytest tests/unit/ -q -n auto \
             --junitxml=../artifacts/backend-unit-junit.xml \
             --cov=app --cov-report=xml:../artifacts/backend-unit-coverage.xml --cov-report=term-missing
 

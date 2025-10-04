@@ -142,7 +142,7 @@ async def test_api_connectivity(base_url: str) -> Dict[str, Any]:
         for endpoint, name in test_endpoints:
             try:
                 url = f"{base_url}{endpoint}"
-                async with session.get(url, timeout=10) as response:
+                async with session.get(url, timeout=5) as response:
                     results["tests"][name] = {
                         "status": "success",
                         "status_code": response.status,
