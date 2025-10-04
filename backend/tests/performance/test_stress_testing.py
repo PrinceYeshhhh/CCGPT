@@ -11,7 +11,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+import sys
+import os
 
+# Add the backend directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 from app.main import app
 from app.core.database import get_db
 from app.models.user import User

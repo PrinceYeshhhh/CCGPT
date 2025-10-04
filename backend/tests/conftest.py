@@ -6,12 +6,16 @@ import pytest
 import asyncio
 import tempfile
 import os
+import sys
 from typing import Generator, AsyncGenerator
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import patch, MagicMock
+
+# Add the backend directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 # Set testing environment before importing app
 os.environ["TESTING"] = "true"

@@ -24,7 +24,7 @@ class StorageAdapter:
         """Get file content by path"""
         raise NotImplementedError
     
-    async def delete_file(self, path: str) -> bool:
+    def delete_file(self, path: str) -> bool:
         """Delete file by path"""
         raise NotImplementedError
 
@@ -87,7 +87,7 @@ class LocalStorageAdapter(StorageAdapter):
             logger.error("Failed to read file from local storage", error=str(e), path=path)
             raise
     
-    async def delete_file(self, path: str) -> bool:
+    def delete_file(self, path: str) -> bool:
         """Delete file from local storage"""
         try:
             if os.path.exists(path):
@@ -171,7 +171,7 @@ class S3StorageAdapter(StorageAdapter):
             logger.error("Failed to read file from S3", error=str(e), path=path)
             raise
     
-    async def delete_file(self, path: str) -> bool:
+    def delete_file(self, path: str) -> bool:
         """Delete file from S3"""
         try:
             self.s3_client.delete_object(Bucket=self.bucket_name, Key=path)
@@ -220,7 +220,7 @@ class GCSStorageAdapter(StorageAdapter):
         blob = self.bucket.blob(path)
         return blob.download_as_bytes()
     
-    async def delete_file(self, path: str) -> bool:
+    def delete_file(self, path: str) -> bool:
         try:
             blob = self.bucket.blob(path)
             blob.delete()

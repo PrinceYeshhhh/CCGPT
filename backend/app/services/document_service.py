@@ -181,7 +181,7 @@ class DocumentService:
 
             # Delete file from storage using adapter
             try:
-                await self.storage.delete_file(document.path)
+                self.storage.delete_file(document.path)
             except Exception:
                 pass
 

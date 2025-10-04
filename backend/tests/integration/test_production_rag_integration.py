@@ -8,10 +8,13 @@ import asyncio
 import time
 import tempfile
 import os
+import sys
 from unittest.mock import Mock, patch, AsyncMock
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+# Add the backend directory to Python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 from app.main import app
 from app.core.database import get_db
 from app.models.user import User

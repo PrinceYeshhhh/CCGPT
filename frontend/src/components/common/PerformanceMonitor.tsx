@@ -58,7 +58,7 @@ export function PerformanceMonitor({
       const fcp = paint.find(entry => entry.name === 'first-contentful-paint')?.startTime || null;
       const lcp = performance.getEntriesByType('largest-contentful-paint')[0]?.startTime || null;
       
-      const pageLoadTime = navigation ? navigation.loadEventEnd - navigation.navigationStart : null;
+      const pageLoadTime = navigation ? navigation.loadEventEnd - (navigation as any).navigationStart : null;
       const ttfb = navigation ? navigation.responseStart - navigation.requestStart : null;
       
       // Memory usage (if available)

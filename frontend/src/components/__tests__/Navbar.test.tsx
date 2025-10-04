@@ -83,7 +83,7 @@ describe('Navbar Component', () => {
 
   it('shows user menu when user is authenticated', () => {
     mockAuthContext.isAuthenticated = true;
-    mockAuthContext.user = {
+    (mockAuthContext as any).user = {
       id: '1',
       email: 'test@example.com',
       full_name: 'Test User',
@@ -139,7 +139,7 @@ describe('Navbar Component', () => {
 
   it('handles logout button click', async () => {
     mockAuthContext.isAuthenticated = true;
-    mockAuthContext.user = {
+    (mockAuthContext as any).user = {
       id: '1',
       email: 'test@example.com',
       full_name: 'Test User',
@@ -260,7 +260,7 @@ describe('Navbar Component', () => {
 
   it('shows user avatar when authenticated', () => {
     mockAuthContext.isAuthenticated = true;
-    mockAuthContext.user = {
+    (mockAuthContext as any).user = {
       id: '1',
       email: 'test@example.com',
       full_name: 'Test User',
@@ -279,7 +279,7 @@ describe('Navbar Component', () => {
 
   it('handles dropdown menu interactions', () => {
     mockAuthContext.isAuthenticated = true;
-    mockAuthContext.user = {
+    (mockAuthContext as any).user = {
       id: '1',
       email: 'test@example.com',
       full_name: 'Test User',
@@ -302,7 +302,7 @@ describe('Navbar Component', () => {
 
   it('closes dropdown menu when clicking outside', () => {
     mockAuthContext.isAuthenticated = true;
-    mockAuthContext.user = {
+    (mockAuthContext as any).user = {
       id: '1',
       email: 'test@example.com',
       full_name: 'Test User',
