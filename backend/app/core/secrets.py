@@ -150,8 +150,14 @@ class SecretsManager:
             db_url = self.get_secret("DATABASE_URL")
             if db_url:
                 return db_url
-        
-        return os.getenv("DATABASE_URL", settings.DATABASE_URL)
+        # Lazy import to avoid circular dependency; fall back safely
+        default_val = None
+        try:
+            from app.core.config import settings as _settings
+            default_val = getattr(_settings, 'DATABASE_URL', None)
+        except Exception:
+            default_val = None
+        return os.getenv("DATABASE_URL", default_val or "")
     
     def get_redis_url(self) -> str:
         """Get Redis URL from secrets or environment"""
@@ -159,8 +165,14 @@ class SecretsManager:
             redis_url = self.get_secret("REDIS_URL")
             if redis_url:
                 return redis_url
-        
-        return os.getenv("REDIS_URL", settings.REDIS_URL)
+        # Lazy import to avoid circular dependency; fall back safely
+        default_val = None
+        try:
+            from app.core.config import settings as _settings
+            default_val = getattr(_settings, 'REDIS_URL', None)
+        except Exception:
+            default_val = None
+        return os.getenv("REDIS_URL", default_val or "redis://localhost:6379/0")
     
     def get_api_key(self, service: str) -> Optional[str]:
         """Get API key for specific service"""
@@ -173,8 +185,14 @@ class SecretsManager:
             jwt_secret = self.get_secret("JWT_SECRET")
             if jwt_secret:
                 return jwt_secret
-        
-        return os.getenv("JWT_SECRET", settings.SECRET_KEY)
+        # Lazy import to avoid circular dependency; fall back safely
+        default_val = None
+        try:
+            from app.core.config import settings as _settings
+            default_val = getattr(_settings, 'SECRET_KEY', None)
+        except Exception:
+            default_val = None
+        return os.getenv("JWT_SECRET", default_val or "change-me")
     
     def get_stripe_config(self) -> Dict[str, str]:
         """Get Stripe configuration from secrets"""

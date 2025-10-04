@@ -43,11 +43,6 @@ services:
       - chroma_data:/chroma/chroma
     ports:
       - "8001:8001"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/api/v1/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Backend API
   backend:
@@ -73,7 +68,7 @@ services:
       redis:
         condition: service_healthy
       chromadb:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

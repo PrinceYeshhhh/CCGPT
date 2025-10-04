@@ -72,10 +72,24 @@ async def get_billing_status(
     
     # Set limits based on new pricing structure
     plan_config = stripe_service.get_plan_config(subscription.tier)
-    
+
     # Get standardized limits for the plan tier
     plan_limits = PlanLimits.get_limits(subscription.tier)
-    
+
+    # Derive a base URL for billing links
+    base_url = ""
+    try:
+        from urllib.parse import urlparse
+        success_or_public = getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', '')
+        if success_or_public:
+            parsed = urlparse(success_or_public)
+            if parsed.scheme and parsed.netloc:
+                base_url = f"{parsed.scheme}://{parsed.netloc}"
+    except Exception:
+        base_url = ""
+
+    billing_portal_url = f"{base_url}/billing/portal" if (subscription.stripe_customer_id and base_url) else None
+
     return BillingInfo(
         plan=subscription.tier,
         status=subscription.status,
@@ -89,11 +103,7 @@ async def get_billing_status(
             storage_used=storage_used,
             storage_limit=plan_limits['storage_limit']
         ),
-        billing_portal_url=(
-            (lambda fb: f"{fb}/billing/portal")(
-                (lambda s: f"{s.scheme}://{s.netloc}")(__import__('urllib.parse').urlparse(getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', '')))
-            if (getattr(settings, 'STRIPE_SUCCESS_URL', '') or getattr(settings, 'PUBLIC_BASE_URL', '')) else None
-        ) if subscription.stripe_customer_id else None,
+        billing_portal_url=billing_portal_url,
         trial_end=subscription.period_end.isoformat() if subscription.tier == 'free_trial' and subscription.period_end else None,
         is_trial=subscription.tier == 'free_trial'
     )

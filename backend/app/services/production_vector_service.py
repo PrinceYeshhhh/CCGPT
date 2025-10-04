@@ -484,7 +484,7 @@ class ProductionVectorService:
             scored.sort(key=lambda x: x.score, reverse=True)
             return scored[:config.top_k]
         except Exception:
-        return []
+            return []
     
     async def _generate_query_variations(self, query: str) -> List[str]:
         """Generate query variations for semantic search"""
