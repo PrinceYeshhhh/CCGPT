@@ -13,23 +13,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
-    typecheck: {
-      enabled: false
-    },
-    testTimeout: 10000, // 10 second timeout
-    hookTimeout: 10000, // 10 second timeout for hooks
-    teardownTimeout: 5000, // 5 second timeout for teardown
-    pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: false
-      }
-    },
-    reporter: ['verbose', 'json', 'html'],
-    outputFile: {
-      json: './test-results.json',
-      html: './test-results.html'
-    },
+    testTimeout: 10000,
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

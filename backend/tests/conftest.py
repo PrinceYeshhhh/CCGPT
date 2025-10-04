@@ -52,6 +52,8 @@ def event_loop():
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     """Create database tables once per session."""
+    # Ensure all models are imported before creating tables
+    from app.models import User, Workspace, Document, DocumentChunk, ChatSession, ChatMessage, EmbedCode, Subscription
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
@@ -63,6 +65,8 @@ def db_session() -> Generator:
     session = TestingSessionLocal()
     
     try:
+        # Ensure tables exist for this test
+        Base.metadata.create_all(bind=engine)
         yield session
     finally:
         session.rollback()
@@ -276,3 +280,56 @@ def setup_test_environment():
     for key in ["TESTING", "DATABASE_URL", "REDIS_URL", "SECRET_KEY", "GEMINI_API_KEY", "STRIPE_API_KEY", "ENVIRONMENT"]:
         if key in os.environ:
             del os.environ[key]
+
+# Global mocking to prevent heavy model loading and external service calls
+@pytest.fixture(autouse=True)
+def mock_heavy_services():
+    """Mock heavy services that cause tests to hang."""
+    
+    # Mock sentence transformers to prevent model downloading
+    with patch('sentence_transformers.SentenceTransformer') as mock_st:
+        mock_model = MagicMock()
+        mock_model.encode.return_value = [[0.1] * 384]  # Mock 384-dim embedding
+        mock_st.return_value = mock_model
+        
+        # Mock cross encoder
+        with patch('sentence_transformers.CrossEncoder') as mock_ce:
+            mock_ce_model = MagicMock()
+            mock_ce_model.predict.return_value = [0.8]  # Mock score
+            mock_ce.return_value = mock_ce_model
+            
+            # Mock Redis manager to prevent connection attempts
+            with patch('app.core.database.RedisManager') as mock_redis_manager:
+                mock_redis_client = MagicMock()
+                mock_redis_client.ping.return_value = True
+                mock_redis_client.get.return_value = None
+                mock_redis_client.set.return_value = True
+                mock_redis_client.delete.return_value = True
+                mock_redis_client.exists.return_value = False
+                mock_redis_client.incr.return_value = 1
+                mock_redis_client.expire.return_value = True
+                mock_redis_manager.return_value.get_client.return_value = mock_redis_client
+                mock_redis_manager.return_value.health_check.return_value = True
+                
+                # Mock httpx for external API calls
+                with patch('httpx.AsyncClient') as mock_httpx:
+                    mock_response = MagicMock()
+                    mock_response.status_code = 200
+                    mock_response.json.return_value = {"status": "ok"}
+                    mock_response.text = "OK"
+                    mock_httpx.return_value.__aenter__.return_value.get.return_value = mock_response
+                    mock_httpx.return_value.__aenter__.return_value.post.return_value = mock_response
+                    
+                    # Mock production RAG system initialization
+                    with patch('app.services.production_rag_system.ProductionRAGSystem') as mock_rag:
+                        mock_rag_instance = MagicMock()
+                        mock_rag_instance.initialize_models.return_value = None
+                        mock_rag.return_value = mock_rag_instance
+                        
+                        # Mock A/B testing service
+                        with patch('app.services.ab_testing_service.ABTestingService') as mock_ab:
+                            mock_ab_instance = MagicMock()
+                            mock_ab_instance.load_tests.return_value = []
+                            mock_ab.return_value = mock_ab_instance
+                            
+                            yield
