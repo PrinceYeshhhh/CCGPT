@@ -316,10 +316,10 @@ class AuthService:
             "message": "User is eligible for registration"
         }
     
-    def create_access_token(self, data: dict | str, expires_delta: Optional[timedelta] = None, additional_claims: dict | None = None):
+    def create_access_token(self, data: Dict[str, Any] | str, expires_delta: Optional[timedelta] = None, additional_claims: Optional[Dict[str, Any]] = None):
         """Create access token; accepts payload dict or user_id string for convenience."""
         if isinstance(data, str):
-            to_encode = {"sub": data}
+            to_encode: Dict[str, Any] = {"sub": data}
         else:
             to_encode = data.copy()
         current_time = datetime.utcnow()
@@ -331,8 +331,8 @@ class AuthService:
         
         # Standard claims
         to_encode.update({
-            "exp": expire,
-            "iat": current_time,
+            "exp": int(expire.timestamp()),
+            "iat": int(current_time.timestamp()),
             "type": "access",
             "iss": settings.JWT_ISSUER,
             "aud": settings.JWT_AUDIENCE,
@@ -351,18 +351,18 @@ class AuthService:
         encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.ALGORITHM)
         return encoded_jwt
     
-    def create_refresh_token(self, data: dict | str):
+    def create_refresh_token(self, data: Dict[str, Any] | str):
         """Create a JWT refresh token; accepts payload dict or user_id string."""
         if isinstance(data, str):
-            to_encode = {"sub": data}
+            to_encode: Dict[str, Any] = {"sub": data}
         else:
             to_encode = data.copy()
         current_time = datetime.utcnow()
         expire = current_time + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         
         to_encode.update({
-            "exp": expire,
-            "iat": current_time,
+            "exp": int(expire.timestamp()),
+            "iat": int(current_time.timestamp()),
             "type": "refresh",
             "iss": settings.JWT_ISSUER,
             "aud": settings.JWT_AUDIENCE,

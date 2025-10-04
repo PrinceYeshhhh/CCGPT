@@ -11,7 +11,6 @@ export function initErrorMonitoring() {
   const release = import.meta.env.VITE_APP_VERSION || '1.0.0'
 
   if (!dsn) {
-    // eslint-disable-next-line no-console
     console.warn('Sentry DSN not provided. Error monitoring disabled.')
     return
   }
