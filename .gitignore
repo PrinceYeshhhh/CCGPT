@@ -85,3 +85,5 @@ ssl/
 # Temporary files
 tmp/
 temp/
+
+backend/.env.backup
