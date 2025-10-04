@@ -120,12 +120,14 @@ class RedisManager:
                     2: 3,  # TCP_KEEPINTVL
                     3: 5,  # TCP_KEEPCNT
                 },
+                socket_timeout=1.0,
+                socket_connect_timeout=1.0,
                 decode_responses=True
             )
             
             self.redis_client = redis.Redis(connection_pool=self.connection_pool)
-            # Test connection with timeout
-            self.redis_client.ping(timeout=1)
+            # Test connection (pool enforces socket timeouts)
+            self.redis_client.ping()
             self.redis_available = True
             logger.info("Redis connection established successfully")
         except Exception as e:
@@ -139,7 +141,7 @@ class RedisManager:
     async def health_check(self) -> bool:
         """Check Redis health"""
         try:
-            self.redis_client.ping(timeout=1)
+            self.redis_client.ping()
             return True
         except Exception as e:
             logger.error("Redis health check failed", error=str(e))

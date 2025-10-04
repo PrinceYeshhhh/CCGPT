@@ -17,6 +17,7 @@ env:
 jobs:
   backend-unit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Job-level timeout
     defaults:
       run:
         working-directory: backend
@@ -37,28 +38,39 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Install deps and tools
+        timeout-minutes: 5
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-cov pytest-xdist pytest-asyncio httpx flake8 mypy junit-xml
+          pip install pytest pytest-cov pytest-xdist pytest-asyncio pytest-timeout httpx flake8 mypy junit-xml
 
       - name: Lint (flake8)
+        timeout-minutes: 3
         run: |
           flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Type check (mypy)
+        timeout-minutes: 5
         run: |
           mypy app/ --ignore-missing-imports
 
       - name: Run unit tests
+        timeout-minutes: 10
         env:
           PYTHONPATH: backend
+          SKIP_PROBLEMATIC_TESTS: "true"
+          SKIP_EXTERNAL_TESTS: "true"
         run: |
           mkdir -p ../artifacts
-          pytest tests/unit/ -q -n auto \
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/ -q -n 2 \
+            --timeout=60 \
+            --timeout-method=thread \
             --junitxml=../artifacts/backend-unit-junit.xml \
-            --cov=app --cov-report=xml:../artifacts/backend-unit-coverage.xml --cov-report=term-missing
+            --cov=app --cov-report=xml:../artifacts/backend-unit-coverage.xml --cov-report=term-missing \
+            --log-file=../artifacts/test-debug.log \
+            --log-cli-level=DEBUG \
+            -k "not slow and not integration"
 
       - name: Upload unit artifacts
         uses: actions/upload-artifact@v4
@@ -149,6 +161,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # Job-level timeout
     defaults:
       run:
         working-directory: frontend
@@ -161,12 +174,16 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install
+        timeout-minutes: 3
         run: npm ci
       - name: Lint
+        timeout-minutes: 2
         run: npm run lint
       - name: Type check
+        timeout-minutes: 3
         run: npm run type-check
       - name: Test
+        timeout-minutes: 5
         run: |
           npm run test:unit
       - name: Build

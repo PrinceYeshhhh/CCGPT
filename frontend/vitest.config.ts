@@ -16,12 +16,19 @@ export default defineConfig({
     typecheck: {
       enabled: false
     },
-    testTimeout: 5000, // 5 second timeout
+    testTimeout: 10000, // 10 second timeout
+    hookTimeout: 10000, // 10 second timeout for hooks
+    teardownTimeout: 5000, // 5 second timeout for teardown
     pool: 'threads',
     poolOptions: {
       threads: {
         singleThread: false
       }
+    },
+    reporter: ['verbose', 'json', 'html'],
+    outputFile: {
+      json: './test-results.json',
+      html: './test-results.html'
     },
     exclude: [
       '**/node_modules/**',

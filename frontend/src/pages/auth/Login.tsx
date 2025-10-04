@@ -80,6 +80,8 @@ export function Login() {
                 <div className="relative">
                   <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
+                    id="usernameOrEmail"
+                    name="usernameOrEmail"
                     {...register('usernameOrEmail')}
                     placeholder="Enter your username or email"
                     className="pl-10"
@@ -97,6 +99,8 @@ export function Login() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
+                    id="password"
+                    name="password"
                     {...register('password')}
                     type="password"
                     placeholder="Enter your password"
@@ -134,7 +138,7 @@ export function Login() {
                 className="w-full bg-gradient-to-br from-[#4285F4] to-[#A142F4] text-white border-0 hover:brightness-110" 
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Logging in...' : 'Login'}
+                {isSubmitting ? 'Signing in...' : 'Sign in'}
               </Button>
             </form>
 
