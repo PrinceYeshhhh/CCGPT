@@ -290,7 +290,7 @@ class ProductionVectorService:
     async def search(self, 
                     query: str, 
                     workspace_id: str,
-                    config: SearchConfig = None) -> List[SearchResult]:
+                    config: Optional[SearchConfig] = None) -> List[SearchResult]:
         """Advanced vector search with multiple strategies"""
         if config is None:
             config = SearchConfig()

@@ -154,6 +154,7 @@ class RAGService:
             yield RAGStreamChunk(
                 type="start",
                 content="Starting query processing...",
+                sources=None,
                 metadata={"workspace_id": workspace_id, "query": query[:100]}
             )
             
@@ -201,6 +202,7 @@ class RAGService:
             yield RAGStreamChunk(
                 type="answer",
                 content=gemini_response["content"],
+                sources=None,
                 metadata={
                     "model_used": gemini_response.get("model_used", "gemini-pro"),
                     "confidence_score": gemini_response.get("confidence_score", "medium"),
@@ -212,6 +214,7 @@ class RAGService:
             yield RAGStreamChunk(
                 type="end",
                 content="Query processing complete",
+                sources=None,
                 metadata={
                     "session_id": session.session_id,
                     "sources_count": len(sources)
@@ -230,6 +233,7 @@ class RAGService:
             yield RAGStreamChunk(
                 type="error",
                 content="I apologize, but I'm having trouble processing your request right now. Please try again later.",
+                sources=None,
                 metadata={"error": str(e)}
             )
     

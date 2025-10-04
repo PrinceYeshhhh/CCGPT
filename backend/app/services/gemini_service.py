@@ -39,7 +39,7 @@ class GeminiService:
         self,
         user_message: str,
         context: str = "",
-        sources: List[Dict[str, Any]] = None,
+        sources: Optional[List[Dict[str, Any]]] = None,
         target_language: Optional[str] = None
     ) -> Dict[str, Any]:
         """Generate AI response using Gemini"""
@@ -146,7 +146,7 @@ class GeminiService:
         self,
         user_message: str,
         context: str,
-        sources: List[Dict[str, Any]] = None,
+        sources: Optional[List[Dict[str, Any]]] = None,
         target_language: Optional[str] = None
     ) -> str:
         """Build prompt for Gemini"""

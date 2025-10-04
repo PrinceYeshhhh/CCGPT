@@ -3,7 +3,7 @@ Multi-language support service with detection and translation
 """
 
 import asyncio
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 import structlog
 try:
     from googletrans import Translator  # optional in dev/tests
@@ -90,7 +90,7 @@ class LanguageService:
         text: str, 
         target_language: str, 
         source_language: Optional[str] = None
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """Translate text to target language"""
         try:
             if not text or not text.strip():
@@ -164,7 +164,7 @@ class LanguageService:
         texts: List[str], 
         target_language: str, 
         source_language: Optional[str] = None
-    ) -> List[Dict[str, any]]:
+    ) -> List[Dict[str, Any]]:
         """Translate multiple texts to target language"""
         try:
             if not texts:
@@ -178,7 +178,7 @@ class LanguageService:
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Handle any exceptions
+            # Handle Any exceptions
             translated_results = []
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
@@ -234,7 +234,7 @@ class LanguageService:
         }
         return language_names.get(language_code, language_code.upper())
     
-    async def get_text_language_info(self, text: str) -> Dict[str, any]:
+    async def get_text_language_info(self, text: str) -> Dict[str, Any]:
         """Get comprehensive language information for text"""
         try:
             detected_lang = await self.detect_language(text)

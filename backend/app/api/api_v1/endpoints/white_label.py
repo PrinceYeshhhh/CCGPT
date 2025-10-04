@@ -53,6 +53,7 @@ async def purchase_white_label(
         return CheckoutResponse(
             checkout_url=result['url'],
             plan="white_label",
+            payment_method="card",
             message="White-label checkout session created successfully"
         )
         

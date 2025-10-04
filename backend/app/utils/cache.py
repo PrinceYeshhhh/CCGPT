@@ -5,7 +5,7 @@ Redis caching layer with TTL and invalidation
 import redis
 import json
 import hashlib
-from typing import Any, Optional, Dict, List, Union
+from typing import Any, Optional, Dict, List, Union, Callable
 from datetime import datetime, timedelta
 import asyncio
 
@@ -75,7 +75,7 @@ class CacheManager:
         self, 
         prefix: str, 
         key: str, 
-        factory_func: callable,
+        factory_func: Callable,
         ttl: int = 600,
         deserialize_type: type = str
     ) -> Any:
@@ -401,7 +401,7 @@ analytics_cache = AnalyticsCache(cache_manager)
 embed_code_cache = EmbedCodeCache(cache_manager)
 
 # Cache decorator
-def cache_result(prefix: str, ttl: int = 600, key_func: Optional[callable] = None):
+def cache_result(prefix: str, ttl: int = 600, key_func: Optional[Callable] = None):
     """Decorator to cache function results"""
     def decorator(func):
         async def wrapper(*args, **kwargs):

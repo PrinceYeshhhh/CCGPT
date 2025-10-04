@@ -14,6 +14,13 @@ class RAGQueryRequest(BaseModel):
     query: str = Field(..., description="User query", min_length=1, max_length=1000)
     document_ids: Optional[List[str]] = Field(None, description="Limit retrieval to specific document IDs")
     top_k: Optional[int] = Field(10, description="Number of chunks to retrieve")
+    search_mode: Optional[str] = Field("hybrid", description="Search mode: semantic, keyword, hybrid")
+    similarity_threshold: Optional[float] = Field(0.7, description="Similarity threshold for results")
+    use_reranking: Optional[bool] = Field(True, description="Whether to use reranking")
+    rerank_top_k: Optional[int] = Field(20, description="Number of results to rerank")
+    response_style: Optional[str] = Field("balanced", description="Response style: concise, balanced, detailed")
+    stream_response: Optional[bool] = Field(False, description="Whether to stream the response")
+    use_cache: Optional[bool] = Field(True, description="Whether to use cached results")
 
 
 class RAGSource(BaseModel):
@@ -36,6 +43,11 @@ class RAGQueryResponse(BaseModel):
     tokens_used: Optional[int] = Field(None, description="Tokens used for generation")
     confidence_score: str = Field(..., description="Confidence level: high/medium/low")
     model_used: str = Field(..., description="LLM model used")
+    confidence: Optional[float] = Field(None, description="Confidence score (0-1)")
+    query: Optional[str] = Field(None, description="Original query")
+    context_used: Optional[int] = Field(None, description="Number of context chunks used")
+    processing_time: Optional[float] = Field(None, description="Processing time in seconds")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
 
 
 class RAGStreamChunk(BaseModel):

@@ -209,7 +209,7 @@ class WorkspaceValidation(BaseModel):
 class ChatMessageValidation(BaseModel):
     """Chat message validation"""
     content: SanitizedString = Field(..., min_length=1, max_length=5000)
-    role: str = Field(..., regex='^(user|assistant)$')
+    role: str = Field(..., pattern='^(user|assistant)$')
     
     @validator('content')
     def validate_content(cls, v):
@@ -270,7 +270,7 @@ class EmbedConfigValidation(BaseModel):
 
 class BillingValidation(BaseModel):
     """Billing validation"""
-    plan_tier: str = Field(..., regex='^(starter|pro|enterprise|white_label)$')
+    plan_tier: str = Field(..., pattern='^(starter|pro|enterprise|white_label)$')
     success_url: Optional[str] = Field(None, max_length=500)
     cancel_url: Optional[str] = Field(None, max_length=500)
     
@@ -308,7 +308,7 @@ class SearchValidation(BaseModel):
     query: SanitizedString = Field(..., min_length=1, max_length=500)
     filters: Optional[Dict[str, Any]] = None
     sort_by: Optional[str] = Field(None, max_length=50)
-    sort_order: Optional[str] = Field(None, regex='^(asc|desc)$')
+    sort_order: Optional[str] = Field(None, pattern='^(asc|desc)$')
     
     @validator('query')
     def validate_query(cls, v):

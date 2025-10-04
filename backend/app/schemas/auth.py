@@ -22,7 +22,7 @@ class TokenRefresh(BaseModel):
 
 class TokenData(BaseModel):
     """Token data schema"""
-    email: str = None
+    email: Optional[str] = None
 
 
 class RegisterRequest(BaseModel):

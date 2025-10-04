@@ -254,10 +254,3 @@ async def get_me(
     return UserResponse.from_orm(current_user)
 
 
-@router.post("/logout")
-async def logout(
-    current_user: User = Depends(get_current_user)
-):
-    """Logout user (client should discard token)"""
-    logger.info("User logged out", user_id=current_user.id, email=current_user.email)
-    return {"message": "Successfully logged out"}

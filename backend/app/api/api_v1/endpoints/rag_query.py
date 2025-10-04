@@ -172,6 +172,7 @@ async def rag_query_stream(
             error_response = RAGErrorResponse(
                 error="Rate limit exceeded. Please try again later.",
                 error_code="RATE_LIMIT_EXCEEDED",
+                details={"limit": 10, "window": 60},
                 retry_after=60
             )
             return StreamingResponse(
@@ -219,7 +220,9 @@ async def rag_query_stream(
         
         error_response = RAGErrorResponse(
             error="Failed to process streaming query",
-            error_code="STREAMING_ERROR"
+            error_code="STREAMING_ERROR",
+            details={"query": request.query[:100]},
+            retry_after=None
         )
         return StreamingResponse(
             iter([f"data: {error_response.json()}\n\n"]),

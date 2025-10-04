@@ -212,8 +212,7 @@ async def get_payment_methods(
         if not subscription or not subscription.stripe_customer_id:
             return PaymentMethodsResponse(
                 payment_methods=[],
-                default_method=None,
-                message="No payment methods found"
+                default_method=None
             )
         
         # In a real implementation, this would fetch from Stripe
@@ -235,8 +234,7 @@ async def get_payment_methods(
         
         return PaymentMethodsResponse(
             payment_methods=payment_methods,
-            default_method="pm_card_visa" if payment_methods else None,
-            message="Payment methods retrieved successfully"
+            default_method="pm_card_visa" if payment_methods else None
         )
         
     except Exception as e:

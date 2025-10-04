@@ -85,7 +85,7 @@ class QueueManager:
             }
         return stats
     
-    def start_worker(self, queue_names: list = None, **worker_kwargs):
+    def start_worker(self, queue_names: Optional[list] = None, **worker_kwargs):
         """Start worker for specified queues"""
         if queue_names is None:
             queue_names = ['normal']

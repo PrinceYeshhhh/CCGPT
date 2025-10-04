@@ -17,7 +17,7 @@ logger = structlog.get_logger()
 class WorkspaceService:
     """Service for workspace management operations"""
     
-    def __init__(self, db: Session = None):
+    def __init__(self, db: Optional[Session] = None):
         self.db = db or SessionLocal()
     
     def create_workspace(self, workspace_data: WorkspaceCreate, user_id: int) -> Workspace:

@@ -24,8 +24,8 @@ class ErrorMonitor:
     
     def log_error(self, 
                   error: Exception, 
-                  context: Dict[str, Any] = None,
-                  request: Request = None,
+                  context: Optional[Dict[str, Any]] = None,
+                  request: Optional[Request] = None,
                   user_id: Optional[str] = None):
         """Log an error with full context"""
         
@@ -94,8 +94,8 @@ error_monitor = ErrorMonitor()
 
 def create_error_response(error: Exception, 
                          status_code: int = 500,
-                         context: Dict[str, Any] = None,
-                         request: Request = None,
+                         context: Optional[Dict[str, Any]] = None,
+                         request: Optional[Request] = None,
                          user_id: Optional[str] = None) -> JSONResponse:
     """Create a standardized error response"""
     

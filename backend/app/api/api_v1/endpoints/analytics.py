@@ -199,7 +199,7 @@ from app.schemas.analytics import (
     KPISummary
 )
 from app.services.auth import AuthService
-from app.services.analytics import AnalyticsService
+from app.services.analytics_service import AnalyticsService
 from app.api.api_v1.dependencies import get_current_user
 from app.utils.validators import DashboardQueryValidator, AnalyticsFilterValidator
 

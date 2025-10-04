@@ -4,7 +4,7 @@ Rate limiting service for API endpoints
 
 import time
 import asyncio
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 import redis.asyncio as aioredis
 from datetime import datetime, timedelta
 import structlog
@@ -40,7 +40,7 @@ class RateLimitingService:
         identifier: str,
         limit: int = 60,
         window_seconds: int = 60
-    ) -> Tuple[bool, Dict[str, any]]:
+    ) -> Tuple[bool, Dict[str, Any]]:
         """
         Check if request is within rate limit
         
@@ -115,7 +115,7 @@ class RateLimitingService:
         workspace_id: str,
         limit: int = 60,
         window_seconds: int = 60
-    ) -> Tuple[bool, Dict[str, any]]:
+    ) -> Tuple[bool, Dict[str, Any]]:
         """Check rate limit for workspace"""
         return await self.check_rate_limit(
             identifier=f"workspace:{workspace_id}",
@@ -128,7 +128,7 @@ class RateLimitingService:
         user_id: int,
         limit: int = 100,
         window_seconds: int = 60
-    ) -> Tuple[bool, Dict[str, any]]:
+    ) -> Tuple[bool, Dict[str, Any]]:
         """Check rate limit for user"""
         return await self.check_rate_limit(
             identifier=f"user:{user_id}",
@@ -141,7 +141,7 @@ class RateLimitingService:
         ip_address: str,
         limit: int = 30,
         window_seconds: int = 60
-    ) -> Tuple[bool, Dict[str, any]]:
+    ) -> Tuple[bool, Dict[str, Any]]:
         """Check rate limit for IP address"""
         return await self.check_rate_limit(
             identifier=f"ip:{ip_address}",
@@ -169,7 +169,7 @@ class RateLimitingService:
             logger.error("Failed to reset rate limit", error=str(e), identifier=identifier)
             return False
     
-    async def get_rate_limit_stats(self, identifier: str) -> Dict[str, any]:
+    async def get_rate_limit_stats(self, identifier: str) -> Dict[str, Any]:
         """Get rate limit statistics for identifier"""
         if not self.redis_client:
             return {"enabled": False}

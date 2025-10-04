@@ -3,14 +3,14 @@ Text chunking utilities with token estimation and overlap
 """
 
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import structlog
 from app.core.config import settings
 
 logger = structlog.get_logger()
 
 
-def chunk_text(text: str, max_tokens: int = None, overlap_tokens: int = None) -> List[str]:
+def chunk_text(text: str, max_tokens: Optional[int] = None, overlap_tokens: Optional[int] = None) -> List[str]:
     """
     Split text into chunks with overlap
     
@@ -146,7 +146,7 @@ def _get_overlap_text(text: str, overlap_tokens: int) -> str:
     return " ".join(words[-overlap_words:])
 
 
-def create_chunk_metadata(chunk: str, chunk_index: int, source_metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+def create_chunk_metadata(chunk: str, chunk_index: int, source_metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Create metadata for a chunk"""
     metadata = {
         "chunk_index": chunk_index,

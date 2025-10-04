@@ -151,9 +151,12 @@ class Settings(BaseSettings):
     VECTOR_CACHE_TTL: int = 600
     VECTOR_CACHE_MAX_SIZE: int = 1000
     
+    # Chunking Configuration
+    MAX_CHUNK_TOKENS: int = 512
+    CHUNK_OVERLAP_TOKENS: int = 50
+    
     # Production Security Flags
     ENABLE_RATE_LIMITING: bool = True
-    ENABLE_SECURITY_HEADERS: bool = True
     ENABLE_INPUT_VALIDATION: bool = True
     ENABLE_REQUEST_LOGGING: bool = True
     ENABLE_CORS: bool = True
@@ -239,7 +242,6 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USERNAME: str = ""
     SMTP_PASSWORD: str = ""
-    FROM_EMAIL: str = "noreply@customercaregpt.com"
     ADMIN_EMAIL: str = "admin@customercaregpt.com"
     
     class Config:

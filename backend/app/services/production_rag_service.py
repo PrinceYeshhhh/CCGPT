@@ -104,7 +104,7 @@ class ProductionRAGService:
                           file_path: str, 
                           content_type: str,
                           workspace_id: str,
-                          config: RAGConfig = None) -> Dict[str, Any]:
+                          config: Optional[RAGConfig] = None) -> Dict[str, Any]:
         """Process and index a file with advanced capabilities"""
         if config is None:
             config = self.default_config
@@ -173,7 +173,7 @@ class ProductionRAGService:
     async def search_documents(self,
                               query: str,
                               workspace_id: str,
-                              config: RAGConfig = None) -> List[SearchResult]:
+                              config: Optional[RAGConfig] = None) -> List[SearchResult]:
         """Search documents with advanced retrieval"""
         if config is None:
             config = self.default_config
@@ -207,7 +207,7 @@ class ProductionRAGService:
                                query: str,
                                workspace_id: str,
                                session_id: Optional[str] = None,
-                               config: RAGConfig = None,
+                               config: Optional[RAGConfig] = None,
                                document_ids: Optional[List[str]] = None) -> RAGQueryResponse:
         """Generate response using full RAG pipeline"""
         if config is None:
@@ -256,7 +256,7 @@ class ProductionRAGService:
                            query: str,
                            workspace_id: str,
                            session_id: Optional[str] = None,
-                           config: RAGConfig = None,
+                           config: Optional[RAGConfig] = None,
                            document_ids: Optional[List[str]] = None) -> RAGQueryResponse:
         """Process query with full RAG pipeline (main entry point)"""
         if config is None:

@@ -3,7 +3,7 @@ Token budget tracking service for workspace-level usage control
 """
 
 import asyncio
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
@@ -43,7 +43,7 @@ class TokenBudgetService:
         requested_tokens: int,
         daily_limit: int = 10000,
         monthly_limit: int = 100000
-    ) -> Tuple[bool, Dict[str, any]]:
+    ) -> Tuple[bool, Dict[str, Any]]:
         """
         Check if workspace has sufficient token budget
         
@@ -226,7 +226,7 @@ class TokenBudgetService:
             logger.error("Failed to get monthly usage", error=str(e), workspace_id=workspace_id)
             return 0
     
-    async def get_budget_info(self, workspace_id: str) -> Dict[str, any]:
+    async def get_budget_info(self, workspace_id: str) -> Dict[str, Any]:
         """Get complete budget information for workspace"""
         try:
             daily_used = await self._get_daily_usage(workspace_id)

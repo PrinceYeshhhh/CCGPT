@@ -41,7 +41,9 @@ def create_database_engine(url: str, is_read_replica: bool = False):
     }
     
     if is_read_replica:
-        config['connect_args']['options'] += ' -c statement_timeout=30000'  # 30s timeout for reads
+        options = config['connect_args']['options']
+        if isinstance(options, str):
+            config['connect_args']['options'] = options + ' -c statement_timeout=30000'  # 30s timeout for reads
     
     return create_engine(url, **config)
 
@@ -94,9 +96,6 @@ class MockRedisClient:
         return 0
     
     def zcard(self, name):
-        return 0
-    
-    def zadd(self, name, mapping):
         return 0
 
 # Enhanced Redis Configuration

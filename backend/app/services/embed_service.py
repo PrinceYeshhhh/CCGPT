@@ -799,14 +799,3 @@ class EmbedService:
         data-api-key="{embed_code.client_api_key}">
 </script>
 """
-    
-    def get_embed_code_by_api_key(self, client_api_key: str) -> Optional[EmbedCode]:
-        """Get embed code by client API key"""
-        try:
-            return self.db.query(EmbedCode).filter(
-                EmbedCode.client_api_key == client_api_key,
-                EmbedCode.is_active == True
-            ).first()
-        except Exception as e:
-            logger.error(f"Error getting embed code by API key: {e}")
-            return None

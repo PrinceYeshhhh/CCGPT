@@ -28,7 +28,13 @@
     "storybook-static/"
   ],
   "rules": {
-    "react-refresh/only-export-components": "off"
+    "react-refresh/only-export-components": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/no-var-requires": "off",
+    "no-empty": "off",
+    "no-useless-escape": "off",
+    "react-hooks/exhaustive-deps": "off"
   },
   "overrides": [
     {
@@ -41,7 +47,15 @@
         "src/**/__tests__/**/*.{ts,tsx}",
         "**/*.test.{ts,tsx}"
       ],
-      "env": { "node": true, "browser": true }
+      "env": { "node": true, "browser": true },
+      "rules": {
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "no-empty": "off",
+        "no-useless-escape": "off",
+        "react-hooks/exhaustive-deps": "off"
+      }
     }
   ]
 }

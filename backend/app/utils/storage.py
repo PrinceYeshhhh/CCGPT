@@ -32,7 +32,7 @@ class StorageAdapter:
 class LocalStorageAdapter(StorageAdapter):
     """Local filesystem storage adapter"""
     
-    def __init__(self, base_dir: str = None):
+    def __init__(self, base_dir: Optional[str] = None):
         self.base_dir = base_dir or settings.UPLOAD_DIR
     
     def _secure_storage_path(self, workspace_id: str, document_id: str, filename: str) -> str:

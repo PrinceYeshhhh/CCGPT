@@ -24,7 +24,7 @@ class LoadBalancingStrategy(Enum):
 class ServerNode:
     """Represents a server node in the load balancer"""
     
-    def __init__(self, url: str, weight: int = 1, health_check_url: str = None):
+    def __init__(self, url: str, weight: int = 1, health_check_url: Optional[str] = None):
         self.url = url
         self.weight = weight
         self.health_check_url = health_check_url or f"{url}/health"
@@ -91,7 +91,7 @@ class LoadBalancer:
         self._health_check_task = None
         self._start_health_checks()
     
-    def add_node(self, url: str, weight: int = 1, health_check_url: str = None):
+    def add_node(self, url: str, weight: int = 1, health_check_url: Optional[str] = None):
         """Add a server node"""
         node = ServerNode(url, weight, health_check_url)
         self.nodes.append(node)
