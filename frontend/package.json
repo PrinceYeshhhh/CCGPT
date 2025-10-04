@@ -12,7 +12,7 @@
     "test:ci": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run src/__tests__/integration/",
-    "test:unit": "vitest run src/components/__tests__/ src/hooks/__tests__/",
+    "test:unit": "vitest run --exclude '**/__tests__/integration/**'",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

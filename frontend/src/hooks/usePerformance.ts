@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { api } from '@/lib/api';
 
 export interface PerformanceMetrics {
@@ -53,7 +53,7 @@ const defaultConfig: PerformanceConfig = {
 };
 
 export function usePerformance(config: Partial<PerformanceConfig> = {}) {
-  const finalConfig = { ...defaultConfig, ...config };
+  const finalConfig = useMemo(() => ({ ...defaultConfig, ...config }), [config]);
   
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     lcp: null,

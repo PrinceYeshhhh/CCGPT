@@ -168,7 +168,7 @@ jobs:
         run: npm run type-check
       - name: Test
         run: |
-          npm run test:ci || npm test -- --run
+          npm run test:unit
       - name: Build
         run: npm run build
       - name: Upload frontend artifacts

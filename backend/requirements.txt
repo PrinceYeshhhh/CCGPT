@@ -43,6 +43,8 @@ hvac==2.0.0
 
 # Security
 cryptography==41.0.7  # For data encryption
+pyotp==2.9.0  # For TOTP 2FA
+qrcode[pil]==7.4.2  # For QR code generation
 
 # Text Processing
 nltk==3.8.1
