@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="44.014" timestamp="2025-10-04T20:49:22.472632" hostname="happy"><testcase classname="tests.unit.test_auth.TestAuthService" name="test_generate_password_hash" time="0.942" /><testcase classname="tests.unit.test_auth.TestAuthService" name="test_verify_password_correct" time="0.626" /><testcase classname="tests.unit.test_auth.TestAuthService" name="test_verify_password_incorrect" time="0.717" /><testcase classname="tests.unit.test_auth.TestAuthService" name="test_generate_jwt_token" time="0.030" /><testcase classname="tests.unit.test_auth.TestAuthService" name="test_verify_jwt_token_valid" time="0.008"><failure message="jose.exceptions.ExpiredSignatureError: Signature has expired.">self = &lt;test_auth.TestAuthService object at 0x000001EC58B3FD90&gt;
+
+    def test_verify_jwt_token_valid(self):
+        """Test JWT token verification with valid token"""
+        user_id = "test_user_123"
+        token = self.auth_service.create_access_token(user_id)
+    
+&gt;       payload = self.auth_service.verify_token(token)
+
+tests\unit\test_auth.py:65: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+app\services\auth.py:378: in verify_token
+    payload = jwt.decode(
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jose\jwt.py:157: in decode
+    _validate_claims(
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jose\jwt.py:481: in _validate_claims
+    _validate_exp(claims, leeway=leeway)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+claims = {'aud': 'customercaregpt-users', 'exp': 1759572294, 'fingerprint': 'd55e18e09102c526', 'iat': 1759571394, ...}
+leeway = 0
+
+    def _validate_exp(claims, leeway=0):
+        """Validates that the 'exp' claim is valid.
+    
+        The "exp" (expiration time) claim identifies the expiration time on
+        or after which the JWT MUST NOT be accepted for processing.  The
+        processing of the "exp" claim requires that the current date/time
+        MUST be before the expiration date/time listed in the "exp" claim.
+        Implementers MAY provide for some small leeway, usually no more than
+        a few minutes, to account for clock skew.  Its value MUST be a number
+        containing a NumericDate value.  Use of this claim is OPTIONAL.
+    
+        Args:
+            claims (dict): The claims dictionary to validate.
+            leeway (int): The number of seconds of skew that is allowed.
+        """
+    
+        if "exp" not in claims:
+            return
+    
+        try:
+            exp = int(claims["exp"])
+        except ValueError:
+            raise JWTClaimsError("Expiration Time claim (exp) must be an integer.")
+    
+        now = timegm(datetime.utcnow().utctimetuple())
+    
+        if exp &lt; (now - leeway):
+&gt;           raise ExpiredSignatureError("Signature has expired.")
+E           jose.exceptions.ExpiredSignatureError: Signature has expired.
+
+C:\Users\91807\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\jose\jwt.py:314: ExpiredSignatureError</failure></testcase></testsuite></testsuites>

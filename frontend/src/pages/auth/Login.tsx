@@ -81,7 +81,6 @@ export function Login() {
                   <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="usernameOrEmail"
-                    name="usernameOrEmail"
                     {...register('usernameOrEmail')}
                     placeholder="Enter your username or email"
                     className="pl-10"
@@ -100,7 +99,6 @@ export function Login() {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
-                    name="password"
                     {...register('password')}
                     type="password"
                     placeholder="Enter your password"

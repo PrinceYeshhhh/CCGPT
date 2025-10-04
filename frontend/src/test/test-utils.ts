@@ -66,7 +66,7 @@ export const mockExternalServices = () => {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     readyState: WebSocket.OPEN,
-  }))
+  })) as any
 
   // Mock IntersectionObserver
   global.IntersectionObserver = vi.fn().mockImplementation(() => ({
