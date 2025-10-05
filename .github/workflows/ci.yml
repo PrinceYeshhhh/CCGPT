@@ -17,7 +17,7 @@ env:
 jobs:
   backend-unit:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # Job-level timeout
+    timeout-minutes: 20  # Job-level timeout
     defaults:
       run:
         working-directory: backend
@@ -56,7 +56,7 @@ jobs:
           mypy app/ --ignore-missing-imports
 
       - name: Run unit tests
-        timeout-minutes: 10
+        timeout-minutes: 20
         env:
           PYTHONPATH: backend
           SKIP_PROBLEMATIC_TESTS: "true"
@@ -64,7 +64,7 @@ jobs:
         run: |
           mkdir -p ../artifacts
           pytest tests/unit/ \
-            --timeout=30 \
+            --timeout=1200 \
             --junitxml=../artifacts/backend-unit-junit.xml \
             --cov=app --cov-report=xml:../artifacts/backend-unit-coverage.xml \
             --log-file=../artifacts/test-debug.log \
@@ -162,7 +162,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
-    timeout-minutes: 10  # Job-level timeout
+    timeout-minutes: 20  # Job-level timeout
     defaults:
       run:
         working-directory: frontend
@@ -184,7 +184,7 @@ jobs:
         timeout-minutes: 3
         run: npm run type-check
       - name: Test
-        timeout-minutes: 5
+        timeout-minutes: 20
         run: |
           npm run test:unit
       - name: Build

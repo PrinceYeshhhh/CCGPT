@@ -3,8 +3,12 @@ import toast from 'react-hot-toast';
 
 // Prefer relative proxy in Vite dev to avoid loopback/CORS issues
 const isDev = typeof window !== 'undefined' && window.location && window.location.port === '5173';
-// Detect Vitest to avoid installing interceptors/timers that can keep the process alive
-const isTest = typeof import.meta !== 'undefined' && (import.meta as any).vitest;
+// Robust Vitest detection to avoid interceptors/timers in tests
+const isTest = Boolean(
+  (typeof process !== 'undefined' && process.env && (process.env.VITEST || process.env.NODE_ENV === 'test')) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env && (((import.meta as any).env.MODE === 'test') || (import.meta as any).env.VITEST)) ||
+  (typeof globalThis !== 'undefined' && (globalThis as any).__vitest_browser__)
+);
 let API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '/api/v1') as string;
 if (isDev) {
   API_BASE_URL = '/api/v1';

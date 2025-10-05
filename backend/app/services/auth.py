@@ -33,6 +33,18 @@ logger = structlog.get_logger()
 # Password hashing: use bcrypt_sha256 to avoid 72-byte bcrypt input limit
 pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
+# In certain CI environments, the native 'bcrypt' backend can misbehave during
+# internal self-tests with long inputs. Force Passlib to use the pure-Python
+# 'builtin' backend to avoid the 72-byte check being triggered by detect_wrap_bug.
+try:  # pragma: no cover - environment-specific safeguard
+    from passlib.handlers.bcrypt import bcrypt as _bcrypt_handler
+    from passlib.handlers.bcrypt import bcrypt_sha256 as _bcrypt_sha256_handler
+    _bcrypt_handler.set_backend("builtin")
+    _bcrypt_sha256_handler.set_backend("builtin")
+except Exception:
+    # If forcing backend fails, continue with defaults; tests will reveal issues
+    pass
+
 # OAuth2 scheme (absolute token URL to match mounted docs prefix)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
