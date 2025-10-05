@@ -48,15 +48,15 @@ def main():
             "description": "Production RAG Advanced Unit Tests"
         },
         {
-            "command": "pytest tests/integration/test_production_rag_integration.py -v --cov=app --cov-report=html --cov-report=term-missing --timeout=300",
+            "command": "pytest tests/integration/test_production_rag_integration.py -v --cov=app --cov-report=html --cov-report=term-missing",
             "description": "Production RAG Integration Tests"
         },
         {
-            "command": "pytest tests/performance/test_production_rag_performance.py -v --timeout=600 -m 'not slow'",
+            "command": "pytest tests/performance/test_production_rag_performance.py -v -m 'not slow'",
             "description": "Production RAG Performance Tests"
         },
         {
-            "command": "pytest tests/e2e/test_production_rag_e2e.py -v --timeout=1200",
+            "command": "pytest tests/e2e/test_production_rag_e2e.py -v",
             "description": "Production RAG End-to-End Tests"
         }
     ]

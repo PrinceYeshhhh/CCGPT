@@ -13,16 +13,18 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
-    // 20 minutes timeout to accommodate heavy tests in CI
-    testTimeout: 1200000,
+    sequence: { concurrent: false },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
       '**/e2e/**',
-      '**/__tests__/integration/**',
       '**/*.e2e.spec.ts',
       '**/*.e2e.test.ts'
-    ]
+    ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html']
+    }
   },
   define: {
     'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'https://customercaregpt-backend-xxxxx-uc.a.run.app/api/v1')

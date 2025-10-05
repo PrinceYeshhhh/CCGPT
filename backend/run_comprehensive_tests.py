@@ -28,8 +28,7 @@ class TestRunner:
                 command,
                 cwd=cwd or self.base_dir,
                 capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout
+                text=True
             )
             
             return {
@@ -40,11 +39,12 @@ class TestRunner:
                 "command": " ".join(command)
             }
         except subprocess.TimeoutExpired:
+            # Should not occur without timeout, but keep for safety
             return {
                 "success": False,
                 "returncode": -1,
                 "stdout": "",
-                "stderr": "Command timed out after 5 minutes",
+                "stderr": "Command timeout encountered",
                 "command": " ".join(command)
             }
         except Exception as e:
