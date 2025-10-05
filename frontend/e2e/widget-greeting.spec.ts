@@ -58,11 +58,10 @@ test.describe('Embedded widget rotating greetings', () => {
 
           // Initialize minimal DOM for widget
           const root = document.createElement('div');
-          root.innerHTML = `
-            <div id="ccgpt-chat-container" style="display:none"></div>
-            <div id="ccgpt-messages"></div>
-            <button id="ccgpt-toggle">open</button>
-          `;
+          root.innerHTML = 
+            '<div id="ccgpt-chat-container" style="display:none"></div>' +
+            '<div id="ccgpt-messages"></div>' +
+            '<button id="ccgpt-toggle">open</button>';
           document.body.appendChild(root);
           document.getElementById('ccgpt-toggle').addEventListener('click', toggleChat);
         })();
