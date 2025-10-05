@@ -52,6 +52,8 @@ write_engine = create_database_engine(settings.DATABASE_URL, is_read_replica=Fal
 # Expose a conventional name for compatibility with tests/imports
 engine = write_engine
 WriteSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=write_engine)
+# Backwards-compatibility alias expected by older tests/imports
+SessionLocal = WriteSessionLocal
 
 # Read replicas (if configured)
 read_engines = []

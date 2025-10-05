@@ -50,9 +50,8 @@ class TestDatabaseConnection:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.flush()  # Flush to get ID
@@ -98,9 +97,8 @@ class TestDatabaseConnection:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.commit()
@@ -132,20 +130,32 @@ class TestDatabaseErrorHandling:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
+            session.flush()
+            
+            # Create a user
+            user = User(
+                email="test@example.com",
+                hashed_password="hashed_password",
+                full_name="Test User",
+                workspace_id=workspace.id,
+                is_active=True
+            )
+            session.add(user)
             session.commit()
             
-            # Try to create another workspace with same ID (should fail)
-            duplicate_workspace = Workspace(
-                id="test-workspace",  # Same ID
-                name="Duplicate Workspace",
-                domain="duplicate.com"
+            # Try to create another user with same email (should fail due to unique constraint)
+            duplicate_user = User(
+                email="test@example.com",  # Same email
+                hashed_password="hashed_password",
+                full_name="Duplicate User",
+                workspace_id=workspace.id,
+                is_active=True
             )
-            session.add(duplicate_workspace)
+            session.add(duplicate_user)
             
             with pytest.raises(IntegrityError):
                 session.commit()
@@ -192,9 +202,8 @@ class TestDatabaseQueries:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.flush()
@@ -235,9 +244,8 @@ class TestDatabaseQueries:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.flush()
@@ -287,9 +295,8 @@ class TestDatabaseQueries:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.flush()
@@ -308,11 +315,11 @@ class TestDatabaseQueries:
             # Create a document
             document = Document(
                 filename="test.pdf",
-                file_path="/tmp/test.pdf",
-                file_size=1024,
-                file_type="application/pdf",
+                path="/tmp/test.pdf",
+                size=1024,
+                content_type="application/pdf",
                 status="processing",
-                user_id=user.id,
+                uploaded_by=user.id,
                 workspace_id=workspace.id
             )
             session.add(document)
@@ -322,15 +329,15 @@ class TestDatabaseQueries:
             retrieved_document = session.query(Document).filter(Document.filename == "test.pdf").first()
             assert retrieved_document is not None
             assert retrieved_document.status == "processing"
-            assert retrieved_document.user_id == user.id
+            assert retrieved_document.uploaded_by == user.id
             
             # Update document status
-            retrieved_document.status = "processed"
+            retrieved_document.status = "done"
             session.commit()
             
             # Verify status update
             updated_document = session.query(Document).filter(Document.id == retrieved_document.id).first()
-            assert updated_document.status == "processed"
+            assert updated_document.status == "done"
             
         finally:
             session.close()
@@ -354,9 +361,8 @@ class TestDatabasePerformance:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.flush()
@@ -399,9 +405,8 @@ class TestDatabasePerformance:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.flush()
@@ -421,11 +426,11 @@ class TestDatabasePerformance:
             for i in range(10):
                 document = Document(
                     filename=f"test{i}.pdf",
-                    file_path=f"/tmp/test{i}.pdf",
-                    file_size=1024,
-                    file_type="application/pdf",
-                    status="processed",
-                    user_id=user.id,
+                    path=f"/tmp/test{i}.pdf",
+                    size=1024,
+                    content_type="application/pdf",
+                    status="done",
+                    uploaded_by=user.id,
                     workspace_id=workspace.id
                 )
                 session.add(document)
@@ -434,7 +439,7 @@ class TestDatabasePerformance:
             
             # Test optimized query with join
             result = session.query(Document, User, Workspace).join(
-                User, Document.user_id == User.id
+                User, Document.uploaded_by == User.id
             ).join(
                 Workspace, User.workspace_id == Workspace.id
             ).filter(Workspace.id == workspace.id).all()
@@ -467,9 +472,8 @@ class TestDatabaseSecurity:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.commit()
@@ -502,25 +506,37 @@ class TestDatabaseSecurity:
         try:
             # Create a workspace
             workspace = Workspace(
-                id="test-workspace",
                 name="Test Workspace",
-                domain="test.com"
+                custom_domain="test.com"
             )
             session.add(workspace)
             session.flush()
             
-            # Try to create user with invalid email (should be handled by validation)
+            # Create a user
             user = User(
-                email="invalid-email",  # Invalid email format
+                email="test@example.com",
                 hashed_password="hashed_password",
                 full_name="Test User",
                 workspace_id=workspace.id,
                 is_active=True
             )
             session.add(user)
+            session.flush()
             
-            # This should raise an error due to email validation
-            with pytest.raises((IntegrityError, ValueError)):
+            # Try to create document with invalid status (should fail due to CHECK constraint)
+            document = Document(
+                filename="test.pdf",
+                path="/tmp/test.pdf",
+                size=1024,
+                content_type="application/pdf",
+                status="invalid_status",  # Invalid status
+                uploaded_by=user.id,
+                workspace_id=workspace.id
+            )
+            session.add(document)
+            
+            # This should raise an error due to status validation
+            with pytest.raises(IntegrityError):
                 session.commit()
             
         finally:
