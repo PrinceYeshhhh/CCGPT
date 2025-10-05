@@ -8,9 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.main import app
 from app.core.database import get_db, Base
-from app.models.user import User
-from app.models.workspace import Workspace
-from app.models.document import Document
+from app.models import User, Workspace, Document
 from app.core.config import settings
 
 # Test database

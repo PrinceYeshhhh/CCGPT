@@ -11,13 +11,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
 
-from app.core.database import get_db, Base, engine
-from app.models.user import User
-from app.models.workspace import Workspace
-from app.models.document import Document
-from app.models.chat import ChatSession
-from app.db.session import SessionLocal
-from app.db.base import Base
+from app.core.database import get_db, Base, engine, SessionLocal
+from app.models import User, Workspace, Document, ChatSession
 
 class TestDatabaseConnection:
     """Test database connection and basic operations"""

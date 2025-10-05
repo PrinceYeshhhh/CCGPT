@@ -6,6 +6,7 @@ import uuid
 import secrets
 import hashlib
 from typing import Optional, List, Dict, Any
+import json
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 import structlog
@@ -47,7 +48,12 @@ class EmbedService:
             "position": "bottom-right",
             "show_avatar": True,
             "avatar_url": None,
-            "welcome_message": "Hello! How can I help you today?",
+            "welcome_message": "Hi there 👋, I’m your virtual customer care assistant. How can I help you today?",
+            "welcome_messages": [
+                "Hi there 👋, I’m your virtual customer care assistant. How can I help you today?",
+                "Hello! I’m here to help with orders, billing, and more — what do you need?",
+                "Welcome! Need help tracking an order or managing your account? Ask away."
+            ],
             "max_messages": 50,
             "enable_sound": True,
             "enable_typing_indicator": True,
@@ -257,7 +263,8 @@ class EmbedService:
         position: '{config.get("position", "bottom-right")}',
         showAvatar: {str(config.get("show_avatar", True)).lower()},
         avatarUrl: '{config.get("avatar_url", "")}',
-        welcomeMessage: '{config.get("welcome_message", "Hello! How can I help you today?")}',
+        welcomeMessage: '{config.get("welcome_message", "Hi there 👋, I’m your virtual customer care assistant. How can I help you today?")}',
+        welcomeMessages: {json.dumps(config.get("welcome_messages", []))},
         maxMessages: {config.get("max_messages", 50)},
         enableSound: {str(config.get("enable_sound", True)).lower()},
         enableTypingIndicator: {str(config.get("enable_typing_indicator", True)).lower()},
@@ -340,16 +347,7 @@ class EmbedService:
                         overflow-y: auto;
                         background: ${{CONFIG.secondaryColor}};
                     ">
-                        <div class="ccgpt-message ccgpt-bot" style="
-                            background: white;
-                            padding: 12px;
-                            border-radius: 8px;
-                            margin-bottom: 12px;
-                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                            color: ${{CONFIG.textColor}};
-                        ">
-                            ${{CONFIG.welcomeMessage}}
-                        </div>
+                        
                     </div>
                     
                     <div id="ccgpt-input-container" style="
@@ -514,6 +512,11 @@ class EmbedService:
         isOpen = !isOpen;
         chatContainer.style.display = isOpen ? 'flex' : 'none';
         if (isOpen) {{
+            // Show rotating greeting each time the chat is opened
+            try {{
+                const greet = getWelcomeMessage();
+                if (greet) addMessage(greet, 'bot');
+            }} catch (e) {{}}
             input.focus();
             playSound('open');
         }}
@@ -619,6 +622,26 @@ class EmbedService:
         
         messagesContainer.appendChild(messageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }}
+
+    // Welcome message rotation
+    function getGreetingIndexKey() {{
+        return `ccgpt_greet_idx_${{CONFIG.embedCodeId}}`;
+    }}
+
+    function getWelcomeMessage() {{
+        const arr = Array.isArray(CONFIG.welcomeMessages) ? CONFIG.welcomeMessages : [];
+        if (arr.length === 0) return CONFIG.welcomeMessage || '';
+        let idx = 0;
+        try {{
+            const stored = localStorage.getItem(getGreetingIndexKey());
+            idx = stored ? parseInt(stored, 10) || 0 : 0;
+        }} catch (e) {{ idx = 0; }}
+        const msg = arr[idx % arr.length] || CONFIG.welcomeMessage || '';
+        try {{
+            localStorage.setItem(getGreetingIndexKey(), String((idx + 1) % arr.length));
+        }} catch (e) {{}}
+        return msg;
     }}
     
     // Add message chunk (for streaming)

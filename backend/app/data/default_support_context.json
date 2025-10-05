@@ -1,0 +1,28 @@
+{
+  "faqs": [
+    {
+      "q": "I can’t log in.",
+      "a": "Please try resetting your password using the ‘Forgot Password’ link, and check your email for the reset instructions."
+    },
+    {
+      "q": "How can I track my order?",
+      "a": "You can track your order from your dashboard under ‘My Orders’. If you need the link, let me know."
+    },
+    {
+      "q": "The product I received is defective.",
+      "a": "I’m sorry for the inconvenience. Please share your order ID and a brief description so I can check this for you."
+    },
+    {
+      "q": "How do I update my billing information?",
+      "a": "Go to ‘Account Settings’ > ‘Billing’ to update your payment details."
+    }
+  ],
+  "guidelines": [
+    "Be polite, empathetic, and solution-oriented.",
+    "Acknowledge the user’s situation before providing steps.",
+    "Offer clear next actions and links when appropriate.",
+    "Encourage contacting human support for account-specific or sensitive issues."
+  ]
+}
+
+

@@ -16,11 +16,7 @@ import httpx
 
 from app.main import app
 from app.core.database import get_db, Base, engine
-from app.models.user import User
-from app.models.workspace import Workspace
-from app.models.document import Document
-from app.models.chat import ChatSession, ChatMessage
-from app.models.subscriptions import Subscription
+from app.models import User, Workspace, Document, ChatSession, ChatMessage, Subscription
 
 client = TestClient(app)
 

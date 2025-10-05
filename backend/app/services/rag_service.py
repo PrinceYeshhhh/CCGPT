@@ -11,6 +11,7 @@ import structlog
 from app.core.config import settings
 from app.services.vector_service import VectorService
 from app.services.gemini_service import GeminiService
+from app.services.support_context_service import support_context_service
 from app.services.language_service import language_service
 from app.utils.cache import analytics_cache
 from app.services.embeddings_service import embeddings_service
@@ -72,16 +73,23 @@ class RAGService:
                 limit=top_k
             )
             
-            # Step 3: Build enhanced RAG prompt with citations
-            context_text = self._build_context_with_citations(similar_chunks)
+            # Step 3: Build context with fallback when no documents
+            has_docs = bool(similar_chunks)
+            if has_docs:
+                context_text = self._build_context_with_citations(similar_chunks)
+                source_type = "document"
+            else:
+                context_text = support_context_service.get_generic_customer_service_context(workspace_id)
+                source_type = "generic"
             prompt = self._build_rag_prompt(query, context_text, similar_chunks, response_language)
             
             # Step 4: Generate response with Gemini
             gemini_response = await self.gemini_service.generate_response(
                 user_message=query,
                 context=context_text,
-                sources=similar_chunks,
-                target_language=response_language
+                sources=similar_chunks if has_docs else [],
+                target_language=response_language,
+                source_type=source_type
             )
             
             # Step 4: Extract and format sources
@@ -108,7 +116,11 @@ class RAGService:
                 session_id=session.session_id,
                 tokens_used=gemini_response.get("tokens_used"),
                 confidence_score=gemini_response.get("confidence_score", "medium"),
-                model_used=gemini_response.get("model_used", "gemini-pro")
+                model_used=gemini_response.get("model_used", "gemini-pro"),
+                metadata={
+                    "tone": gemini_response.get("tone", "friendly"),
+                    "source_type": gemini_response.get("source_type", source_type)
+                }
             )
             
         except Exception as e:
@@ -263,7 +275,8 @@ class RAGService:
         self, 
         query: str, 
         context: str, 
-        sources: List[Dict[str, Any]]
+        sources: List[Dict[str, Any]],
+        response_language: Optional[str] = None
     ) -> str:
         """Build enhanced RAG prompt with proper instructions"""
         prompt_parts = [

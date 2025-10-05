@@ -17,10 +17,7 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 from app.main import app
 from app.core.database import get_db
-from app.models.user import User
-from app.models.workspace import Workspace
-from app.models.document import Document
-from app.models.chat import ChatSession, ChatMessage
+from app.models import User, Workspace, Document, ChatSession, ChatMessage
 from app.services.production_rag_service import (
     ProductionRAGService, 
     RAGConfig, 

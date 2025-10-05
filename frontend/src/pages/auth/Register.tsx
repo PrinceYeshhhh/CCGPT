@@ -48,7 +48,7 @@ export function Register() {
       });
       navigate('/login');
     } catch (error) {
-      console.error('Registration failed:', error);
+      // Error handling is done by the API interceptor
     }
   };
 
@@ -132,7 +132,7 @@ export function Register() {
                     const phone = (document.getElementsByName('mobile')[0] as HTMLInputElement)?.value;
                     await api.post('/auth/send-otp', { mobile_phone: phone });
                   } catch (e) {
-                    console.error('Failed to send OTP');
+                    // Error handling is done by the API interceptor
                   }
                 }}>
                   Send OTP

@@ -10,11 +10,7 @@ from fastapi.testclient import TestClient
 from fastapi import status
 
 from app.main import app
-from app.models.user import User
-from app.models.workspace import Workspace
-from app.models.document import Document
-from app.models.chat import ChatSession, ChatMessage
-from app.models.subscriptions import Subscription
+from app.models import User, Workspace, Document, ChatSession, ChatMessage, Subscription
 
 client = TestClient(app)
 

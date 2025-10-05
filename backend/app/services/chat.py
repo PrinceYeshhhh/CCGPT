@@ -13,6 +13,7 @@ from app.models.chat import ChatSession, ChatMessage
 from app.models.user import User
 from app.services.vector_service import VectorService
 from app.services.gemini_service import GeminiService
+from app.services.support_context_service import support_context_service
 from app.utils.cache import analytics_cache
 
 logger = structlog.get_logger()
@@ -85,7 +86,9 @@ class ChatService:
             "message": ai_message,
             "session_id": session.session_id,
             "sources": ai_response.get("sources_used"),
-            "confidence": ai_response.get("confidence_score")
+            "confidence": ai_response.get("confidence_score"),
+            "tone": ai_response.get("tone", "friendly"),
+            "source_type": ai_response.get("source_type", "generic")
         }
     
     async def _get_or_create_session(
@@ -172,13 +175,30 @@ class ChatService:
             )
             
             # Prepare context for AI
-            context_text = self._prepare_context(similar_chunks)
+            has_docs = bool(similar_chunks)
+            if has_docs:
+                context_text = self._prepare_context(similar_chunks)
+                source_type = "document"
+            else:
+                # Fallback to generic customer service context
+                context_text = support_context_service.get_generic_customer_service_context(workspace_id)
+                source_type = "generic"
             
             # Generate response using Gemini
+            # Determine tone preset from workspace settings if available
+            tone = None
+            try:
+                if context and isinstance(context, dict):
+                    tone = context.get("tone")  # allow upstream to provide tone
+            except Exception:
+                tone = None
+
             response = await self.gemini_service.generate_response(
                 user_message=message,
                 context=context_text,
-                sources=similar_chunks
+                sources=similar_chunks if has_docs else [],
+                tone=tone,
+                source_type=source_type
             )
             
             return response

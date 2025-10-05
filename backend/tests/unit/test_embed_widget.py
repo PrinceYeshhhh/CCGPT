@@ -9,9 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.services.embed_service import EmbedService
-from app.models.embed_code import EmbedCode
-from app.models.user import User
-from app.models.workspace import Workspace
+from app.models import EmbedCode, User, Workspace
 from app.schemas.embed import (
     EmbedCodeGenerateRequest,
     WidgetConfig,
@@ -216,6 +214,29 @@ class TestEmbedService:
         assert script_content is not None
         assert "function" in script_content or "const" in script_content
         assert "CustomerCareGPT" in script_content or "customercaregpt" in script_content.lower()
+
+    def test_widget_script_includes_rotating_greetings(self, embed_service, test_user, test_workspace):
+        """Ensure the generated widget script supports rotating greeting messages on each open."""
+        embed_code = embed_service.generate_embed_code(
+            workspace_id=str(test_workspace.id),
+            user_id=test_user.id,
+            code_name="Greeting Rotation Widget"
+        )
+
+        script_content = embed_service.get_widget_script(str(embed_code.id))
+
+        # Script should expose a welcomeMessages array and rotation helpers
+        assert "welcomeMessages:" in script_content
+        assert "function getWelcomeMessage()" in script_content
+        assert "localStorage.setItem(" in script_content
+
+        # The chat toggle should append a greeting each time it opens
+        assert "function toggleChat()" in script_content
+        assert "const greet = getWelcomeMessage();" in script_content
+        assert "addMessage(greet, 'bot')" in script_content
+
+        # Default config should also retain single welcomeMessage fallback
+        assert "welcomeMessage:" in script_content
     
     def test_get_widget_script_inactive(self, embed_service, test_user, test_workspace):
         """Test getting widget script for inactive embed code"""

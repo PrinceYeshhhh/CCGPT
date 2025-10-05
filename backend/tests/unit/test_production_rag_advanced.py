@@ -30,8 +30,7 @@ from app.services.production_vector_service import (
     SearchMode,
     SearchResult
 )
-from app.models.chat import ChatSession, ChatMessage
-from app.models.document import Document
+from app.models import ChatSession, ChatMessage, Document
 from app.schemas.rag import RAGQueryResponse, RAGSource
 
 

@@ -12,8 +12,7 @@ from app.services.gemini_service import GeminiService
 from app.services.embeddings_service import EmbeddingsService
 from app.services.vector_service import VectorService
 from app.services.production_rag_service import ProductionRAGService, RAGConfig
-from app.models.chat import ChatSession, ChatMessage
-from app.models.document import Document
+from app.models import ChatSession, ChatMessage, Document
 from app.schemas.rag import RAGQueryResponse, RAGSource
 
 

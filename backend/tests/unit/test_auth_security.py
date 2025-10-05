@@ -14,7 +14,7 @@ from app.services.csrf_protection import CSRFProtectionService
 from app.services.token_revocation import TokenRevocationService
 from app.services.rate_limiting import RateLimitingService
 from app.services.websocket_security import WebSocketSecurityService
-from app.models.user import User
+from app.models import User
 from app.core.config import settings
 
 

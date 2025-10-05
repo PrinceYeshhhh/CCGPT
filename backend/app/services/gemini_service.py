@@ -40,7 +40,10 @@ class GeminiService:
         user_message: str,
         context: str = "",
         sources: Optional[List[Dict[str, Any]]] = None,
-        target_language: Optional[str] = None
+        target_language: Optional[str] = None,
+        tone: Optional[str] = None,
+        source_type: Optional[str] = None,
+        few_shots: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """Generate AI response using Gemini"""
         try:
@@ -49,7 +52,15 @@ class GeminiService:
                 return self._generate_fallback_response(user_message, context, sources)
             
             # Prepare prompt with language support
-            prompt = self._build_prompt(user_message, context, sources, target_language)
+            prompt = self._build_prompt(
+                user_message=user_message,
+                context=context,
+                sources=sources,
+                target_language=target_language,
+                tone=tone,
+                source_type=source_type,
+                few_shots=few_shots
+            )
             
             # Generate response
             response = self.model.generate_content(prompt)
@@ -79,7 +90,9 @@ class GeminiService:
                     )
             
             # Determine confidence based on response quality
-            confidence = self._assess_confidence(response_text, sources)
+            confidence_label = self._assess_confidence(response_text, sources)
+            confidence_map = {"high": 0.9, "medium": 0.6, "low": 0.3}
+            confidence_value = confidence_map.get(confidence_label, 0.6)
             
             # Prepare sources information
             sources_info = self._format_sources(sources) if sources else []
@@ -87,9 +100,12 @@ class GeminiService:
             return {
                 "content": response_text,
                 "model_used": "gemini-pro",
-                "confidence_score": confidence,
+                "confidence_score": confidence_label,
+                "confidence": confidence_value,
                 "sources_used": sources_info,
-                "tokens_used": self._estimate_tokens(prompt + response_text)
+                "tokens_used": self._estimate_tokens(prompt + response_text),
+                "tone": tone or "friendly",
+                "source_type": source_type or ("document" if (sources_info and len(sources_info) > 0) else "generic")
             }
             
         except Exception as e:
@@ -147,32 +163,64 @@ class GeminiService:
         user_message: str,
         context: str,
         sources: Optional[List[Dict[str, Any]]] = None,
-        target_language: Optional[str] = None
+        target_language: Optional[str] = None,
+        tone: Optional[str] = None,
+        source_type: Optional[str] = None,
+        few_shots: Optional[List[Dict[str, str]]] = None
     ) -> str:
-        """Build prompt for Gemini"""
+        """Build prompt for Gemini with persona, tone presets, and few-shot examples"""
         # Get language-specific instructions
         language_instruction = ""
         if target_language and target_language != settings.DEFAULT_LANGUAGE:
             language_name = language_service.get_language_name(target_language)
             language_instruction = f"Please respond in {language_name} ({target_language}). "
         
+        # Tone presets (formal, friendly, playful)
+        tone = (tone or "friendly").lower()
+        if tone not in {"formal", "friendly", "playful"}:
+            tone = "friendly"
+
+        persona_block = (
+            "You are CustomerCareGPT, an intelligent, polite, and professional customer support representative. "
+            "Always sound friendly, helpful, and calm. Never use overly technical or robotic language. "
+            "Never break character as a support agent. "
+        )
+
+        tone_block = {
+            "formal": "Use a professional and concise tone. Avoid colloquialisms.",
+            "friendly": "Use a warm, approachable tone. Keep it empathetic and supportive.",
+            "playful": "Use a light, upbeat tone while staying professional and clear."
+        }[tone]
+
+        fallback_block = (
+            "If you don’t have enough data, acknowledge this with empathy (e.g., 'Let me check that for you') "
+            "and suggest contacting human support when appropriate."
+        )
+
         prompt_parts = [
-            "You are CustomerCareGPT, an intelligent customer support assistant. ",
-            "Your role is to provide helpful, accurate, and friendly responses to customer inquiries ",
-            "based on the provided knowledge base. Follow these guidelines:\n\n",
-            
-            "1. Be helpful, professional, and empathetic\n",
-            "2. Base your answers on the provided context when available\n",
-            "3. If you don't know something, say so clearly\n",
-            "4. Keep responses concise but comprehensive\n",
-            "5. Use a friendly, conversational tone\n",
-            "6. If relevant, provide specific examples or steps\n",
-            f"7. {language_instruction}Respond in the same language as the customer's question\n\n"
+            persona_block,
+            tone_block + "\n",
+            fallback_block + "\n\n",
+            f"{language_instruction}Respond in the same language as the customer's question.\n\n"
         ]
+
+        # Few-shot examples to reinforce tone and structure
+        default_few_shots = [
+            {"user": "I can’t log in.", "agent": "I’m sorry to hear that! Please try resetting your password using the ‘Forgot Password’ link."},
+            {"user": "How can I track my order?", "agent": "Sure! You can track your order from your dashboard under ‘My Orders.’ Would you like me to send the link?"},
+            {"user": "The product I received is defective.", "agent": "I apologize for the inconvenience. Could you please share your order ID so I can check this for you?"}
+        ]
+        examples = few_shots if few_shots is not None else default_few_shots
+        prompt_parts.append("Examples:\n")
+        for ex in examples[:4]:
+            u = ex.get("user", "")
+            a = ex.get("agent", "")
+            if u and a:
+                prompt_parts.append(f"User: {u}\nAgent: {a}\n\n")
         
         if context:
             prompt_parts.extend([
-                "Here is relevant information from our knowledge base:\n",
+                "Context (use when relevant):\n",
                 "---\n",
                 context,
                 "\n---\n\n"
@@ -182,9 +230,7 @@ class GeminiService:
             "Customer question: ",
             user_message,
             "\n\n",
-            "Please provide a helpful response based on the information above. ",
-            "If the context doesn't contain relevant information, let the customer know ",
-            "and suggest they contact support for more specific help."
+            "Please provide a structured, concise answer. If context lacks the answer, acknowledge and suggest next steps, including contacting support if needed."
         ])
         
         return "".join(prompt_parts)

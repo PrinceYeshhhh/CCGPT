@@ -30,6 +30,10 @@ export function Login() {
 
   const onSubmit = async (data: LoginForm) => {
     try {
+      if (!data || !data.usernameOrEmail || !data.password) {
+        return;
+      }
+      
       const payload = data.usernameOrEmail.includes('@')
         ? { email: data.usernameOrEmail, password: data.password }
         : { email: data.usernameOrEmail, password: data.password };
@@ -41,7 +45,7 @@ export function Login() {
       }
       navigate('/dashboard');
     } catch (error) {
-      console.error('Login failed:', error);
+      // Error handling is done by the API interceptor
     }
   };
 

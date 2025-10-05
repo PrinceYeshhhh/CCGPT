@@ -14,7 +14,7 @@ from fastapi.websockets import WebSocketState
 from app.api.websocket.chat_ws import router as websocket_router
 from app.services.websocket_service import WebSocketService
 from app.services.chat import ChatService
-from app.models.chat import ChatSession, ChatMessage
+from app.models import ChatSession, ChatMessage
 
 class TestWebSocketConnection:
     """Test WebSocket connection handling"""

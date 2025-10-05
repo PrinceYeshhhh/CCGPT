@@ -15,11 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
 
 from app.main import app
 from app.core.database import get_db, Base
-from app.models.user import User
-from app.models.workspace import Workspace
-from app.models.document import Document
-from app.models.chat import ChatSession, ChatMessage
-from app.models.subscriptions import Subscription
+from app.models import User, Workspace, Document, ChatSession, ChatMessage, Subscription
 
 # Test database configuration
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test_error.db"

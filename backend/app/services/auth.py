@@ -2,7 +2,7 @@
 Authentication service
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import random
 import hashlib
@@ -322,7 +322,7 @@ class AuthService:
             to_encode: Dict[str, Any] = {"sub": data}
         else:
             to_encode = data.copy()
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         
         if expires_delta:
             expire = current_time + expires_delta
@@ -357,7 +357,7 @@ class AuthService:
             to_encode: Dict[str, Any] = {"sub": data}
         else:
             to_encode = data.copy()
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         expire = current_time + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         
         to_encode.update({
@@ -389,7 +389,7 @@ class AuthService:
                 return None
             
             # Verify token is not expired (redundant but good practice)
-            current_time = datetime.utcnow().timestamp()
+            current_time = datetime.now(timezone.utc).timestamp()
             if payload.get("exp", 0) < current_time:
                 logger.warning("Token expired", exp=payload.get("exp"), current=current_time)
                 return None

@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
 from app.main import app
 from app.core.config import settings
-from app.models.user import User
-from app.services.auth_service import AuthService
+from app.models import User
+from app.services.auth import AuthService
 from app.core.database import get_db
 
 client = TestClient(app)
@@ -60,7 +60,9 @@ class TestAuthService:
     def test_verify_jwt_token_valid(self):
         """Test JWT token verification with valid token"""
         user_id = "test_user_123"
-        token = self.auth_service.create_access_token(user_id)
+        # Use a longer expiration time for tests
+        from datetime import timedelta
+        token = self.auth_service.create_access_token(user_id, expires_delta=timedelta(hours=1))
         
         payload = self.auth_service.verify_token(token)
         assert payload is not None

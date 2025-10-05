@@ -25,6 +25,7 @@ os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["GEMINI_API_KEY"] = "test-gemini-key"
 os.environ["STRIPE_API_KEY"] = "test-stripe-key"
 os.environ["ENVIRONMENT"] = "testing"
+os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"  # Longer expiration for tests
 
 from app.main import app
 from app.core.database import get_db, Base
@@ -273,11 +274,12 @@ def setup_test_environment():
     os.environ["GEMINI_API_KEY"] = "test-gemini-key"
     os.environ["STRIPE_API_KEY"] = "test-stripe-key"
     os.environ["ENVIRONMENT"] = "testing"
+    os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"  # Longer expiration for tests
     
     yield
     
     # Cleanup
-    for key in ["TESTING", "DATABASE_URL", "REDIS_URL", "SECRET_KEY", "GEMINI_API_KEY", "STRIPE_API_KEY", "ENVIRONMENT"]:
+    for key in ["TESTING", "DATABASE_URL", "REDIS_URL", "SECRET_KEY", "GEMINI_API_KEY", "STRIPE_API_KEY", "ENVIRONMENT", "ACCESS_TOKEN_EXPIRE_MINUTES"]:
         if key in os.environ:
             del os.environ[key]
 
@@ -321,9 +323,10 @@ def mock_heavy_services():
                     mock_httpx.return_value.__aenter__.return_value.post.return_value = mock_response
                     
                     # Mock production RAG system initialization
-                    with patch('app.services.production_rag_system.ProductionRAGSystem') as mock_rag:
+                    with patch('app.services.production_rag_system.production_file_processor') as mock_rag:
                         mock_rag_instance = MagicMock()
-                        mock_rag_instance.initialize_models.return_value = None
+                        mock_rag_instance.process_file.return_value = []
+                        mock_rag_instance.create_semantic_chunks.return_value = []
                         mock_rag.return_value = mock_rag_instance
                         
                         # Mock A/B testing service
