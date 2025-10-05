@@ -189,7 +189,7 @@ jobs:
           npx vitest --dry-run --reporter=verbose || true
       - name: Run frontend unit tests
         run: |
-          npm run test:unit -- --reporter=verbose --no-threads --logHeapUsage --coverage
+          npm run test:unit -- --coverage
       - name: Build
         run: npm run build
       - name: Upload frontend unit artifacts
@@ -221,7 +221,7 @@ jobs:
         run: npm ci
       - name: Run frontend integration tests
         run: |
-          npm run test:integration -- --reporter=verbose --no-threads --logHeapUsage --coverage
+          npm run test:integration -- --coverage
       - name: Upload frontend integration artifacts
         uses: actions/upload-artifact@v4
         if: always()
