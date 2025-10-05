@@ -66,6 +66,12 @@ jobs:
           PYTHONPATH: backend
           SKIP_PROBLEMATIC_TESTS: "true"
           SKIP_EXTERNAL_TESTS: "true"
+          TESTING: "1"
+          ENVIRONMENT: "test"
+          ENABLE_RATE_LIMITING: "false"
+          ENABLE_INPUT_VALIDATION: "false"
+          REQUIRE_EMAIL_VERIFICATION: "false"
+          DATABASE_URL: "sqlite:///./test.db"
         run: |
           mkdir -p ../artifacts
           pytest tests/unit/ \
