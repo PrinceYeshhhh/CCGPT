@@ -48,6 +48,8 @@ export function PerformanceMonitor({
   const [isVisible, setIsVisible] = useState(showDetails);
 
   useEffect(() => {
+    // Avoid installing timers in test environment to prevent open handles
+    const isTest = typeof process !== 'undefined' && (process.env?.VITEST || process.env?.NODE_ENV === 'test');
     if (typeof window === 'undefined') return;
 
     // Get performance metrics
@@ -99,11 +101,11 @@ export function PerformanceMonitor({
     }
 
     // Update metrics periodically
-    const interval = setInterval(getPerformanceMetrics, 5000);
+    const interval = isTest ? undefined : setInterval(getPerformanceMetrics, 5000);
 
     return () => {
       window.removeEventListener('load', getPerformanceMetrics);
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, []);
 

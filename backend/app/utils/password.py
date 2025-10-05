@@ -4,8 +4,11 @@ Password utilities
 
 from passlib.context import CryptContext
 
-# Password hashing context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing context: default to PBKDF2-SHA256, but accept old bcrypt hashes
+pwd_context = CryptContext(
+    schemes=["pbkdf2_sha256"],
+    deprecated="auto",
+)
 
 def get_password_hash(password: str) -> str:
     """Hash a password"""

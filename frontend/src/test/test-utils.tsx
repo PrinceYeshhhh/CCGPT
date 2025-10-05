@@ -1,10 +1,11 @@
 import React from 'react';
-import { render as rtlRender, RenderOptions } from '@testing-library/react';
+import { render as rtlRender, RenderOptions, cleanup } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { vi } from 'vitest';
+import { vi, afterEach } from 'vitest';
+import { QueryCache } from 'react-query';
 
 // Mock the auth context
 const mockAuthContext = {
@@ -39,6 +40,33 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   authState?: any;
 }
 
+// Use a singleton QueryClient to avoid spawning per-test timers
+const testQueryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+      // Prevent background GC timers from keeping Vitest alive
+      cacheTime: 0,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+    },
+    mutations: { retry: false },
+  },
+  queryCache: new QueryCache(),
+});
+
+// Ensure the query client doesn't leave pending timers/handles between tests
+afterEach(() => {
+  try {
+    testQueryClient.clear();
+    testQueryClient.removeQueries();
+    testQueryClient.getQueryCache().clear();
+  } catch {}
+  cleanup();
+});
+
 const AllTheProviders = ({ 
   children, 
   theme = 'light', 
@@ -48,20 +76,13 @@ const AllTheProviders = ({
   theme?: 'light' | 'dark';
   authState?: any;
 }) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  });
-
   // Update mock auth context with provided state
   if (authState) {
     Object.assign(mockAuthContext, authState);
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={testQueryClient}>
       <BrowserRouter>
         <AuthProvider>
           <ThemeProvider>

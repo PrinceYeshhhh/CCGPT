@@ -85,6 +85,8 @@ export function Documents() {
 
   // Polling for status updates after uploads (reduced frequency for better performance)
   React.useEffect(() => {
+    const isTest = typeof process !== 'undefined' && (process.env?.VITEST || process.env?.NODE_ENV === 'test');
+    if (isTest) return;
     const interval = setInterval(() => {
       fetchDocuments();
     }, 10000); // Changed from 3 seconds to 10 seconds
@@ -93,6 +95,8 @@ export function Documents() {
 
   // Poll job statuses for active processing documents
   React.useEffect(() => {
+    const isTest = typeof process !== 'undefined' && (process.env?.VITEST || process.env?.NODE_ENV === 'test');
+    if (isTest) return;
     const activeEntries = Object.entries(docJobs);
     if (activeEntries.length === 0) return;
     let cancelled = false;

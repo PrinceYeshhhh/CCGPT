@@ -35,8 +35,9 @@ class TestAuthService:
         hashed = auth_service.get_password_hash(password)
         
         assert hashed != password
-        assert len(hashed) > 50  # bcrypt hash length
-        assert hashed.startswith("$2b$")
+        assert len(hashed) > 50  # hash should be long
+        # PBKDF2-SHA256 identifiers start with $pbkdf2-sha256$
+        assert hashed.startswith("$pbkdf2-sha256$")
     
     def test_verify_password(self, auth_service):
         """Test password verification"""
@@ -467,7 +468,7 @@ class TestPasswordManager:
         
         assert hashed != password
         assert len(hashed) > 50
-        assert hashed.startswith("$2b$")
+        assert hashed.startswith("$pbkdf2-sha256$")
     
     def test_verify_password(self):
         """Test password verification"""
