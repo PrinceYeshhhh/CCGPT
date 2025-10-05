@@ -30,8 +30,8 @@ except Exception:  # pragma: no cover
 
 logger = structlog.get_logger()
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing: use bcrypt_sha256 to avoid 72-byte bcrypt input limit
+pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 # OAuth2 scheme (absolute token URL to match mounted docs prefix)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")

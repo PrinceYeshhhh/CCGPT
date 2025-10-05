@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { vi } from 'vitest'
+import { vi, afterEach, afterAll, beforeEach } from 'vitest'
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -54,4 +54,19 @@ const sessionStorageMock = {
 }
 Object.defineProperty(window, 'sessionStorage', {
   value: sessionStorageMock
+})
+
+// Ensure timers and mocks don't keep the process alive between tests
+beforeEach(() => {
+  vi.useRealTimers()
+})
+
+afterEach(() => {
+  vi.clearAllTimers()
+  vi.clearAllMocks()
+})
+
+afterAll(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
