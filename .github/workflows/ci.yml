@@ -187,6 +187,10 @@ jobs:
         timeout-minutes: 20
         run: |
           npm run test:unit
+      - name: Integration tests (frontend)
+        timeout-minutes: 20
+        run: |
+          npm run test:integration
       - name: Build
         run: npm run build
       - name: Upload frontend artifacts
@@ -238,6 +242,268 @@ jobs:
       - name: Compose down
         if: always()
         run: docker compose -f docker-compose.yml down -v
+
+  backend-performance:
+    runs-on: ubuntu-latest
+    needs: backend-unit
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run performance tests
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p ../artifacts
+          pytest tests/performance -q --junitxml=../artifacts/backend-performance-junit.xml || true
+      - name: Upload performance artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-performance-artifacts
+          path: artifacts
+          retention-days: 7
+
+  backend-security:
+    runs-on: ubuntu-latest
+    needs: backend-unit
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run security tests
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p ../artifacts
+          pytest tests/security -q --junitxml=../artifacts/backend-security-junit.xml || true
+      - name: Upload security artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-security-artifacts
+          path: artifacts
+          retention-days: 7
+
+  backend-comprehensive:
+    runs-on: ubuntu-latest
+    needs: backend-unit
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run comprehensive suites
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p ../artifacts
+          pytest -q \
+            tests/test_whitebox_comprehensive.py \
+            tests/test_blackbox_comprehensive.py \
+            tests/test_system_comprehensive.py \
+            tests/test_integration_comprehensive.py \
+            --junitxml=../artifacts/backend-comprehensive-junit.xml || true
+      - name: Upload comprehensive artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-comprehensive-artifacts
+          path: artifacts
+          retention-days: 7
+
+  backend-misc:
+    runs-on: ubuntu-latest
+    needs: backend-unit
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run remaining root tests
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p ../artifacts
+          pytest -q tests/test_*.py \
+            --junitxml=../artifacts/backend-misc-junit.xml || true
+      - name: Upload misc artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-misc-artifacts
+          path: artifacts
+          retention-days: 7
+
+  backend-root:
+    runs-on: ubuntu-latest
+    needs: backend-unit
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run backend root-level tests
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p ../artifacts
+          pytest -q \
+            test_chat_sessions_websocket.py \
+            test_embeddable_widget.py \
+            test_embeddings_pipeline.py \
+            test_enhanced_rag_system.py \
+            test_minimal.py \
+            test_performance_integration.py \
+            test_production_rag_system.py \
+            test_rag_implementation.py \
+            test_standalone.py \
+            --junitxml=../artifacts/backend-root-junit.xml || true
+      - name: Upload backend root artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-root-artifacts
+          path: artifacts
+          retention-days: 7
+
+  frontend-e2e:
+    runs-on: ubuntu-latest
+    needs: frontend
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Run Playwright E2E
+        env:
+          CI: true
+        run: |
+          npx playwright install --with-deps
+          npm run test:e2e
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-playwright-report
+          path: frontend/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  repo-root-tests:
+    runs-on: ubuntu-latest
+    needs: [backend-unit]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      - name: Install backend deps (for root tests)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Run repository root tests
+        env:
+          PYTHONPATH: backend
+        run: |
+          mkdir -p artifacts
+          pytest -q \
+            test_local.py \
+            test_local_setup.py \
+            test_cloud_setup.py \
+            test_production_readiness.py \
+            test_production_readiness_comprehensive.py \
+            --junitxml=artifacts/repo-root-junit.xml || true
+      - name: Upload root test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: repo-root-test-artifacts
+          path: artifacts
+          retention-days: 7
 
   docker-build:
     runs-on: ubuntu-latest
