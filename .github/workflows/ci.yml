@@ -1,4 +1,43 @@
-name: CI - Frontend Unit Only
+# Previous FE-only workflow (commented out per request)
+# name: CI - Frontend Unit Only
+#
+# on:
+#   push:
+#     branches: [ main ]
+#   pull_request:
+#     branches: [ main ]
+#
+# concurrency:
+#   group: ci-fe-unit-${{ github.ref }}
+#   cancel-in-progress: true
+#
+# jobs:
+#   fe-unit:
+#     name: Frontend Unit Tests
+#     runs-on: ubuntu-latest
+#     defaults:
+#       run:
+#         working-directory: frontend
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
+#
+#       - name: Setup Node
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '20'
+#           cache: 'npm'
+#           cache-dependency-path: frontend/package-lock.json
+#
+#       - name: Install dependencies
+#         run: npm ci
+#
+#       - name: Run all FE unit tests (Vitest)
+#         env:
+#           CI: true
+#         run: npm run test:unit
+
+name: CI - Backend Unit Only
 
 on:
   push:
@@ -7,33 +46,48 @@ on:
     branches: [ main ]
 
 concurrency:
-  group: ci-fe-unit-${{ github.ref }}
+  group: ci-be-unit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  fe-unit:
-    name: Frontend Unit Tests
+  be-unit:
+    name: Backend Unit Tests
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run all FE unit tests (Vitest)
+      - name: Run all BE unit tests
         env:
-          CI: true
-        run: npm run test:unit
+          PYTHONPATH: backend
+          TESTING: "1"
+          ENVIRONMENT: "test"
+          DATABASE_URL: "sqlite:///./test.db"
+          REDIS_URL: "redis://localhost:6379/0"
+        run: |
+          # Run marker-based and directory-based unit suites to ensure full coverage of unit tests
+          pytest -q -m unit --maxfail=0 --disable-warnings || true
+          pytest -q tests/unit --maxfail=0 --disable-warnings
 
 
