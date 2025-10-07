@@ -61,15 +61,13 @@ jobs:
         run: |
           # Quick collection to surface selected tests immediately
           echo "Collecting tests..." && pytest -v -p pytest_asyncio --collect-only \
-            tests/unit \
-            tests/test_services_unit.py \
-            tests/test_api_endpoints_unit.py || true
+            tests \
+            -k "not integration and not e2e and not performance and not security" || true
 
           # Run unit tests with visible progress and reports
           pytest -v -rA -s -p pytest_asyncio -n auto \
-            tests/unit \
-            tests/test_services_unit.py \
-            tests/test_api_endpoints_unit.py \
+            tests \
+            -k "not integration and not e2e and not performance and not security" \
             --maxfail=0 --disable-warnings || true
 
 
