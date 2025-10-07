@@ -98,58 +98,143 @@ This document summarizes the comprehensive testing implementation for CustomerCa
 
 ## 📊 Test Execution Strategy
 
-### Continuous Integration
-- **On Push/PR**: All unit and integration tests
-- **Daily Schedule**: Full test suite including performance and security
-- **Pre-deployment**: Complete E2E testing
+### Continuous Integration (Staged CI - definitive plan)
+- **On Push/PR (staged, gated):**
+  1) Backend Smoke: `pytest -q backend/test_minimal.py backend/test_simple.py`
+  2) Backend Unit: `pytest -q -m unit` (or `backend/tests/unit/`)
+  3) Backend Integration: services up (Postgres, Redis), run `pytest -q -m integration`
+  4) Frontend Type-check + Unit: `npm run type-check` then `npm run test:unit`
+  5) Frontend Integration: `npm run test:integration`
+  6) Frontend E2E (Playwright all specs): `npx playwright test`
+- **Nightly (schedule):** Full suite including performance and security markers.
+- **Pre-deployment (manual/auto):** Full E2E across all browsers + smoke performance subset.
 
-### Test Categories
-1. **Unit Tests**: Fast execution, high coverage
-2. **Integration Tests**: API contract validation
-3. **Performance Tests**: Load and stress testing
-4. **Security Tests**: Vulnerability and penetration testing
-5. **E2E Tests**: Complete user journey validation
+### Test Categories and exact selectors
+1. **Backend Unit**: `pytest -q -m unit` or `pytest -q backend/tests/unit/`
+2. **Backend Integration**: `pytest -q -m integration`
+3. **Backend E2E/System (optional on PR)**: `pytest -q backend/tests/e2e/`
+4. **Backend Performance (nightly)**: `pytest -q backend/tests/performance/`
+5. **Frontend Unit**: `npm run test:unit`
+6. **Frontend Integration**: `npm run test:integration`
+7. **Frontend E2E**: `npx playwright test`
 
-### Coverage Requirements
-- **Backend**: 80%+ overall coverage, 85%+ for critical services
-- **Frontend**: 80%+ overall coverage, 90%+ for critical components
-- **Security**: 100% coverage for security-critical functions
+## 📚 Test Inventory (Source of Truth)
+
+Use this as the authoritative list when updating CI. Each category below should run “once per kind,” executing all files in the group.
+
+### Backend
+- Unit
+  - `backend/tests/unit/test_auth.py`
+  - `backend/tests/unit/test_auth_security.py`
+  - `backend/tests/unit/test_database.py`
+  - `backend/tests/unit/test_embed_widget.py`
+  - `backend/tests/unit/test_example_with_timeouts.py`
+  - `backend/tests/unit/test_llm_services.py`
+  - `backend/tests/unit/test_middleware.py`
+  - `backend/tests/unit/test_production_rag_advanced.py`
+  - `backend/tests/unit/test_websocket.py`
+- Integration
+  - `backend/tests/integration/test_api_integration.py`
+  - `backend/tests/integration/test_api_integration_comprehensive.py`
+  - `backend/tests/integration/test_be_fe_integration.py`
+  - `backend/tests/integration/test_error_scenarios.py`
+  - `backend/tests/test_integration.py`
+  - `backend/tests/test_integration_comprehensive.py`
+- E2E/System
+  - `backend/tests/e2e/test_user_journeys.py`
+  - `backend/tests/test_e2e_workflows.py`
+  - `backend/tests/test_system_comprehensive.py`
+  - `backend/tests/test_whitebox_comprehensive.py`
+  - `backend/tests/test_blackbox_comprehensive.py`
+- Performance (nightly)
+  - `backend/tests/performance/test_load_testing.py`
+  - `backend/tests/performance/test_production_rag_performance.py`
+  - `backend/tests/performance/test_stress_testing.py`
+- File processing / RAG pipeline
+  - `backend/tests/test_file_processing.py`
+  - `backend/test_embeddings_pipeline.py`
+  - `backend/test_rag_implementation.py`
+  - `backend/test_production_rag_system.py`
+  - `backend/test_enhanced_rag_system.py`
+- Web/Widget/Cloud
+  - `backend/test_embeddable_widget.py`
+  - `backend/test_chat_sessions_websocket.py`
+  - `backend/tests/test_cloud_integration.py`
+  - `backend/tests/test_cloud_performance.py`
+  - `backend/tests/test_cloud_security.py`
+- Smoke/Utilities
+  - `backend/test_minimal.py`
+  - `backend/tests/test_simple.py`
+  - `backend/tests/test_utils.py`
+  - `backend/test_performance_integration.py`
+  - `backend/test_standalone.py`
+  - `backend/tests/skip_problematic_tests.py`
+  - `backend/tests/run_cloud_tests.py`
+
+- Critical Missing Test Stubs (to implement)
+  - `backend/tests/stubs/test_billing_webhook_signature.py`
+  - `backend/tests/stubs/test_websocket_security_limits.py`
+  - `backend/tests/stubs/test_rag_rate_limits_and_budget.py`
+  - `backend/tests/stubs/test_csrf_middleware_api.py`
+  - `backend/tests/stubs/test_analytics_endpoints.py`
+
+### Frontend
+- Unit/Integration (Vitest)
+  - `frontend/src/components/__tests__/Login.test.tsx`
+  - `frontend/src/components/__tests__/Navbar.test.tsx`
+  - `frontend/src/components/__tests__/ExampleWithTimeouts.test.tsx`
+  - `frontend/src/hooks/__tests__/usePerformance.test.ts`
+  - `frontend/src/__tests__/integration/api.test.tsx`
+  - `frontend/src/__tests__/integration/websocket.test.tsx`
+- E2E (Playwright)
+  - `frontend/e2e/auth.spec.ts`
+  - `frontend/e2e/homepage.spec.ts`
+  - `frontend/e2e/dashboard.spec.ts`
+  - `frontend/e2e/documents.spec.ts`
+  - `frontend/e2e/widget-greeting.spec.ts`
+- Critical Missing Test Stubs (to implement)
+  - `frontend/tests/stubs/dark_mode_persistence.test.tsx`
+  - `frontend/tests/stubs/billing_flow.test.ts`
+  - `frontend/tests/stubs/analytics_charts_render.test.tsx`
+  - `frontend/tests/stubs/widget_embed_security.test.ts`
+  - `frontend/tests/stubs/api_error_boundaries.test.tsx`
+
+Notes
+- Keep this inventory updated when adding/removing tests; CI phases reference these groups.
+- For very large lists, group by directory and run directory globs in CI to avoid drift.
+
+### Coverage Requirements (enforced in CI)
+- **Backend**: 80%+ overall via `pytest.ini --cov-fail-under=80` (already configured)
+- **Frontend**: run `npm run test:coverage` on nightly; enforce threshold when stabilized
+- **Security**: critical functions targeted by unit/marker tests; enumerate in backend markers
 
 ## 🔧 Running the Tests
 
-### Backend Tests
+### Backend Tests (category commands)
 ```bash
-# Unit tests
 cd backend
-pytest tests/unit/ -v --cov=app --cov-report=html
-
-# Integration tests
-pytest tests/integration/ -v --cov=app
-
-# Performance tests
-pytest tests/performance/ -v --timeout=600
-
-# Security tests
-pytest tests/security/ -v
-
-# E2E tests
-pytest tests/e2e/ -v --timeout=1200
+# Smoke
+pytest -q test_minimal.py test_simple.py
+# Unit
+pytest -q -m unit
+# Integration (with services)
+pytest -q -m integration
+# E2E/System (optional)
+pytest -q tests/e2e/
+# Performance (nightly)
+pytest -q tests/performance/ -k "not slow" --timeout=600
 ```
 
-### Frontend Tests
+### Frontend Tests (category commands)
 ```bash
-# Unit tests
 cd frontend
+# Unit
 npm run test:unit
-
-# Integration tests
+# Integration
 npm run test:integration
-
-# WebSocket tests
-npm run test -- src/__tests__/integration/websocket.test.ts
-
-# Cloud API tests
-npm run test -- tests/test_cloud_api.ts
+# E2E (Playwright)
+npx playwright install --with-deps
+npx playwright test
 ```
 
 ### Comprehensive Test Suite
