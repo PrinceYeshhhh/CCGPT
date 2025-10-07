@@ -41,6 +41,8 @@ jobs:
           pip install -r requirements.txt
           # Ensure async tests run even with plugin autoload disabled
           pip install pytest-asyncio
+          # Enable parallel test execution
+          pip install pytest-xdist
 
       - name: Run all BE unit tests
         continue-on-error: true
@@ -51,6 +53,11 @@ jobs:
           DATABASE_URL: "sqlite:///./test.db"
           REDIS_URL: "redis://localhost:6379/0"
           PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          LOG_LEVEL: "WARNING"
+          ENABLE_REQUEST_LOGGING: "false"
+          ENABLE_INPUT_VALIDATION: "false"
+          ENABLE_RATE_LIMITING: "false"
+          ENABLE_SECURITY_HEADERS: "false"
         run: |
           # Quick collection to surface selected tests immediately
           echo "Collecting tests..." && pytest -v -p pytest_asyncio --collect-only \
@@ -59,7 +66,7 @@ jobs:
             tests/test_api_endpoints_unit.py || true
 
           # Run unit tests with visible progress and reports
-          pytest -v -rA -s -p pytest_asyncio \
+          pytest -v -rA -s -p pytest_asyncio -n auto \
             tests/unit \
             tests/test_services_unit.py \
             tests/test_api_endpoints_unit.py \
