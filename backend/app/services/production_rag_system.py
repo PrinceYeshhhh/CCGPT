@@ -43,7 +43,7 @@ except ImportError:
 
 # ML and embeddings
 try:
-from sentence_transformers import SentenceTransformer, CrossEncoder
+    from sentence_transformers import SentenceTransformer, CrossEncoder
     from sklearn.cluster import KMeans
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
