@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 import structlog
 
 from app.core.config import settings
+from app.core.database import get_redis
 
 logger = structlog.get_logger()
 
@@ -18,12 +19,17 @@ class RateLimiter:
     """Rate limiter using Redis for distributed rate limiting"""
     
     def __init__(self):
-        self.redis_client = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            db=settings.REDIS_DB,
-            decode_responses=True
-        )
+        # Reuse centralized Redis client (Mock in tests, fallback if unavailable)
+        try:
+            self.redis_client = get_redis()
+        except Exception:
+            # Minimal fallback: local client with short timeouts; fail-open on errors
+            self.redis_client = redis.from_url(
+                getattr(settings, "REDIS_URL", "redis://localhost:6379/0"),
+                socket_connect_timeout=0.2,
+                socket_timeout=0.2,
+                decode_responses=True
+            )
     
     async def check_rate_limit(
         self, 

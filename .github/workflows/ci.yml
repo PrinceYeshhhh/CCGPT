@@ -8,12 +8,13 @@ on:
 
 concurrency:
   group: ci-be-unit-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   be-unit:
     name: Backend Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: backend
