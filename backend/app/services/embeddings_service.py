@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
+import os
 from sentence_transformers import SentenceTransformer
 import structlog
 from functools import lru_cache
@@ -28,7 +29,33 @@ class EmbeddingsService:
         self._initialize_model()
     
     def _initialize_model(self):
-        """Initialize the sentence transformer model (singleton pattern)"""
+        """Initialize the sentence transformer model (singleton pattern).
+        In testing, use a lightweight fake model to avoid network downloads.
+        """
+        # Lightweight fake for tests to avoid huggingface downloads
+        if os.getenv("TESTING"):
+            class _FakeSTModel:
+                def __init__(self, dimension: int):
+                    self._dimension = dimension
+                def get_sentence_embedding_dimension(self) -> int:
+                    return self._dimension
+                def encode(self, texts, options=None):
+                    if isinstance(texts, str):
+                        texts = [texts]
+                    # Deterministic pseudo-embeddings based on hash
+                    embeddings = []
+                    for t in texts:
+                        h = int(hashlib.md5(t.encode("utf-8")).hexdigest(), 16)
+                        rng = np.random.default_rng(h % (2**32))
+                        vec = rng.random(self._dimension, dtype=np.float32)
+                        # Normalize to unit length to mimic ST behavior
+                        norm = np.linalg.norm(vec) or 1.0
+                        embeddings.append(vec / norm)
+                    return np.stack(embeddings)
+            self.model = _FakeSTModel(self.embedding_dimension)
+            logger.info("Using fake sentence transformer model in TESTING mode", dimension=self.embedding_dimension)
+            return
+
         try:
             logger.info("Loading sentence transformer model", model=self.model_name)
             self.model = SentenceTransformer(self.model_name)

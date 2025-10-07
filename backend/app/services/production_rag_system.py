@@ -43,7 +43,7 @@ except ImportError:
 
 # ML and embeddings
 try:
-    from sentence_transformers import SentenceTransformer, CrossEncoder
+from sentence_transformers import SentenceTransformer, CrossEncoder
     from sklearn.cluster import KMeans
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
@@ -185,6 +185,11 @@ class ProductionFileProcessor:
     
     def _initialize_text_processing(self):
         """Initialize text processing tools"""
+        import os
+        if os.getenv("TESTING"):
+            # Skip NLTK downloads in CI/testing
+            self.text_processing_available = False
+            return
         if NLTK_AVAILABLE:
             try:
                 nltk.download('punkt', quiet=True)
@@ -205,6 +210,15 @@ class ProductionFileProcessor:
     
     def _initialize_ml_models(self):
         """Initialize ML models for advanced processing"""
+        import os
+        if os.getenv("TESTING"):
+            # Skip heavy model loading in CI/testing
+            self.embedding_model = None
+            self.reranking_model = None
+            self.tfidf_vectorizer = None
+            self.ml_available = False
+            logger.info("Skipping ML model initialization in TESTING mode")
+            return
         if ML_AVAILABLE:
             try:
                 # Initialize sentence transformer for embeddings
