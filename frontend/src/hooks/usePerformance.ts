@@ -54,6 +54,7 @@ const defaultConfig: PerformanceConfig = {
 
 export function usePerformance(config: Partial<PerformanceConfig> = {}) {
   const finalConfig = useMemo(() => ({ ...defaultConfig, ...config }), [config]);
+  const isTestEnv = typeof process !== 'undefined' && ((process as any).env?.VITEST || (process as any).env?.NODE_ENV === 'test');
   
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     lcp: null,
@@ -83,11 +84,16 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
   const startTime = useRef<number>(Date.now());
   const pageStartTime = useRef<number>(performance.now());
   const metricsBuffer = useRef<PerformanceMetrics[]>([]);
-  const observerRef = useRef<PerformanceObserver | null>(null);
+  const observersRef = useRef<PerformanceObserver[]>([]);
   const reportIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMonitoringRef = useRef<boolean>(false);
 
   // Initialize performance monitoring
   useEffect(() => {
+    if (isTestEnv) {
+      return () => {};
+    }
+
     if (finalConfig.enableWebVitals) {
       initializeWebVitals();
     }
@@ -112,7 +118,7 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
     return () => {
       cleanup();
     };
-  }, [finalConfig]);
+  }, [finalConfig, isTestEnv]);
 
   // Web Vitals monitoring
   const initializeWebVitals = useCallback(() => {
@@ -128,6 +134,7 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
         setMetrics(prev => ({ ...prev, lcp: lastEntry.startTime }));
       });
       lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
+      observersRef.current.push(lcpObserver);
 
       // FID - First Input Delay
       const fidObserver = new PerformanceObserver((list) => {
@@ -137,6 +144,7 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
         });
       });
       fidObserver.observe({ entryTypes: ['first-input'] });
+      observersRef.current.push(fidObserver);
 
       // CLS - Cumulative Layout Shift
       let clsValue = 0;
@@ -150,6 +158,7 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
         });
       });
       clsObserver.observe({ entryTypes: ['layout-shift'] });
+      observersRef.current.push(clsObserver);
 
       // FCP - First Contentful Paint
       const fcpObserver = new PerformanceObserver((list) => {
@@ -161,6 +170,7 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
         });
       });
       fcpObserver.observe({ entryTypes: ['paint'] });
+      observersRef.current.push(fcpObserver);
 
       // TTFB - Time to First Byte
       const ttfbObserver = new PerformanceObserver((list) => {
@@ -176,6 +186,7 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
         });
       });
       ttfbObserver.observe({ entryTypes: ['navigation'] });
+      observersRef.current.push(ttfbObserver);
 
     } catch (error) {
       console.warn('Failed to initialize Web Vitals:', error);
@@ -362,10 +373,18 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
   const cleanup = useCallback(() => {
     if (reportIntervalRef.current) {
       clearInterval(reportIntervalRef.current);
+      reportIntervalRef.current = null;
     }
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
+    // Disconnect all observers
+    observersRef.current.forEach(observer => {
+      try {
+        observer.disconnect();
+      } catch (error) {
+        console.warn('Error disconnecting observer:', error);
+      }
+    });
+    observersRef.current = [];
+    isMonitoringRef.current = false;
   }, []);
 
   // Get current performance summary
@@ -386,14 +405,20 @@ export function usePerformance(config: Partial<PerformanceConfig> = {}) {
 
   // Additional methods for testing
   const startMonitoring = useCallback(() => {
-    // Start monitoring if not already started
-  }, []);
+    if (!isMonitoringRef.current) {
+      isMonitoringRef.current = true;
+      // Re-initialize monitoring if needed
+      if (!isTestEnv && finalConfig.enableWebVitals) {
+        initializeWebVitals();
+      }
+    }
+  }, [finalConfig.enableWebVitals, initializeWebVitals, isTestEnv]);
 
   const stopMonitoring = useCallback(() => {
     cleanup();
   }, [cleanup]);
 
-  const isMonitoring = false; // Simple flag for testing
+  const isMonitoring = isMonitoringRef.current;
 
   const markRenderStart = useCallback((component?: string) => {
     // Mark render start

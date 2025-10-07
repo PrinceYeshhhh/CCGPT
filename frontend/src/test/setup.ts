@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom'
-import { vi, afterEach, afterAll, beforeEach } from 'vitest'
+import { vi, afterEach, afterAll, beforeEach, beforeAll } from 'vitest'
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -61,6 +61,26 @@ beforeEach(() => {
   vi.useRealTimers()
 })
 
+// Reduce console.error noise from React error boundaries in tests to avoid memory bloat
+const originalConsoleError = console.error
+beforeAll(() => {
+  console.error = ((...args: any[]) => {
+    const first = args[0]
+    if (typeof first === 'string') {
+      if (
+        first.includes('The above error occurred') ||
+        first.includes('ErrorBoundary caught an error') ||
+        first.startsWith('Error: Boom')
+      ) {
+        return
+      }
+    }
+    // Fallback to original
+    // eslint-disable-next-line prefer-spread
+    return (originalConsoleError as any).apply(console, args)
+  }) as any
+})
+
 afterEach(() => {
   vi.clearAllTimers()
   vi.clearAllMocks()
@@ -69,4 +89,5 @@ afterEach(() => {
 afterAll(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
+  console.error = originalConsoleError
 })

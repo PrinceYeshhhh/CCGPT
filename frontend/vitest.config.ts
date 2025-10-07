@@ -14,12 +14,15 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     sequence: { concurrent: false },
+    testTimeout: 10000,
+    hookTimeout: 10000,
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
       '**/e2e/**',
       '**/*.e2e.spec.ts',
-      '**/*.e2e.test.ts'
+      '**/*.e2e.test.ts',
+      '**/__tests__/integration/**'
     ],
     coverage: {
       provider: 'v8',

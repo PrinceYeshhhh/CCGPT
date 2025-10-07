@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { X, MessageCircle, Send, Bot } from 'lucide-react';
@@ -30,6 +30,7 @@ export function WidgetPreview({ isOpen, onClose, config }: WidgetPreviewProps) {
   const [messages, setMessages] = useState<Array<{id: number; text: string; sender: 'user' | 'bot'; timestamp: Date}>>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -61,7 +62,12 @@ export function WidgetPreview({ isOpen, onClose, config }: WidgetPreviewProps) {
       setIsTyping(true);
     }
 
-    setTimeout(() => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    typingTimeoutRef.current = window.setTimeout(() => {
       setIsTyping(false);
       const botMessage = {
         id: messages.length + 2,
@@ -70,6 +76,7 @@ export function WidgetPreview({ isOpen, onClose, config }: WidgetPreviewProps) {
         timestamp: new Date()
       };
       setMessages(prev => [...prev, botMessage]);
+      typingTimeoutRef.current = null;
     }, 1500);
   };
 
@@ -80,13 +87,22 @@ export function WidgetPreview({ isOpen, onClose, config }: WidgetPreviewProps) {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl h-[600px] p-0">
         <DialogHeader className="p-6 pb-4">
           <DialogTitle className="flex items-center justify-between">
             <span>Widget Preview</span>
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={onClose} data-testid="dialog-close-button">
               <X className="h-4 w-4" />
             </Button>
           </DialogTitle>
@@ -130,6 +146,8 @@ export function WidgetPreview({ isOpen, onClose, config }: WidgetPreviewProps) {
                 onClick={() => setIsWidgetOpen(true)}
                 className="w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white hover:scale-105 transition-transform"
                 style={{ backgroundColor: config.primary_color }}
+                data-testid="chat-bubble-button"
+                aria-label="Open chat widget"
               >
                 <MessageCircle className="h-6 w-6" />
               </button>
@@ -169,6 +187,8 @@ export function WidgetPreview({ isOpen, onClose, config }: WidgetPreviewProps) {
                   <button
                     onClick={() => setIsWidgetOpen(false)}
                     className="text-white/80 hover:text-white"
+                    data-testid="chat-window-close-button"
+                    aria-label="Close chat widget"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -226,6 +246,8 @@ export function WidgetPreview({ isOpen, onClose, config }: WidgetPreviewProps) {
                       disabled={!inputValue.trim()}
                       className="p-2 rounded-lg text-white disabled:opacity-50 hover:bg-white/10 transition-colors"
                       style={{ backgroundColor: config.primary_color }}
+                      data-testid="send-message-button"
+                      aria-label="Send message"
                     >
                       <Send className="h-4 w-4" />
                     </button>
