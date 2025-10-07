@@ -1,4 +1,4 @@
-name: CI - Frontend Unit Only
+name: CI - Backend Unit Only
 
 on:
   push:
@@ -7,33 +7,51 @@ on:
     branches: [ main ]
 
 concurrency:
-  group: ci-fe-unit-${{ github.ref }}
+  group: ci-be-unit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  fe-unit:
-    name: Frontend Unit Tests
+  be-unit:
+    name: Backend Unit Tests
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: backend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run all FE unit tests (Vitest)
+      - name: Run all BE unit tests
         env:
-          CI: true
-        run: npm run test:unit
+          PYTHONPATH: backend
+          TESTING: "1"
+          ENVIRONMENT: "test"
+          DATABASE_URL: "sqlite:///./test.db"
+          REDIS_URL: "redis://localhost:6379/0"
+        run: |
+          # Run all unit tests by explicit paths; avoid unused -m unit which deselects tests
+          pytest -q \
+            tests/unit \
+            tests/test_services_unit.py \
+            tests/test_api_endpoints_unit.py \
+            --maxfail=0 --disable-warnings
 
 
