@@ -46,9 +46,16 @@ jobs:
           ENVIRONMENT: "test"
           DATABASE_URL: "sqlite:///./test.db"
           REDIS_URL: "redis://localhost:6379/0"
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
         run: |
-          # Run all unit tests by explicit paths; avoid unused -m unit which deselects tests
-          pytest -q \
+          # Quick collection to surface selected tests immediately
+          echo "Collecting tests..." && pytest -v --collect-only \
+            tests/unit \
+            tests/test_services_unit.py \
+            tests/test_api_endpoints_unit.py || true
+
+          # Run unit tests with visible progress and reports
+          pytest -v -rA -s \
             tests/unit \
             tests/test_services_unit.py \
             tests/test_api_endpoints_unit.py \
