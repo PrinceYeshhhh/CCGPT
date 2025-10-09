@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders as render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Performance } from '../Performance';
 import { api } from '@/lib/api';
@@ -13,42 +13,13 @@ vi.mock('@/lib/api', () => ({
 // Mock usePerformance hook
 vi.mock('@/hooks/usePerformance', () => ({
   usePerformance: () => ({
-    performanceData: {
-      summary: {
-        performance_score: 85,
-        avg_lcp: 2.5,
-        avg_fid: 100,
-        avg_cls: 0.1,
-        avg_fcp: 1.8,
-        avg_ttfb: 200,
-        avg_page_load_time: 3.2,
-        avg_api_response_time: 500,
-        total_errors: 5,
-        error_rate: 0.02,
-        is_healthy: true,
-        health_issues: [],
-      },
-      trends: {
-        lcp: [{ date: '2024-01-01', value: 2.5 }],
-        fid: [{ date: '2024-01-01', value: 100 }],
-        cls: [{ date: '2024-01-01', value: 0.1 }],
-        errors: [{ date: '2024-01-01', value: 5 }],
-      },
-      alerts: [
-        {
-          id: 'alert1',
-          alert_type: 'performance',
-          severity: 'warning',
-          message: 'High LCP detected',
-          created_at: '2024-01-01T00:00:00Z',
-        },
-      ],
-    },
-    loading: false,
-    error: null,
-    refresh: vi.fn(),
+    metrics: { lcp: 2500, fid: 100, cls: 0.1 },
+    getPerformanceSummary: () => ({ lcp: '2.5s', fid: '100ms', cls: '0.10' }),
+    getPerformanceScore: () => 85,
+    reportMetrics: vi.fn(),
   }),
 }));
+import { usePerformance } from '@/hooks/usePerformance';
 
 // Mock recharts components
 vi.mock('recharts', () => ({
@@ -202,7 +173,7 @@ describe('Performance', () => {
 
   it('should handle refresh button', () => {
     const mockRefresh = vi.fn();
-    vi.mocked(require('@/hooks/usePerformance').usePerformance).mockReturnValue({
+    vi.mocked(usePerformance).mockReturnValue({
       performanceData: mockPerformanceData,
       loading: false,
       error: null,
@@ -218,7 +189,7 @@ describe('Performance', () => {
   });
 
   it('should display loading state', () => {
-    vi.mocked(require('@/hooks/usePerformance').usePerformance).mockReturnValue({
+    vi.mocked(usePerformance).mockReturnValue({
       performanceData: null,
       loading: true,
       error: null,
@@ -231,7 +202,7 @@ describe('Performance', () => {
   });
 
   it('should display error state', () => {
-    vi.mocked(require('@/hooks/usePerformance').usePerformance).mockReturnValue({
+    vi.mocked(usePerformance).mockReturnValue({
       performanceData: null,
       loading: false,
       error: 'Failed to load performance data',
@@ -260,7 +231,7 @@ describe('Performance', () => {
       },
     };
     
-    vi.mocked(require('@/hooks/usePerformance').usePerformance).mockReturnValue({
+    vi.mocked(usePerformance).mockReturnValue({
       performanceData: performanceDataWithIssues,
       loading: false,
       error: null,
@@ -313,7 +284,7 @@ describe('Performance', () => {
       },
     };
     
-    vi.mocked(require('@/hooks/usePerformance').usePerformance).mockReturnValue({
+    vi.mocked(usePerformance).mockReturnValue({
       performanceData: lowPerformanceData,
       loading: false,
       error: null,

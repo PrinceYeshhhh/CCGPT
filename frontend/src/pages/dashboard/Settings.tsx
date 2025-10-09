@@ -157,14 +157,17 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
     try {
       setLoading(true);
       setLoadError(null);
-      const response = await api.get('/settings/');
-      const data = response.data;
+      const [settingsResp, userResp] = await Promise.all([
+        api.get('/settings/'),
+        api.get('/user/profile').catch(() => ({ data: {} })),
+      ]);
+      const data = settingsResp.data;
       
       setSettings(data);
       setNotifications(data.notifications);
       
       // Update form values
-      const profileLike = (data.profile || data.user) as Partial<ProfileForm> | undefined;
+      const profileLike = (data.profile || data.user || userResp.data) as Partial<ProfileForm> | undefined;
       if (profileLike) profileForm.reset({
         username: profileLike.username || '',
         email: profileLike.email || '',
@@ -219,7 +222,7 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
 
   const onPasswordSubmit = async (data: PasswordForm) => {
     try {
-      await api.put('/user/password', {
+      await api.put('/user/change-password', {
         current_password: data.currentPassword,
         new_password: data.newPassword,
         confirm_password: data.confirmPassword
@@ -378,7 +381,7 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
                     {profileForm.watch('profile_picture_url') ? (
                       <img 
                         src={profileForm.watch('profile_picture_url')} 
-                        alt="Profile" 
+                        alt="Profile Picture" 
                         className="w-20 h-20 rounded-full object-cover"
                       />
                     ) : (
@@ -396,11 +399,7 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
                       className="hidden"
                       id="profile-picture-upload"
                     />
-                    <Button 
-                      size="sm" 
-                      className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0"
-                      onClick={() => document.getElementById('profile-picture-upload')?.click()}
-                    >
+                    <Button size="sm" className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0" onClick={() => document.getElementById('profile-picture-upload')?.click()}>
                       <Upload className="h-4 w-4" />
                     </Button>
                   </div>
@@ -409,6 +408,24 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
                     <p className="text-sm text-muted-foreground">
                       Upload a new profile picture. JPG, PNG or GIF (max 2MB)
                     </p>
+                    <div className="mt-2 flex gap-2">
+                      <Button type="button" variant="outline" onClick={() => document.getElementById('profile-picture-upload')?.click()}>Upload Photo</Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={async () => {
+                          profileForm.setValue('profile_picture_url', '');
+                          try {
+                            await api.put('/user/profile', { profile_picture_url: null });
+                            toast.success('Profile picture removed');
+                          } catch (e) {
+                            toast.error('Failed to remove photo');
+                          }
+                        }}
+                      >
+                        Remove Photo
+                      </Button>
+                    </div>
                   </div>
                 </div>
 

@@ -131,11 +131,7 @@ describe('Pricing', () => {
   });
 
   const renderPricing = () => {
-    return render(
-      <BrowserRouter>
-        <Pricing />
-      </BrowserRouter>
-    );
+    return render(<Pricing />);
   };
 
   it('should render pricing page', () => {

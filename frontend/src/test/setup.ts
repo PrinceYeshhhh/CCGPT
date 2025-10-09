@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom'
 import { configure } from '@testing-library/react'
+import React from 'react'
 import { vi, afterEach, afterAll, beforeEach, beforeAll } from 'vitest'
 import { cleanup } from '@testing-library/react'
+import { server } from './msw/server'
 
 // Ensure a root container exists for React 18 createRoot during tests
 beforeAll(() => {
@@ -13,12 +15,94 @@ beforeAll(() => {
   }
 })
 
+// Start MSW server for integration tests
+beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
+
 // Use legacyRoot to align @testing-library/react with React 18 in tests
 configure({ legacyRoot: true })
 
-// Provide a default mock for AuthContext hook to avoid module-not-found during tests
-vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ isAuthenticated: false })
+// Note: Do not globally mock AuthContext here; individual tests should control auth state as needed
+
+// Default router navigate mock to keep tests consistent
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<any>('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => vi.fn(),
+  }
+})
+
+// Default popup component stubs used across public pages
+vi.mock('@/components/common/PaymentPopup', () => ({
+  PaymentPopup: ({ isOpen, onClose, plan, onSuccess }: any) =>
+    isOpen
+      ? React.createElement(
+          'div',
+          { 'data-testid': 'payment-popup' },
+          React.createElement('div', null, `Payment for ${plan?.name ?? ''}`),
+          React.createElement('button', { onClick: onClose }, 'Close'),
+          React.createElement(
+            'button',
+            { onClick: () => onSuccess?.({ success: true }) },
+            'Pay'
+          )
+        )
+      : null,
+}))
+
+vi.mock('@/components/common/WhiteLabelPopup', () => ({
+  WhiteLabelPopup: ({ isOpen, onClose }: any) =>
+    isOpen
+      ? React.createElement(
+          'div',
+          { 'data-testid': 'white-label-popup' },
+          React.createElement('div', null, 'White Label Popup'),
+          React.createElement('button', { onClick: onClose }, 'Close')
+        )
+      : null,
+}))
+
+vi.mock('@/components/common/TrialPopup', () => ({
+  TrialPopup: ({ isOpen, onClose, onSuccess }: any) =>
+    isOpen
+      ? React.createElement(
+          'div',
+          { 'data-testid': 'trial-popup' },
+          React.createElement('div', null, 'Trial Popup'),
+          React.createElement('button', { onClick: onClose }, 'Close'),
+          React.createElement(
+            'button',
+            { onClick: () => onSuccess?.({ success: true }) },
+            'Start Trial'
+          )
+        )
+      : null,
+}))
+
+vi.mock('@/components/common/PostLoginTrialPopup', () => ({
+  PostLoginTrialPopup: ({ isOpen, onClose }: any) =>
+    isOpen
+      ? React.createElement(
+          'div',
+          { 'data-testid': 'trial-popup' },
+          React.createElement('div', null, 'Post Login Trial'),
+          React.createElement('button', { onClick: onClose }, 'Close')
+        )
+      : null,
+}))
+
+// Silence toast side effects
+vi.mock('react-hot-toast', () => ({
+  default: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  }
 }))
 
 // Mock window.matchMedia

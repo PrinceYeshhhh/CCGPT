@@ -54,11 +54,7 @@ describe('Features', () => {
   });
 
   const renderFeatures = () => {
-    return render(
-      <BrowserRouter>
-        <Features />
-      </BrowserRouter>
-    );
+    return render(<Features />);
   };
 
   it('should render features page', () => {

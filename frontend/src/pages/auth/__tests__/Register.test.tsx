@@ -1,6 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BrowserRouter } from 'react-router-dom';
 import { Register } from '../Register';
 import { api } from '@/lib/api';
 
@@ -36,13 +35,7 @@ describe('Register', () => {
     vi.clearAllMocks();
   });
 
-  const renderRegister = () => {
-    return render(
-      <BrowserRouter>
-        <Register />
-      </BrowserRouter>
-    );
-  };
+  const renderRegister = () => render(<Register />);
 
   it('should render registration form', () => {
     renderRegister();

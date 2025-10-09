@@ -54,11 +54,7 @@ describe('Home', () => {
   });
 
   const renderHome = () => {
-    return render(
-      <BrowserRouter>
-        <Home />
-      </BrowserRouter>
-    );
+    return render(<Home />);
   };
 
   it('should render home page', () => {

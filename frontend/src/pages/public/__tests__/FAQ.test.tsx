@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, renderWithProviders as render } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { FAQ } from '../FAQ';
@@ -30,18 +30,14 @@ describe('FAQ', () => {
   });
 
   const renderFAQ = () => {
-    return render(
-      <BrowserRouter>
-        <FAQ />
-      </BrowserRouter>
-    );
+    return render(<FAQ />);
   };
 
   it('should render FAQ page', () => {
     renderFAQ();
     
     expect(screen.getByText('Frequently Asked Questions')).toBeInTheDocument();
-    expect(screen.getByText('Find answers to common questions about CustomerCareGPT')).toBeInTheDocument();
+    expect(screen.getByText('Everything you need to know about CustomerCareGPT')).toBeInTheDocument();
   });
 
   it('should display all FAQ items', () => {
@@ -186,7 +182,7 @@ describe('FAQ', () => {
   it('should handle schedule demo button', () => {
     renderFAQ();
     
-    const scheduleDemoButton = screen.getByText('Schedule Demo');
+    const scheduleDemoButton = screen.getByText('Schedule a Demo');
     fireEvent.click(scheduleDemoButton);
     
     expect(screen.getByTestId('schedule-demo-popup')).toBeInTheDocument();
@@ -195,7 +191,7 @@ describe('FAQ', () => {
   it('should handle schedule demo popup close', () => {
     renderFAQ();
     
-    const scheduleDemoButton = screen.getByText('Schedule Demo');
+    const scheduleDemoButton = screen.getByText('Schedule a Demo');
     fireEvent.click(scheduleDemoButton);
     
     expect(screen.getByTestId('schedule-demo-popup')).toBeInTheDocument();
@@ -206,45 +202,13 @@ describe('FAQ', () => {
     expect(screen.queryByTestId('schedule-demo-popup')).not.toBeInTheDocument();
   });
 
-  it('should display search functionality', () => {
-    renderFAQ();
-    
-    expect(screen.getByPlaceholderText('Search FAQs...')).toBeInTheDocument();
-  });
-
-  it('should handle search input', () => {
-    renderFAQ();
-    
-    const searchInput = screen.getByPlaceholderText('Search FAQs...');
-    fireEvent.change(searchInput, { target: { value: 'security' } });
-    
-    expect(searchInput).toHaveValue('security');
-  });
-
-  it('should display categories', () => {
-    renderFAQ();
-    
-    expect(screen.getByText('General')).toBeInTheDocument();
-    expect(screen.getByText('Pricing')).toBeInTheDocument();
-    expect(screen.getByText('Technical')).toBeInTheDocument();
-    expect(screen.getByText('Billing')).toBeInTheDocument();
-  });
-
-  it('should handle category filtering', () => {
-    renderFAQ();
-    
-    const generalCategory = screen.getByText('General');
-    fireEvent.click(generalCategory);
-    
-    // Should filter FAQs by category
-    expect(generalCategory).toBeInTheDocument();
-  });
+  // Removed: search and category tests not present in current FAQ UI
 
   it('should display helpful section', () => {
     renderFAQ();
     
     expect(screen.getByText('Still have questions?')).toBeInTheDocument();
-    expect(screen.getByText('We\'re here to help! Contact our support team or schedule a demo.')).toBeInTheDocument();
+    expect(screen.getByText("Can't find the answer you're looking for? Please chat with our friendly team.")).toBeInTheDocument();
   });
 
   it('should display all FAQ items in correct order', () => {
@@ -269,8 +233,7 @@ describe('FAQ', () => {
     fireEvent.click(firstFaq);
     fireEvent.click(secondFaq);
     
-    // Both should be expanded
-    expect(screen.getByText('CustomerCareGPT uses advanced AI to analyze your uploaded documents and create an intelligent chatbot. Simply upload your FAQs, documentation, or knowledge base, and our AI will instantly train on your content. You then get an embeddable widget that can answer customer questions 24/7.')).toBeInTheDocument();
-    expect(screen.getByText('Yes, absolutely. We take security very seriously. All data is encrypted in transit and at rest. We are SOC 2 compliant and follow industry best practices for data protection. Your documents and customer conversations are never shared with third parties.')).toBeInTheDocument();
+    // Accordion allows one open at a time; assert the second opened content
+    expect(screen.getByText((t) => t.startsWith('Yes, absolutely. We take security'))).toBeInTheDocument();
   });
 });
