@@ -11,6 +11,9 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    environmentOptions: {
+      jsdom: { url: 'http://localhost' }
+    },
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     sequence: { concurrent: false },
@@ -25,6 +28,9 @@ export default defineConfig({
     },
     testTimeout: 10000,
     hookTimeout: 10000,
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}'
+    ],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
