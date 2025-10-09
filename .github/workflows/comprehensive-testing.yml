@@ -1,4 +1,4 @@
-name: DEPRECATED - Comprehensive Testing Pipeline (Disabled)
+name: DISABLED - Comprehensive Testing Pipeline
 
 on:
   workflow_dispatch:

@@ -31,6 +31,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        continue-on-error: false
 
       - name: Run all FE unit tests (Vitest)
         env:
@@ -41,7 +42,7 @@ jobs:
           VITE_API_BASE_URL: https://example.invalid/api/v1
           VITE_DEMO_MODE: 'false'
           VITEST: '1'
-        run: npm run test:unit
+        run: npm run test:unit -- --run
 
       - name: Run FE unit tests with coverage
         env:

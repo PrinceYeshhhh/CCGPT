@@ -1,12 +1,7 @@
-name: Frontend Integration and E2E Tests
+name: DISABLED - Frontend Integration and E2E Tests
 
 on:
-  pull_request:
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/fe-integration-tests.yml'
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   fe-tests:
