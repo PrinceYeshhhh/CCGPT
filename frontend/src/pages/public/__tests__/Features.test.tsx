@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders as render } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { Features } from '../Features';
@@ -21,12 +22,10 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-// Mock useAuth hook
+// Mock useAuth hook with vi.fn so tests can override
+const useAuthMock = vi.fn(() => ({ isAuthenticated: false, user: null }))
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({
-    isAuthenticated: false,
-    user: null,
-  }),
+  useAuth: useAuthMock,
 }));
 
 // Mock PostLoginTrialPopup component
@@ -162,11 +161,11 @@ describe('Features', () => {
     expect(screen.getByText('What Our Customers Say')).toBeInTheDocument();
   });
 
-  it('should handle authenticated user', () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+  it('should handle authenticated user', async () => {
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderFeatures();
     
@@ -174,11 +173,11 @@ describe('Features', () => {
     expect(screen.getByText('Go to Dashboard')).toBeInTheDocument();
   });
 
-  it('should handle dashboard button click for authenticated user', () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+  it('should handle dashboard button click for authenticated user', async () => {
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderFeatures();
     
@@ -196,10 +195,10 @@ describe('Features', () => {
       },
     });
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderFeatures();
     
@@ -216,10 +215,10 @@ describe('Features', () => {
       },
     });
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderFeatures();
     
@@ -236,10 +235,10 @@ describe('Features', () => {
       },
     });
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderFeatures();
     
@@ -256,10 +255,11 @@ describe('Features', () => {
   it('should handle API errors gracefully', async () => {
     mockApi.get.mockRejectedValueOnce(new Error('API Error'));
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    const { useAuth } = await import('@/contexts/AuthContext')
+    vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderFeatures();
     

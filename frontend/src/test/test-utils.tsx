@@ -1,4 +1,42 @@
 import React, { ReactElement } from 'react'
+import { BrowserRouter } from 'react-router-dom'
+import {
+  render as rtlRender,
+  RenderOptions,
+} from '@testing-library/react'
+
+type ProvidersProps = {
+  children: React.ReactNode
+}
+
+function Providers({ children }: ProvidersProps) {
+  return (
+    <BrowserRouter>
+      {children}
+    </BrowserRouter>
+  )
+}
+
+export function renderWithProviders(
+  ui: ReactElement,
+  options?: Omit<RenderOptions, 'wrapper'>
+) {
+  const container = document.createElement('div')
+  container.setAttribute('id', 'rtl-container')
+  document.body.appendChild(container)
+
+  const result = rtlRender(ui, {
+    legacyRoot: true,
+    wrapper: Providers,
+    container,
+    ...options,
+  })
+
+  return result
+}
+
+export * from '@testing-library/react'
+import React, { ReactElement } from 'react'
 import { render, RenderOptions } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from '../contexts/AuthContext'

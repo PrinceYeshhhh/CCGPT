@@ -98,6 +98,7 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [settings, setSettings] = useState<SettingsData | null>(null);
   const [notifications, setNotifications] = useState({
     email_notifications: true,
@@ -155,6 +156,7 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
   const fetchSettings = async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const response = await api.get('/settings/');
       const data = response.data;
       
@@ -162,10 +164,19 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
       setNotifications(data.notifications);
       
       // Update form values
-      profileForm.reset(data.profile);
-      organizationForm.reset(data.organization);
+      const profileLike = (data.profile || data.user) as Partial<ProfileForm> | undefined;
+      if (profileLike) profileForm.reset({
+        username: profileLike.username || '',
+        email: profileLike.email || '',
+        full_name: profileLike.full_name || '',
+        business_name: profileLike.business_name || '',
+        business_domain: profileLike.business_domain || '',
+        profile_picture_url: profileLike.profile_picture_url || ''
+      });
+      if (data.organization) organizationForm.reset(data.organization);
     } catch (error) {
       console.error('Failed to fetch settings:', error);
+      setLoadError('Error loading settings');
       toast.error('Failed to load settings');
     } finally {
       setLoading(false);
@@ -174,7 +185,11 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
 
   const onProfileSubmit = async (data: ProfileForm) => {
     try {
-      await api.put('/settings/profile', data);
+      await api.put('/user/profile', {
+        full_name: data.full_name,
+        business_name: data.business_name,
+        business_domain: data.business_domain,
+      });
       toast.success('Profile updated successfully!');
       fetchSettings(); // Refresh data
     } catch (error: any) {
@@ -185,7 +200,15 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
 
   const onOrganizationSubmit = async (data: OrganizationForm) => {
     try {
-      await api.put('/settings/organization', data);
+      await api.put('/organization/settings', {
+        name: data.name,
+        description: data.description,
+        website_url: data.website_url,
+        support_email: data.support_email,
+        timezone: data.timezone,
+        custom_domain: data.custom_domain,
+        widget_domain: data.widget_domain,
+      });
       toast.success('Organization updated successfully!');
       fetchSettings(); // Refresh data
     } catch (error: any) {
@@ -196,7 +219,7 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
 
   const onPasswordSubmit = async (data: PasswordForm) => {
     try {
-      await api.put('/settings/password', {
+      await api.put('/user/password', {
         current_password: data.currentPassword,
         new_password: data.newPassword,
         confirm_password: data.confirmPassword
@@ -246,10 +269,8 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
       const formData = new FormData();
       formData.append('file', file);
       
-      const endpoint = type === 'profile' ? '/settings/upload/profile-picture' : '/settings/upload/organization-logo';
-      const response = await api.post(endpoint, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const endpoint = type === 'profile' ? '/user/profile-picture' : '/organization/logo';
+      const response = await api.put(endpoint, formData);
       
       const { url } = response.data;
       
@@ -284,6 +305,21 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
         )}
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        {!hideHeader && (
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Settings</h1>
+            <Badge variant="secondary">Error</Badge>
+          </div>
+        )}
+        <div className="flex items-center justify-center h-64">
+          <p>Error loading settings</p>
         </div>
       </div>
     );

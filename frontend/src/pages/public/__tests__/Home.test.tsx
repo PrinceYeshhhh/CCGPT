@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders as render } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { Home } from '../Home';
@@ -22,11 +23,9 @@ vi.mock('react-router-dom', async () => {
 });
 
 // Mock useAuth hook
+const useAuthMock = vi.fn(() => ({ isAuthenticated: false, user: null }))
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({
-    isAuthenticated: false,
-    user: null,
-  }),
+  useAuth: useAuthMock,
 }));
 
 // Mock PostLoginTrialPopup component
@@ -153,11 +152,11 @@ describe('Home', () => {
     expect(screen.getByText('© 2024 CustomerCareGPT. All rights reserved.')).toBeInTheDocument();
   });
 
-  it('should handle authenticated user', () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+  it('should handle authenticated user', async () => {
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderHome();
     
@@ -165,11 +164,11 @@ describe('Home', () => {
     expect(screen.getByText('Go to Dashboard')).toBeInTheDocument();
   });
 
-  it('should handle dashboard button click for authenticated user', () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+  it('should handle dashboard button click for authenticated user', async () => {
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderHome();
     
@@ -187,10 +186,10 @@ describe('Home', () => {
       },
     });
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderHome();
     
@@ -207,10 +206,10 @@ describe('Home', () => {
       },
     });
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderHome();
     
@@ -227,10 +226,10 @@ describe('Home', () => {
       },
     });
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderHome();
     
@@ -247,10 +246,10 @@ describe('Home', () => {
   it('should handle API errors gracefully', async () => {
     mockApi.get.mockRejectedValueOnce(new Error('API Error'));
     
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderHome();
     
@@ -258,11 +257,11 @@ describe('Home', () => {
     expect(screen.getByText('CustomerCareGPT')).toBeInTheDocument();
   });
 
-  it('should display loading state', () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
+  it('should display loading state', async () => {
+    useAuthMock.mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
-    });
+    } as any)
     
     renderHome();
     

@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom'
+import { configure } from '@testing-library/react'
 import { vi, afterEach, afterAll, beforeEach, beforeAll } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
@@ -11,6 +12,14 @@ beforeAll(() => {
     document.body.appendChild(root)
   }
 })
+
+// Use legacyRoot to align @testing-library/react with React 18 in tests
+configure({ legacyRoot: true })
+
+// Provide a default mock for AuthContext hook to avoid module-not-found during tests
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ isAuthenticated: false })
+}))
 
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
@@ -201,37 +210,45 @@ global.FileReader = vi.fn().mockImplementation(() => ({
   dispatchEvent: vi.fn(),
 }))
 
-// Mock Blob
-global.Blob = vi.fn().mockImplementation((parts, options) => ({
-  size: parts.reduce((acc, part) => acc + part.length, 0),
-  type: options?.type || '',
-  parts,
-  options,
-}))
+// Minimal class shims to match web API behavior more closely
+class BlobShim {
+  size: number
+  type: string
+  constructor(parts: any[] = [], options: any = {}) {
+    this.size = Array.isArray(parts) ? parts.reduce((acc, p) => acc + (p?.length || 0), 0) : 0
+    this.type = options?.type || ''
+  }
+}
+// @ts-expect-error global override for tests
+global.Blob = BlobShim as any
 
-// Mock File
-global.File = vi.fn().mockImplementation((parts, name, options) => ({
-  name,
-  size: parts.reduce((acc, part) => acc + part.length, 0),
-  type: options?.type || '',
-  lastModified: Date.now(),
-  parts,
-  options,
-}))
+class FileShim extends BlobShim {
+  name: string
+  lastModified: number
+  constructor(parts: any[] = [], name = 'file', options: any = {}) {
+    super(parts, options)
+    this.name = name
+    this.lastModified = Date.now()
+  }
+}
+// @ts-expect-error global override for tests
+global.File = FileShim as any
 
-// Mock FormData
-global.FormData = vi.fn().mockImplementation(() => ({
-  append: vi.fn(),
-  delete: vi.fn(),
-  get: vi.fn(),
-  getAll: vi.fn(),
-  has: vi.fn(),
-  set: vi.fn(),
-  forEach: vi.fn(),
-  entries: vi.fn(),
-  keys: vi.fn(),
-  values: vi.fn(),
-}))
+class FormDataShim {
+  private map = new Map<string, any[]>()
+  append(key: string, value: any) { this.set(key, value) }
+  delete(key: string) { this.map.delete(key) }
+  get(key: string) { const v = this.map.get(key); return v ? v[0] : null }
+  getAll(key: string) { return this.map.get(key) || [] }
+  has(key: string) { return this.map.has(key) }
+  set(key: string, value: any) { this.map.set(key, [value]) }
+  forEach(cb: (value: any, key: string) => void) { for (const [k, arr] of this.map) arr.forEach(v => cb(v, k)) }
+  *entries() { for (const [k, arr] of this.map) for (const v of arr) yield [k, v] as const }
+  *keys() { for (const [k] of this.map) yield k }
+  *values() { for (const [, arr] of this.map) for (const v of arr) yield v }
+}
+// @ts-expect-error global override for tests
+global.FormData = FormDataShim as any
 
 // Mock AbortController
 global.AbortController = vi.fn().mockImplementation(() => ({

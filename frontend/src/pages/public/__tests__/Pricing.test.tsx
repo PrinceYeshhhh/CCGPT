@@ -1,4 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { renderWithProviders as render } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { Pricing } from '../Pricing';
@@ -11,12 +12,11 @@ vi.mock('@/lib/api', () => ({
   },
 }));
 
-// Mock useAuth hook
+// Mock useAuth hook (ESM) with vi.fn so tests can override per-case
+const useAuthMock = vi.fn(() => ({ isAuthenticated: false }))
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({
-    isAuthenticated: false,
-  }),
-}));
+  useAuth: useAuthMock,
+}))
 
 // Mock react-router-dom
 const mockNavigate = vi.fn();
@@ -193,9 +193,7 @@ describe('Pricing', () => {
   });
 
   it('should handle plan selection for authenticated user', async () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
-      isAuthenticated: true,
-    });
+    useAuthMock.mockReturnValue({ isAuthenticated: true } as any)
     
     renderPricing();
     
@@ -249,9 +247,7 @@ describe('Pricing', () => {
   });
 
   it('should handle payment popup close', async () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
-      isAuthenticated: true,
-    });
+    useAuthMock.mockReturnValue({ isAuthenticated: true } as any)
     
     renderPricing();
     
@@ -271,9 +267,7 @@ describe('Pricing', () => {
   });
 
   it('should handle payment success', async () => {
-    vi.mocked(require('@/contexts/AuthContext').useAuth).mockReturnValue({
-      isAuthenticated: true,
-    });
+    useAuthMock.mockReturnValue({ isAuthenticated: true } as any)
     
     renderPricing();
     
