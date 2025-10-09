@@ -2,6 +2,16 @@ import '@testing-library/jest-dom'
 import { vi, afterEach, afterAll, beforeEach, beforeAll } from 'vitest'
 import { cleanup } from '@testing-library/react'
 
+// Ensure a root container exists for React 18 createRoot during tests
+beforeAll(() => {
+  const existing = document.getElementById('root')
+  if (!existing) {
+    const root = document.createElement('div')
+    root.setAttribute('id', 'root')
+    document.body.appendChild(root)
+  }
+})
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
