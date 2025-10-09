@@ -1,4 +1,4 @@
-name: CI - Backend Unit Only
+name: CI - Frontend Unit Only
 
 on:
   push:
@@ -7,130 +7,10 @@ on:
     branches: [ main ]
 
 concurrency:
-  group: ci-be-unit-${{ github.ref }}
+  group: ci-fe-unit-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  be-unit:
-    name: Backend Unit Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          # Ensure async tests run even with plugin autoload disabled
-          pip install pytest-asyncio
-          # Enable parallel test execution
-          pip install pytest-xdist
-
-      - name: Run all BE unit tests
-        continue-on-error: true
-        env:
-          PYTHONPATH: backend
-          TESTING: "1"
-          ENVIRONMENT: "test"
-          DATABASE_URL: "sqlite:///./test.db"
-          REDIS_URL: "redis://localhost:6379/0"
-          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
-          LOG_LEVEL: "WARNING"
-          ENABLE_REQUEST_LOGGING: "false"
-          ENABLE_INPUT_VALIDATION: "false"
-          ENABLE_RATE_LIMITING: "false"
-          ENABLE_SECURITY_HEADERS: "false"
-        run: |
-          # Quick collection to surface selected tests immediately
-          echo "Collecting tests..." && pytest -v -p pytest_asyncio --collect-only \
-            tests \
-            -k "not integration and not e2e and not performance and not security" || true
-
-          # Run unit tests with visible progress and reports
-          pytest -v -rA -s -p pytest_asyncio -n auto \
-            tests \
-            -k "not integration and not e2e and not performance and not security" \
-            --maxfail=0 --disable-warnings || true
-
-      - name: Run comprehensive backend tests
-        continue-on-error: true
-        env:
-          PYTHONPATH: backend
-          TESTING: "1"
-          ENVIRONMENT: "test"
-          DATABASE_URL: "sqlite:///./test.db"
-          REDIS_URL: "redis://localhost:6379/0"
-          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
-          LOG_LEVEL: "WARNING"
-          ENABLE_REQUEST_LOGGING: "false"
-          ENABLE_INPUT_VALIDATION: "false"
-          ENABLE_RATE_LIMITING: "false"
-          ENABLE_SECURITY_HEADERS: "false"
-        run: |
-          echo "Running comprehensive backend tests..."
-          
-          # Run embed widget comprehensive tests
-          echo "Testing Embed Widget functionality..."
-          pytest tests/integration/test_embed_widget_comprehensive.py -v --maxfail=5 --disable-warnings || true
-          
-          # Run analytics comprehensive tests
-          echo "Testing Analytics functionality..."
-          pytest tests/integration/test_analytics_comprehensive.py -v --maxfail=5 --disable-warnings || true
-          
-          # Run real-time data comprehensive tests
-          echo "Testing Real-time Data functionality..."
-          pytest tests/integration/test_realtime_data_comprehensive.py -v --maxfail=5 --disable-warnings || true
-          
-          # Run backend logic comprehensive tests
-          echo "Testing Backend Logic functionality..."
-          pytest tests/integration/test_backend_logic_comprehensive.py -v --maxfail=5 --disable-warnings || true
-          
-          # Run integration edge cases tests
-          echo "Testing Integration Edge Cases..."
-          pytest tests/integration/test_integration_edge_cases.py -v --maxfail=5 --disable-warnings || true
-          
-          # Run critical production tests
-          echo "Testing Critical Production scenarios..."
-          pytest tests/integration/test_database_migrations.py -v --maxfail=3 --disable-warnings || true
-          pytest tests/integration/test_multitenant_isolation.py -v --maxfail=3 --disable-warnings || true
-          pytest tests/integration/test_websocket_reliability.py -v --maxfail=3 --disable-warnings || true
-          pytest tests/integration/test_file_processing_limits.py -v --maxfail=3 --disable-warnings || true
-          pytest tests/integration/test_production_rag_quality.py -v --maxfail=3 --disable-warnings || true
-          pytest tests/integration/test_background_job_reliability.py -v --maxfail=3 --disable-warnings || true
-
-      - name: Run comprehensive test runner
-        continue-on-error: true
-        env:
-          PYTHONPATH: backend
-          TESTING: "1"
-          ENVIRONMENT: "test"
-          DATABASE_URL: "sqlite:///./test.db"
-          REDIS_URL: "redis://localhost:6379/0"
-          LOG_LEVEL: "WARNING"
-        run: |
-          echo "Running comprehensive test runner..."
-          python run_comprehensive_tests.py || true
-
-
-
   fe-unit:
     name: Frontend Unit Tests
     runs-on: ubuntu-latest

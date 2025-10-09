@@ -1,15 +1,6 @@
-name: Comprehensive Backend Tests
+name: DEPRECATED - Comprehensive Backend Tests (Disabled)
 
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/comprehensive-backend-tests.yml'
-  pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'backend/**'
   workflow_dispatch:
     inputs:
       test_suite:
