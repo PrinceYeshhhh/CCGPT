@@ -607,7 +607,7 @@ export function Settings({ hideHeader = false }: { hideHeader?: boolean }) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {settings?.team_members.map((member) => (
+                {settings?.team_members?.map((member) => (
                   <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">

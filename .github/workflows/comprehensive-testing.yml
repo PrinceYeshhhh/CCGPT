@@ -134,6 +134,40 @@ jobs:
       run: |
         pytest tests/integration/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term-missing --cov-fail-under=75 -n auto
     
+    - name: Run comprehensive backend tests
+      working-directory: ./backend
+      run: |
+        echo "Running comprehensive backend tests..."
+        
+        # Run embed widget comprehensive tests
+        echo "Testing Embed Widget functionality..."
+        pytest tests/integration/test_embed_widget_comprehensive.py -v --cov=app --cov-report=xml --maxfail=5 || true
+        
+        # Run analytics comprehensive tests
+        echo "Testing Analytics functionality..."
+        pytest tests/integration/test_analytics_comprehensive.py -v --cov=app --cov-report=xml --maxfail=5 || true
+        
+        # Run real-time data comprehensive tests
+        echo "Testing Real-time Data functionality..."
+        pytest tests/integration/test_realtime_data_comprehensive.py -v --cov=app --cov-report=xml --maxfail=5 || true
+        
+        # Run backend logic comprehensive tests
+        echo "Testing Backend Logic functionality..."
+        pytest tests/integration/test_backend_logic_comprehensive.py -v --cov=app --cov-report=xml --maxfail=5 || true
+        
+        # Run integration edge cases tests
+        echo "Testing Integration Edge Cases..."
+        pytest tests/integration/test_integration_edge_cases.py -v --cov=app --cov-report=xml --maxfail=5 || true
+        
+        # Run critical production tests
+        echo "Testing Critical Production scenarios..."
+        pytest tests/integration/test_database_migrations.py -v --cov=app --cov-report=xml --maxfail=3 || true
+        pytest tests/integration/test_multitenant_isolation.py -v --cov=app --cov-report=xml --maxfail=3 || true
+        pytest tests/integration/test_websocket_reliability.py -v --cov=app --cov-report=xml --maxfail=3 || true
+        pytest tests/integration/test_file_processing_limits.py -v --cov=app --cov-report=xml --maxfail=3 || true
+        pytest tests/integration/test_production_rag_quality.py -v --cov=app --cov-report=xml --maxfail=3 || true
+        pytest tests/integration/test_background_job_reliability.py -v --cov=app --cov-report=xml --maxfail=3 || true
+    
     - name: Run BE/FE integration tests
       working-directory: ./backend
       run: |

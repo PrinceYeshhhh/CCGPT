@@ -11,6 +11,7 @@
     "test": "vitest --reporter=verbose",
     "test:ci": "vitest run --reporter=verbose --logHeapUsage",
     "test:coverage": "vitest run --coverage --reporter=verbose",
+    "test:coverage:threshold": "vitest run --coverage --reporter=verbose --coverage.thresholds.global.branches=80 --coverage.thresholds.global.functions=80 --coverage.thresholds.global.lines=80 --coverage.thresholds.global.statements=80",
     "test:integration": "vitest run src/__tests__/integration/ --reporter=verbose --logHeapUsage",
     "test:unit": "vitest run --reporter=basic",
     "test:watch": "vitest",

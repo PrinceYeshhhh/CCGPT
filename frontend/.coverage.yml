@@ -1,0 +1,27 @@
+# Coverage configuration for CustomerCareGPT Frontend
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 5%
+        informational: true
+    patch:
+      default:
+        target: 80%
+        threshold: 5%
+        informational: true
+
+comment:
+  layout: "header,diff,files,footer"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: no
+
+github_checks:
+  annotations: true
+  notify:
+    on_failure: change
+    on_success: never
+    on_error: always

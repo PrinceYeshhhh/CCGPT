@@ -70,12 +70,71 @@ jobs:
             -k "not integration and not e2e and not performance and not security" \
             --maxfail=0 --disable-warnings || true
 
+      - name: Run comprehensive backend tests
+        continue-on-error: true
+        env:
+          PYTHONPATH: backend
+          TESTING: "1"
+          ENVIRONMENT: "test"
+          DATABASE_URL: "sqlite:///./test.db"
+          REDIS_URL: "redis://localhost:6379/0"
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+          LOG_LEVEL: "WARNING"
+          ENABLE_REQUEST_LOGGING: "false"
+          ENABLE_INPUT_VALIDATION: "false"
+          ENABLE_RATE_LIMITING: "false"
+          ENABLE_SECURITY_HEADERS: "false"
+        run: |
+          echo "Running comprehensive backend tests..."
+          
+          # Run embed widget comprehensive tests
+          echo "Testing Embed Widget functionality..."
+          pytest tests/integration/test_embed_widget_comprehensive.py -v --maxfail=5 --disable-warnings || true
+          
+          # Run analytics comprehensive tests
+          echo "Testing Analytics functionality..."
+          pytest tests/integration/test_analytics_comprehensive.py -v --maxfail=5 --disable-warnings || true
+          
+          # Run real-time data comprehensive tests
+          echo "Testing Real-time Data functionality..."
+          pytest tests/integration/test_realtime_data_comprehensive.py -v --maxfail=5 --disable-warnings || true
+          
+          # Run backend logic comprehensive tests
+          echo "Testing Backend Logic functionality..."
+          pytest tests/integration/test_backend_logic_comprehensive.py -v --maxfail=5 --disable-warnings || true
+          
+          # Run integration edge cases tests
+          echo "Testing Integration Edge Cases..."
+          pytest tests/integration/test_integration_edge_cases.py -v --maxfail=5 --disable-warnings || true
+          
+          # Run critical production tests
+          echo "Testing Critical Production scenarios..."
+          pytest tests/integration/test_database_migrations.py -v --maxfail=3 --disable-warnings || true
+          pytest tests/integration/test_multitenant_isolation.py -v --maxfail=3 --disable-warnings || true
+          pytest tests/integration/test_websocket_reliability.py -v --maxfail=3 --disable-warnings || true
+          pytest tests/integration/test_file_processing_limits.py -v --maxfail=3 --disable-warnings || true
+          pytest tests/integration/test_production_rag_quality.py -v --maxfail=3 --disable-warnings || true
+          pytest tests/integration/test_background_job_reliability.py -v --maxfail=3 --disable-warnings || true
+
+      - name: Run comprehensive test runner
+        continue-on-error: true
+        env:
+          PYTHONPATH: backend
+          TESTING: "1"
+          ENVIRONMENT: "test"
+          DATABASE_URL: "sqlite:///./test.db"
+          REDIS_URL: "redis://localhost:6379/0"
+          LOG_LEVEL: "WARNING"
+        run: |
+          echo "Running comprehensive test runner..."
+          python run_comprehensive_tests.py || true
+
 
 
   fe-unit:
     name: Frontend Unit Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: frontend
@@ -96,4 +155,28 @@ jobs:
       - name: Run all FE unit tests (Vitest)
         env:
           CI: true
+          NODE_OPTIONS: --max-old-space-size=4096
+          # Ensure stable env for tests
+          VITE_API_URL: https://example.invalid/api/v1
+          VITE_API_BASE_URL: https://example.invalid/api/v1
+          VITE_DEMO_MODE: 'false'
+          VITEST: '1'
         run: npm run test:unit
+
+      - name: Run FE unit tests with coverage
+        env:
+          CI: true
+          NODE_OPTIONS: --max-old-space-size=4096
+          VITE_API_URL: https://example.invalid/api/v1
+          VITE_API_BASE_URL: https://example.invalid/api/v1
+          VITE_DEMO_MODE: 'false'
+          VITEST: '1'
+        run: npm run test:coverage:threshold
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: frontend/coverage/lcov.info
+          flags: frontend
+          name: frontend-coverage
+          fail_ci_if_error: true

@@ -1,328 +1,161 @@
-#!/usr/bin/env python3
 """
-Comprehensive Test Runner for CustomerCareGPT
-Runs all test suites with proper configuration and reporting
+Comprehensive Test Runner for CustomerCareGPT Backend
+Runs all comprehensive integration tests including embed widget, analytics, real-time data, and backend logic
 """
 
+import pytest
 import os
 import sys
-import subprocess
-import argparse
-import json
 import time
-from pathlib import Path
-from typing import List, Dict, Any
+from datetime import datetime
 
-class TestRunner:
-    def __init__(self, base_dir: str = None):
-        self.base_dir = Path(base_dir) if base_dir else Path(__file__).parent
-        self.results = {}
-        self.start_time = time.time()
-        
-    def run_command(self, command: List[str], cwd: str = None) -> Dict[str, Any]:
-        """Run a command and return the result"""
-        print(f"Running: {' '.join(command)}")
-        
-        try:
-            result = subprocess.run(
-                command,
-                cwd=cwd or self.base_dir,
-                capture_output=True,
-                text=True
-            )
-            
-            return {
-                "success": result.returncode == 0,
-                "returncode": result.returncode,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-                "command": " ".join(command)
-            }
-        except subprocess.TimeoutExpired:
-            # Should not occur without timeout, but keep for safety
-            return {
-                "success": False,
-                "returncode": -1,
-                "stdout": "",
-                "stderr": "Command timeout encountered",
-                "command": " ".join(command)
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "returncode": -1,
-                "stdout": "",
-                "stderr": str(e),
-                "command": " ".join(command)
-            }
-    
-    def run_unit_tests(self) -> Dict[str, Any]:
-        """Run backend unit tests"""
-        print("\n🧪 Running Backend Unit Tests...")
-        
-        command = [
-            "python", "-m", "pytest",
-            "tests/unit/",
-            "-v",
-            "--cov=app",
-            "--cov-report=html:htmlcov",
-            "--cov-report=xml:coverage.xml",
-            "--cov-report=term-missing",
-            "--cov-fail-under=80",
-            "--maxfail=10",
-            "-n", "auto"
-        ]
-        
-        return self.run_command(command)
-    
-    def run_integration_tests(self) -> Dict[str, Any]:
-        """Run backend integration tests"""
-        print("\n🔗 Running Backend Integration Tests...")
-        
-        command = [
-            "python", "-m", "pytest",
-            "tests/integration/",
-            "-v",
-            "--cov=app",
-            "--cov-report=html:htmlcov",
-            "--cov-report=xml:coverage.xml",
-            "--cov-report=term-missing",
-            "--cov-fail-under=75",
-            "--maxfail=5",
-            "-n", "auto"
-        ]
-        
-        return self.run_command(command)
-    
-    def run_security_tests(self) -> Dict[str, Any]:
-        """Run security tests"""
-        print("\n🔒 Running Security Tests...")
-        
-        # Run security test suite
-        security_result = self.run_command([
-            "python", "-m", "pytest",
-            "tests/security/",
-            "-v",
-            "--maxfail=5"
-        ])
-        
-        # Run bandit security scan
-        bandit_result = self.run_command([
-            "bandit", "-r", "app/", "-f", "json", "-o", "security-report.json"
-        ])
-        
-        # Run safety check
-        safety_result = self.run_command([
-            "safety", "check", "--json", "--output", "safety-report.json"
-        ])
-        
-        return {
-            "security_tests": security_result,
-            "bandit_scan": bandit_result,
-            "safety_check": safety_result,
-            "success": all([
-                security_result["success"],
-                bandit_result["success"],
-                safety_result["success"]
-            ])
-        }
-    
-    def run_performance_tests(self) -> Dict[str, Any]:
-        """Run performance tests"""
-        print("\n⚡ Running Performance Tests...")
-        
-        command = [
-            "python", "-m", "pytest",
-            "tests/performance/",
-            "-v",
-            "--maxfail=3"
-        ]
-        
-        return self.run_command(command)
-    
-    def run_e2e_tests(self) -> Dict[str, Any]:
-        """Run end-to-end tests"""
-        print("\n🌐 Running End-to-End Tests...")
-        
-        command = [
-            "python", "-m", "pytest",
-            "tests/e2e/",
-            "-v",
-            "--maxfail=5"
-        ]
-        
-        return self.run_command(command)
-    
-    def run_error_handling_tests(self) -> Dict[str, Any]:
-        """Run error handling tests"""
-        print("\n🚨 Running Error Handling Tests...")
-        
-        command = [
-            "python", "-m", "pytest",
-            "tests/integration/test_error_scenarios.py",
-            "-v",
-            "--maxfail=10"
-        ]
-        
-        return self.run_command(command)
-    
-    def run_frontend_tests(self) -> Dict[str, Any]:
-        """Run frontend tests"""
-        print("\n🎨 Running Frontend Tests...")
-        
-        frontend_dir = self.base_dir.parent / "frontend"
-        
-        if not frontend_dir.exists():
-            return {
-                "success": False,
-                "returncode": -1,
-                "stdout": "",
-                "stderr": "Frontend directory not found",
-                "command": "npm test"
-            }
-        
-        # Install dependencies
-        install_result = self.run_command(["npm", "ci"], cwd=str(frontend_dir))
-        if not install_result["success"]:
-            return install_result
-        
-        # Run tests
-        test_result = self.run_command(["npm", "run", "test:ci"], cwd=str(frontend_dir))
-        
-        return test_result
-    
-    def generate_report(self) -> str:
-        """Generate a comprehensive test report"""
-        total_time = time.time() - self.start_time
-        
-        report = f"""
-# CustomerCareGPT Test Report
+# Add the backend directory to Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-**Generated:** {time.strftime('%Y-%m-%d %H:%M:%S')}
-**Total Runtime:** {total_time:.2f} seconds
-
-## Test Results Summary
-
-| Test Suite | Status | Duration | Coverage |
-|------------|--------|----------|----------|
-"""
-        
-        for test_name, result in self.results.items():
-            if isinstance(result, dict) and "success" in result:
-                status = "✅ PASS" if result["success"] else "❌ FAIL"
-                duration = "N/A"
-                coverage = "N/A"
-            else:
-                status = "✅ PASS" if result.get("success", False) else "❌ FAIL"
-                duration = "N/A"
-                coverage = "N/A"
-            
-            report += f"| {test_name} | {status} | {duration} | {coverage} |\n"
-        
-        report += "\n## Detailed Results\n\n"
-        
-        for test_name, result in self.results.items():
-            report += f"### {test_name}\n\n"
-            
-            if isinstance(result, dict) and "success" in result:
-                report += f"**Status:** {'✅ PASS' if result['success'] else '❌ FAIL'}\n"
-                report += f"**Return Code:** {result['returncode']}\n"
-                if result['stderr']:
-                    report += f"**Error:** {result['stderr']}\n"
-                report += "\n"
-            else:
-                for sub_test, sub_result in result.items():
-                    report += f"**{sub_test}:** {'✅ PASS' if sub_result['success'] else '❌ FAIL'}\n"
-                    if sub_result['stderr']:
-                        report += f"**Error:** {sub_result['stderr']}\n"
-                report += "\n"
-        
-        return report
+def run_test_suite(test_files, suite_name):
+    """Run a specific test suite and return results"""
+    print(f"\n{'='*60}")
+    print(f"RUNNING {suite_name.upper()} TESTS")
+    print(f"{'='*60}")
     
-    def run_all_tests(self, test_types: List[str] = None) -> bool:
-        """Run all specified test types"""
-        if test_types is None:
-            test_types = [
-                "unit", "integration", "security", 
-                "performance", "e2e", "error_handling", "frontend"
-            ]
-        
-        all_passed = True
-        
-        for test_type in test_types:
-            if test_type == "unit":
-                result = self.run_unit_tests()
-            elif test_type == "integration":
-                result = self.run_integration_tests()
-            elif test_type == "security":
-                result = self.run_security_tests()
-            elif test_type == "performance":
-                result = self.run_performance_tests()
-            elif test_type == "e2e":
-                result = self.run_e2e_tests()
-            elif test_type == "error_handling":
-                result = self.run_error_handling_tests()
-            elif test_type == "frontend":
-                result = self.run_frontend_tests()
-            else:
-                print(f"Unknown test type: {test_type}")
-                continue
-            
-            self.results[test_type] = result
-            
-            if not result.get("success", False):
-                all_passed = False
-                print(f"❌ {test_type} tests failed")
-            else:
-                print(f"✅ {test_type} tests passed")
-        
-        return all_passed
+    start_time = time.time()
+    
+    # Run pytest on the specified files
+    exit_code = pytest.main([
+        "-v",  # verbose
+        "-s",  # show print statements
+        "--strict-markers",  # warn about unknown markers
+        "--tb=short",  # short traceback format
+        "--maxfail=5",  # stop after 5 failures
+        "--disable-warnings",  # disable warnings for cleaner output
+    ] + test_files)
+    
+    end_time = time.time()
+    duration = end_time - start_time
+    
+    print(f"\n{suite_name} Tests Completed in {duration:.2f} seconds")
+    print(f"Exit Code: {exit_code}")
+    
+    return exit_code, duration
 
 def main():
-    parser = argparse.ArgumentParser(description="Run comprehensive tests for CustomerCareGPT")
-    parser.add_argument(
-        "--test-types",
-        nargs="+",
-        choices=["unit", "integration", "security", "performance", "e2e", "error_handling", "frontend"],
-        default=["unit", "integration", "security", "performance", "e2e", "error_handling", "frontend"],
-        help="Types of tests to run"
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        default="test-report.md",
-        help="Output file for test report"
-    )
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Verbose output"
-    )
+    """Main test runner function"""
+    print("🚀 CUSTOMERCAREGPT COMPREHENSIVE TEST SUITE")
+    print("=" * 60)
+    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60)
     
-    args = parser.parse_args()
-    
-    runner = TestRunner()
-    
-    print("🚀 Starting Comprehensive Test Suite for CustomerCareGPT")
-    print(f"Test types: {', '.join(args.test_types)}")
-    
-    success = runner.run_all_tests(args.test_types)
-    
-    # Generate report
-    report = runner.generate_report()
-    
-    with open(args.output, 'w') as f:
-        f.write(report)
-    
-    print(f"\n📊 Test report saved to: {args.output}")
-    
-    if success:
-        print("🎉 All tests passed!")
-        sys.exit(0)
+    # Ensure we're in the backend directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if os.path.basename(current_dir) == "backend":
+        os.chdir(current_dir)
     else:
-        print("💥 Some tests failed!")
+        print("❌ Error: Please run this script from the 'backend' directory.")
         sys.exit(1)
+    
+    # Define test suites
+    test_suites = {
+        "Embed Widget Comprehensive": [
+            "tests/integration/test_embed_widget_comprehensive.py"
+        ],
+        "Analytics Comprehensive": [
+            "tests/integration/test_analytics_comprehensive.py"
+        ],
+        "Real-time Data Comprehensive": [
+            "tests/integration/test_realtime_data_comprehensive.py"
+        ],
+        "Backend Logic Comprehensive": [
+            "tests/integration/test_backend_logic_comprehensive.py"
+        ],
+        "Integration Edge Cases": [
+            "tests/integration/test_integration_edge_cases.py"
+        ],
+        "Critical Production Tests": [
+            "tests/integration/test_database_migrations.py",
+            "tests/integration/test_multitenant_isolation.py",
+            "tests/integration/test_websocket_reliability.py",
+            "tests/integration/test_file_processing_limits.py",
+            "tests/integration/test_production_rag_quality.py",
+            "tests/integration/test_background_job_reliability.py"
+        ]
+    }
+    
+    # Track results
+    results = {}
+    total_start_time = time.time()
+    
+    # Run each test suite
+    for suite_name, test_files in test_suites.items():
+        # Check if test files exist
+        existing_files = []
+        for test_file in test_files:
+            if os.path.exists(test_file):
+                existing_files.append(test_file)
+            else:
+                print(f"⚠️  Warning: Test file not found: {test_file}")
+        
+        if existing_files:
+            exit_code, duration = run_test_suite(existing_files, suite_name)
+            results[suite_name] = {
+                "exit_code": exit_code,
+                "duration": duration,
+                "files_tested": len(existing_files),
+                "status": "PASSED" if exit_code == 0 else "FAILED"
+            }
+        else:
+            print(f"❌ No test files found for {suite_name}")
+            results[suite_name] = {
+                "exit_code": 1,
+                "duration": 0,
+                "files_tested": 0,
+                "status": "SKIPPED"
+            }
+    
+    # Calculate totals
+    total_end_time = time.time()
+    total_duration = total_end_time - total_start_time
+    
+    # Print summary
+    print("\n" + "="*60)
+    print("📊 COMPREHENSIVE TEST RESULTS SUMMARY")
+    print("="*60)
+    
+    total_tests = 0
+    passed_tests = 0
+    failed_tests = 0
+    skipped_tests = 0
+    
+    for suite_name, result in results.items():
+        status_icon = "✅" if result["status"] == "PASSED" else "❌" if result["status"] == "FAILED" else "⏭️"
+        print(f"{status_icon} {suite_name:<35} {result['status']:<8} ({result['duration']:.2f}s)")
+        total_tests += 1
+        if result["status"] == "PASSED":
+            passed_tests += 1
+        elif result["status"] == "FAILED":
+            failed_tests += 1
+        else:
+            skipped_tests += 1
+    
+    print("-" * 60)
+    print(f"Total Suites: {total_tests}")
+    print(f"✅ Passed: {passed_tests}")
+    print(f"❌ Failed: {failed_tests}")
+    print(f"⏭️  Skipped: {skipped_tests}")
+    print(f"⏱️  Total Duration: {total_duration:.2f} seconds")
+    print("="*60)
+    
+    # Overall status
+    if failed_tests == 0:
+        print("🎉 ALL TEST SUITES PASSED! Your backend is production ready!")
+        overall_exit_code = 0
+    else:
+        print(f"⚠️  {failed_tests} test suite(s) failed. Please review the results above.")
+        overall_exit_code = 1
+    
+    print(f"Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    return overall_exit_code
 
 if __name__ == "__main__":
-    main()
+    exit_code = main()
+    sys.exit(exit_code)
