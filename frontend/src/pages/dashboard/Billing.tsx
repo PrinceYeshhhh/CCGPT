@@ -196,8 +196,8 @@ export function Billing() {
             <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline" onClick={downloadAllInvoices}>
-            <Download className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={downloadAllInvoices} aria-label="Download All Invoices">
+            <Download className="mr-2 h-4 w-4" aria-hidden="true" />
             Download All Invoices
           </Button>
         </div>
@@ -503,9 +503,10 @@ export function Billing() {
                     <Button 
                       variant="ghost" 
                       size="sm"
+                      aria-label={`Download invoice ${invoice.id}`}
                       onClick={() => downloadInvoice(invoice.id)}
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </div>
                 </div>

@@ -53,7 +53,7 @@ describe('FAQ', () => {
   it('should handle FAQ accordion expansion', () => {
     renderFAQ();
     
-    const firstFaq = screen.getByText('How does CustomerCareGPT work?');
+    const firstFaq = screen.getByRole('button', { name: 'How does CustomerCareGPT work?' });
     fireEvent.click(firstFaq);
     
     expect(screen.getByText('CustomerCareGPT uses advanced AI to analyze your uploaded documents and create an intelligent chatbot. Simply upload your FAQs, documentation, or knowledge base, and our AI will instantly train on your content. You then get an embeddable widget that can answer customer questions 24/7.')).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('FAQ', () => {
   it('should handle FAQ accordion collapse', () => {
     renderFAQ();
     
-    const firstFaq = screen.getByText('How does CustomerCareGPT work?');
+    const firstFaq = screen.getByRole('button', { name: 'How does CustomerCareGPT work?' });
     fireEvent.click(firstFaq);
     
     // Should expand
@@ -78,7 +78,7 @@ describe('FAQ', () => {
   it('should display security FAQ', () => {
     renderFAQ();
     
-    const securityFaq = screen.getByText('Is my data safe and secure?');
+    const securityFaq = screen.getByRole('button', { name: 'Is my data safe and secure?' });
     fireEvent.click(securityFaq);
     
     expect(screen.getByText('Yes, absolutely. We take security very seriously. All data is encrypted in transit and at rest. We are SOC 2 compliant and follow industry best practices for data protection. Your documents and customer conversations are never shared with third parties.')).toBeInTheDocument();
@@ -87,7 +87,7 @@ describe('FAQ', () => {
   it('should display pricing FAQ', () => {
     renderFAQ();
     
-    const pricingFaq = screen.getByText('How much does it cost?');
+    const pricingFaq = screen.getByRole('button', { name: 'How much does it cost?' });
     fireEvent.click(pricingFaq);
     
     expect(screen.getByText('We offer three plans: Starter ($29/month), Pro ($79/month), and Enterprise ($299/month). All plans include a 14-day free trial with no credit card required. You can upgrade, downgrade, or cancel at any time.')).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('FAQ', () => {
   it('should display file formats FAQ', () => {
     renderFAQ();
     
-    const fileFormatsFaq = screen.getByText('What file formats do you support?');
+    const fileFormatsFaq = screen.getByRole('button', { name: 'What file formats do you support?' });
     fireEvent.click(fileFormatsFaq);
     
     expect(screen.getByText('We support a wide variety of file formats including PDF, DOC, DOCX, TXT, MD, HTML, and more. You can upload FAQs, user manuals, product documentation, or any text-based content that you want your chatbot to learn from.')).toBeInTheDocument();
@@ -105,7 +105,7 @@ describe('FAQ', () => {
   it('should display accuracy FAQ', () => {
     renderFAQ();
     
-    const accuracyFaq = screen.getByText('How accurate are the AI responses?');
+    const accuracyFaq = screen.getByRole('button', { name: 'How accurate are the AI responses?' });
     fireEvent.click(accuracyFaq);
     
     expect(screen.getByText('Our AI is highly accurate when answering questions based on your uploaded content. The accuracy depends on the quality and comprehensiveness of your source material. The AI will only answer questions it can find information about in your documents, ensuring reliable responses.')).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('FAQ', () => {
   it('should display customization FAQ', () => {
     renderFAQ();
     
-    const customizationFaq = screen.getByText('Can I customize the chatbot appearance?');
+    const customizationFaq = screen.getByRole('button', { name: 'Can I customize the chatbot appearance?' });
     fireEvent.click(customizationFaq);
     
     expect(screen.getByText('Yes! You can customize the chatbot widget to match your brand, including colors, logo, welcome messages, and positioning. Pro and Enterprise plans offer more advanced customization options.')).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe('FAQ', () => {
   it('should display integration FAQ', () => {
     renderFAQ();
     
-    const integrationFaq = screen.getByText('How do I integrate the chatbot into my website?');
+    const integrationFaq = screen.getByRole('button', { name: 'How do I integrate the chatbot into my website?' });
     fireEvent.click(integrationFaq);
     
     expect(screen.getByText('Integration is simple - just copy and paste a single line of code into your website. No technical knowledge required. The chatbot widget will appear on your site and start answering customer questions immediately.')).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe('FAQ', () => {
   it('should display analytics FAQ', () => {
     renderFAQ();
     
-    const analyticsFaq = screen.getByText('Do you offer analytics and reporting?');
+    const analyticsFaq = screen.getByRole('button', { name: 'Do you offer analytics and reporting?' });
     fireEvent.click(analyticsFaq);
     
     expect(screen.getByText('Yes, all plans include a comprehensive analytics dashboard where you can track customer queries, response accuracy, popular questions, usage patterns, and more. This helps you optimize your customer support over time.')).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe('FAQ', () => {
   it('should display support FAQ', () => {
     renderFAQ();
     
-    const supportFaq = screen.getByText('What kind of support do you provide?');
+    const supportFaq = screen.getByRole('button', { name: 'What kind of support do you provide?' });
     fireEvent.click(supportFaq);
     
     expect(screen.getByText('We provide email support for all plans, with priority support for Pro customers and dedicated support for Enterprise customers. We also have comprehensive documentation and video tutorials to help you get started.')).toBeInTheDocument();
@@ -150,7 +150,7 @@ describe('FAQ', () => {
   it('should display cancellation FAQ', () => {
     renderFAQ();
     
-    const cancellationFaq = screen.getByText('Can I cancel my subscription anytime?');
+    const cancellationFaq = screen.getByRole('button', { name: 'Can I cancel my subscription anytime?' });
     fireEvent.click(cancellationFaq);
     
     expect(screen.getByText('Yes, you can cancel your subscription at any time with no penalties or long-term contracts. Your chatbot will continue working until the end of your current billing period, and you can always reactivate your account later.')).toBeInTheDocument();
@@ -227,8 +227,8 @@ describe('FAQ', () => {
   it('should handle multiple FAQ expansions', () => {
     renderFAQ();
     
-    const firstFaq = screen.getByText('How does CustomerCareGPT work?');
-    const secondFaq = screen.getByText('Is my data safe and secure?');
+    const firstFaq = screen.getByRole('button', { name: 'How does CustomerCareGPT work?' });
+    const secondFaq = screen.getByRole('button', { name: 'Is my data safe and secure?' });
     
     fireEvent.click(firstFaq);
     fireEvent.click(secondFaq);

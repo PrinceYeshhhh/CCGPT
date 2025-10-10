@@ -1,6 +1,7 @@
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { screen, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ThemeProvider, useTheme } from '../ThemeContext';
+import { renderWithProviders as render } from '@/test/test-utils';
 
 // Mock localStorage
 const localStorageMock = {

@@ -2,6 +2,7 @@ import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders as render } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Features } from '../Features';
 import { api } from '@/lib/api';
 
@@ -23,9 +24,8 @@ vi.mock('react-router-dom', async () => {
 });
 
 // Mock useAuth hook with vi.fn so tests can override
-const useAuthMock = vi.fn(() => ({ isAuthenticated: false, user: null }))
 vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: useAuthMock,
+  useAuth: vi.fn(),
 }));
 
 // Mock PostLoginTrialPopup component
@@ -158,7 +158,7 @@ describe('Features', () => {
   });
 
   it('should handle authenticated user', async () => {
-    useAuthMock.mockReturnValue({
+    vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
     } as any)
@@ -170,7 +170,7 @@ describe('Features', () => {
   });
 
   it('should handle dashboard button click for authenticated user', async () => {
-    useAuthMock.mockReturnValue({
+    vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
     } as any)
@@ -191,7 +191,7 @@ describe('Features', () => {
       },
     });
     
-    useAuthMock.mockReturnValue({
+    vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
     } as any)
@@ -211,7 +211,7 @@ describe('Features', () => {
       },
     });
     
-    useAuthMock.mockReturnValue({
+    vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
     } as any)
@@ -231,7 +231,7 @@ describe('Features', () => {
       },
     });
     
-    useAuthMock.mockReturnValue({
+    vi.mocked(useAuth).mockReturnValue({
       isAuthenticated: true,
       user: { username: 'testuser', email: 'test@example.com' },
     } as any)

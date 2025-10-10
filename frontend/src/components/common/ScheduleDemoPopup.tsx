@@ -162,6 +162,7 @@ export function ScheduleDemoPopup({ isOpen, onClose }: ScheduleDemoPopupProps) {
             size="icon"
             onClick={handleClose}
             className="h-8 w-8"
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -246,7 +247,7 @@ export function ScheduleDemoPopup({ isOpen, onClose }: ScheduleDemoPopupProps) {
                   onValueChange={(value) => handleSelectChange('preferredTime', value)}
                   disabled={loading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Preferred Time">
                     <SelectValue placeholder="Select time" />
                   </SelectTrigger>
                   <SelectContent>
@@ -268,7 +269,7 @@ export function ScheduleDemoPopup({ isOpen, onClose }: ScheduleDemoPopupProps) {
                   onValueChange={(value) => handleSelectChange('timezone', value)}
                   disabled={loading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Timezone">
                     <SelectValue placeholder="Select timezone" />
                   </SelectTrigger>
                   <SelectContent>
@@ -289,7 +290,7 @@ export function ScheduleDemoPopup({ isOpen, onClose }: ScheduleDemoPopupProps) {
                   onValueChange={(value) => handleSelectChange('companySize', value)}
                   disabled={loading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Company Size">
                     <SelectValue placeholder="Select company size" />
                   </SelectTrigger>
                   <SelectContent>
@@ -310,7 +311,7 @@ export function ScheduleDemoPopup({ isOpen, onClose }: ScheduleDemoPopupProps) {
                 onValueChange={(value) => handleSelectChange('useCase', value)}
                 disabled={loading}
               >
-                <SelectTrigger>
+                <SelectTrigger aria-label="Use Case">
                   <SelectValue placeholder="Select your primary use case" />
                 </SelectTrigger>
                 <SelectContent>

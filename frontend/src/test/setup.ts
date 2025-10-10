@@ -7,11 +7,13 @@ import { server } from './msw/server'
 
 // Ensure a root container exists for React 18 createRoot during tests
 beforeAll(() => {
-  const existing = document.getElementById('root')
-  if (!existing) {
-    const root = document.createElement('div')
-    root.setAttribute('id', 'root')
-    document.body.appendChild(root)
+  if (typeof document !== 'undefined') {
+    const existing = document.getElementById('root')
+    if (!existing) {
+      const root = document.createElement('div')
+      root.id = 'root'
+      document.body.appendChild(root)
+    }
   }
 })
 
@@ -93,6 +95,22 @@ vi.mock('@/components/common/PostLoginTrialPopup', () => ({
       : null,
 }))
 
+// Provide a default Sentry mock to prevent real initialization during tests
+vi.mock('@sentry/react', () => ({
+  init: vi.fn(),
+  ErrorBoundary: ({ children }: { children: React.ReactNode }) => React.createElement('div', { 'data-testid': 'sentry-error-boundary' }, children),
+  addBreadcrumb: vi.fn(),
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+  captureUserFeedback: vi.fn(),
+  setUser: vi.fn(),
+  setContext: vi.fn(),
+  setTags: vi.fn(),
+}))
+vi.mock('@sentry/tracing', () => ({
+  BrowserTracing: vi.fn().mockImplementation(() => ({})),
+}))
+
 // Silence toast side effects
 vi.mock('react-hot-toast', () => ({
   default: {
@@ -105,20 +123,22 @@ vi.mock('react-hot-toast', () => ({
   }
 }))
 
-// Mock window.matchMedia
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: vi.fn(), // deprecated
-    removeListener: vi.fn(), // deprecated
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })),
-})
+// Mock window.matchMedia (guarded for non-jsdom environments)
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(), // deprecated
+      removeListener: vi.fn(), // deprecated
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+}
 
 // Mock IntersectionObserver
 global.IntersectionObserver = vi.fn().mockImplementation(() => ({
@@ -135,8 +155,8 @@ global.ResizeObserver = vi.fn().mockImplementation(() => ({
 }))
 
 // Mock requestAnimationFrame
-global.requestAnimationFrame = vi.fn(cb => setTimeout(cb, 0))
-global.cancelAnimationFrame = vi.fn(id => clearTimeout(id))
+global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) => setTimeout(cb, 0))
+global.cancelAnimationFrame = vi.fn((id: any) => clearTimeout(id))
 
 // Mock localStorage
 const localStorageMock = {
@@ -145,9 +165,11 @@ const localStorageMock = {
   removeItem: vi.fn(),
   clear: vi.fn(),
 }
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock
+  })
+}
 
 // Mock sessionStorage
 const sessionStorageMock = {
@@ -156,76 +178,92 @@ const sessionStorageMock = {
   removeItem: vi.fn(),
   clear: vi.fn(),
 }
-Object.defineProperty(window, 'sessionStorage', {
-  value: sessionStorageMock
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'sessionStorage', {
+    value: sessionStorageMock
+  })
+}
 
 // Mock fetch
-global.fetch = vi.fn()
+global.fetch = (vi.fn() as any)
 
 // Mock URL.createObjectURL
-Object.defineProperty(URL, 'createObjectURL', {
-  value: vi.fn(() => 'mock-url'),
-  writable: true,
-})
+if (typeof URL !== 'undefined') {
+  Object.defineProperty(URL, 'createObjectURL', {
+    value: vi.fn(() => 'mock-url'),
+    writable: true,
+  })
+}
 
 // Mock URL.revokeObjectURL
-Object.defineProperty(URL, 'revokeObjectURL', {
-  value: vi.fn(),
-  writable: true,
-})
+if (typeof URL !== 'undefined') {
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    value: vi.fn(),
+    writable: true,
+  })
+}
 
 // Mock navigator.clipboard
-Object.defineProperty(navigator, 'clipboard', {
-  value: {
-    writeText: vi.fn().mockResolvedValue(undefined),
-    readText: vi.fn().mockResolvedValue(''),
-  },
-  writable: true,
-})
+if (typeof navigator !== 'undefined') {
+  Object.defineProperty(navigator, 'clipboard', {
+    value: {
+      writeText: vi.fn().mockResolvedValue(undefined),
+      readText: vi.fn().mockResolvedValue(''),
+    },
+    writable: true,
+  })
+}
 
 // Mock window.location
-Object.defineProperty(window, 'location', {
-  value: {
-    href: 'http://localhost:3000',
-    pathname: '/',
-    search: '',
-    hash: '',
-    assign: vi.fn(),
-    replace: vi.fn(),
-    reload: vi.fn(),
-  },
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'location', {
+    value: {
+      href: 'http://localhost:3000',
+      pathname: '/',
+      search: '',
+      hash: '',
+      assign: vi.fn(),
+      replace: vi.fn(),
+      reload: vi.fn(),
+    },
+    writable: true,
+  })
+}
 
 // Mock window.history
-Object.defineProperty(window, 'history', {
-  value: {
-    pushState: vi.fn(),
-    replaceState: vi.fn(),
-    go: vi.fn(),
-    back: vi.fn(),
-    forward: vi.fn(),
-  },
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'history', {
+    value: {
+      pushState: vi.fn(),
+      replaceState: vi.fn(),
+      go: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+    },
+    writable: true,
+  })
+}
 
 // Mock window.scrollTo
-Object.defineProperty(window, 'scrollTo', {
-  value: vi.fn(),
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'scrollTo', {
+    value: vi.fn(),
+    writable: true,
+  })
+}
 
 // Mock window.getComputedStyle
-Object.defineProperty(window, 'getComputedStyle', {
-  value: vi.fn(() => ({
-    getPropertyValue: vi.fn(() => ''),
-  })),
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'getComputedStyle', {
+    value: vi.fn(() => ({
+      getPropertyValue: vi.fn(() => ''),
+    })),
+    writable: true,
+  })
+}
 
 // Mock window.getBoundingClientRect
-Element.prototype.getBoundingClientRect = vi.fn(() => ({
+Element.prototype.getBoundingClientRect = (vi.fn(() => ({
   width: 120,
   height: 120,
   top: 0,
@@ -235,38 +273,46 @@ Element.prototype.getBoundingClientRect = vi.fn(() => ({
   x: 0,
   y: 0,
   toJSON: vi.fn(),
-}))
+})) as any)
 
 // Mock window.alert
-Object.defineProperty(window, 'alert', {
-  value: vi.fn(),
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'alert', {
+    value: vi.fn(),
+    writable: true,
+  })
+}
 
 // Mock window.confirm
-Object.defineProperty(window, 'confirm', {
-  value: vi.fn(() => true),
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'confirm', {
+    value: vi.fn(() => true),
+    writable: true,
+  })
+}
 
 // Mock window.prompt
-Object.defineProperty(window, 'prompt', {
-  value: vi.fn(() => ''),
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'prompt', {
+    value: vi.fn(() => ''),
+    writable: true,
+  })
+}
 
 // Mock performance API
-Object.defineProperty(window, 'performance', {
-  value: {
-    now: vi.fn(() => Date.now()),
-    getEntriesByType: vi.fn(() => []),
-    mark: vi.fn(),
-    measure: vi.fn(),
-    clearMarks: vi.fn(),
-    clearMeasures: vi.fn(),
-  },
-  writable: true,
-})
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'performance', {
+    value: {
+      now: vi.fn(() => Date.now()),
+      getEntriesByType: vi.fn(() => []),
+      mark: vi.fn(),
+      measure: vi.fn(),
+      clearMarks: vi.fn(),
+      clearMeasures: vi.fn(),
+    },
+    writable: true,
+  })
+}
 
 // Mock MutationObserver
 global.MutationObserver = vi.fn().mockImplementation(() => ({
@@ -304,7 +350,7 @@ class BlobShim {
   }
 }
 // @ts-expect-error global override for tests
-global.Blob = BlobShim as any
+global.Blob = BlobShim
 
 class FileShim extends BlobShim {
   name: string
@@ -316,7 +362,7 @@ class FileShim extends BlobShim {
   }
 }
 // @ts-expect-error global override for tests
-global.File = FileShim as any
+global.File = FileShim
 
 class FormDataShim {
   private map = new Map<string, any[]>()
@@ -332,7 +378,7 @@ class FormDataShim {
   *values() { for (const [, arr] of this.map) for (const v of arr) yield v }
 }
 // @ts-expect-error global override for tests
-global.FormData = FormDataShim as any
+global.FormData = FormDataShim
 
 // Mock AbortController
 global.AbortController = vi.fn().mockImplementation(() => ({
@@ -349,10 +395,18 @@ global.AbortController = vi.fn().mockImplementation(() => ({
 Object.defineProperty(global, 'crypto', {
   value: {
     randomUUID: vi.fn(() => 'mock-uuid'),
-    getRandomValues: vi.fn((arr) => arr),
+    getRandomValues: vi.fn((arr: any) => arr),
   },
   writable: true,
 })
+
+// Default window.open mock for tests expecting downloads/new tabs
+if (typeof window !== 'undefined' && typeof window.open === 'undefined') {
+  Object.defineProperty(window, 'open', {
+    value: vi.fn(),
+    writable: true,
+  })
+}
 
 // Ensure timers and mocks don't keep the process alive between tests
 beforeEach(() => {
@@ -383,6 +437,14 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.clearAllMocks()
   cleanup()
+  
+  // Ensure root container persists between tests
+  const root = document.getElementById('root')
+  if (!root) {
+    const newRoot = document.createElement('div')
+    newRoot.id = 'root'
+    document.body.appendChild(newRoot)
+  }
 })
 
 afterAll(() => {

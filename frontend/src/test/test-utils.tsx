@@ -20,9 +20,23 @@ export function renderWithProviders(
   let container = document.getElementById('root') as HTMLElement | null
   if (!container) {
     container = document.createElement('div')
-    container.setAttribute('id', 'root')
+    container.id = 'root'
     document.body.appendChild(container)
   }
+  
+  // Clear any existing content but don't remove the container
+  container.innerHTML = ''
+  
+  // Ensure the container is properly attached to document.body
+  if (!document.body.contains(container)) {
+    document.body.appendChild(container)
+  }
+  
+  // Ensure the container is a proper HTMLElement
+  if (!(container instanceof HTMLElement)) {
+    throw new Error('Container is not a valid HTMLElement')
+  }
+  
   return rtlRender(ui, {
     wrapper: Providers,
     container,
