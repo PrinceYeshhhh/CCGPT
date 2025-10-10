@@ -57,6 +57,7 @@ export function Analytics() {
   useEffect(() => {
     const load = async () => {
       try {
+        console.log('Analytics useEffect starting, setting loading to true');
         setLoading(true);
         const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
         
@@ -123,6 +124,7 @@ export function Analytics() {
         console.error('Failed to load analytics data:', e);
         // Keep default values on error
       } finally {
+        console.log('Analytics useEffect finishing, setting loading to false');
         setLoading(false);
       }
     };

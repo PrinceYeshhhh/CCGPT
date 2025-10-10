@@ -1,4 +1,4 @@
-import { screen, fireEvent, waitFor, renderWithProviders as render } from '@/test/test-utils';
+import { screen, fireEvent, waitFor, render } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { FAQ } from '../FAQ';
@@ -30,7 +30,11 @@ describe('FAQ', () => {
   });
 
   const renderFAQ = () => {
-    return render(<FAQ />);
+    return render(
+      <BrowserRouter>
+        <FAQ />
+      </BrowserRouter>
+    );
   };
 
   it('should render FAQ page', () => {

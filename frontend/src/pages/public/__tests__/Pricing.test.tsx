@@ -1,5 +1,4 @@
-import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { renderWithProviders as render } from '@/test/test-utils';
+import { screen, fireEvent, waitFor, render } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,7 +130,11 @@ describe('Pricing', () => {
   });
 
   const renderPricing = () => {
-    return render(<Pricing />);
+    return render(
+      <BrowserRouter>
+        <Pricing />
+      </BrowserRouter>
+    );
   };
 
   it('should render pricing page', async () => {

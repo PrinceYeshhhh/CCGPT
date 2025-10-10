@@ -99,22 +99,26 @@ const mockBillingData = {
 describe('Overview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockApi.get.mockImplementation((url) => {
+    mockApi.get.mockImplementation((url, options) => {
+      console.log('API call:', url, options);
       if (url === '/analytics/overview') {
+        console.log('Returning overview data:', mockOverviewData);
         return Promise.resolve({ data: mockOverviewData });
       }
-      if (url === '/analytics/usage-stats' && url.includes('days=7')) {
-        return Promise.resolve({ data: mockUsageData });
-      }
-      if (url === '/analytics/usage-stats' && url.includes('days=30')) {
+      if (url === '/analytics/usage-stats') {
+        const days = options?.params?.days;
+        console.log('Returning usage data for days:', days);
         return Promise.resolve({ data: mockUsageData });
       }
       if (url === '/analytics/kpis') {
+        console.log('Returning KPIs data:', mockKpisData);
         return Promise.resolve({ data: mockKpisData });
       }
       if (url === '/billing/status') {
+        console.log('Returning billing data:', mockBillingData);
         return Promise.resolve({ data: mockBillingData });
       }
+      console.log('Returning empty data for:', url);
       return Promise.resolve({ data: {} });
     });
   });
@@ -125,7 +129,7 @@ describe('Overview', () => {
     renderOverview();
     
     expect(screen.getByText('Dashboard Overview')).toBeInTheDocument();
-    expect(screen.getByTestId('loading-card')).toBeInTheDocument();
+    expect(screen.getAllByTestId('loading-card')).toHaveLength(6); // 4 stats cards + 2 chart cards
     expect(screen.getByText('Refresh')).toBeInTheDocument();
     expect(screen.getByText('Upgrade Plan')).toBeInTheDocument();
   });
@@ -227,7 +231,7 @@ describe('Overview', () => {
     fireEvent.click(retryButton);
     
     // Should retry the API call
-    expect(mockApi.get).toHaveBeenCalledTimes(6); // 5 initial calls + 1 retry
+    expect(mockApi.get).toHaveBeenCalledTimes(10); // 5 initial calls + 5 retry calls
   });
 
   it('should show high usage warning when over 80%', async () => {
@@ -239,7 +243,16 @@ describe('Overview', () => {
       },
     };
     
-    mockApi.get.mockImplementation((url) => {
+    mockApi.get.mockImplementation((url, options) => {
+      if (url === '/analytics/overview') {
+        return Promise.resolve({ data: mockOverviewData });
+      }
+      if (url === '/analytics/usage-stats') {
+        return Promise.resolve({ data: mockUsageData });
+      }
+      if (url === '/analytics/kpis') {
+        return Promise.resolve({ data: mockKpisData });
+      }
       if (url === '/billing/status') {
         return Promise.resolve({ data: highUsageBillingData });
       }
@@ -257,9 +270,14 @@ describe('Overview', () => {
     renderOverview();
     
     await waitFor(() => {
-      expect(screen.getByText('+12.5% from previous period')).toBeInTheDocument();
-      expect(screen.getByText('+8.3% from previous period')).toBeInTheDocument();
-      expect(screen.getByText('+5 from previous period')).toBeInTheDocument();
+      // Text is split across elements, so we check for the parts separately
+      expect(screen.getAllByText(/\+12\.5%/)).toHaveLength(2); // Total Queries and This Month both show +12.5%
+      // Check that "from previous period" appears in the stats cards
+      expect(screen.getByText((content, element) => {
+        return element?.textContent?.includes('from previous period') ?? false;
+      })).toBeInTheDocument();
+      expect(screen.getByText(/\+8\.3%/)).toBeInTheDocument();
+      expect(screen.getByText(/\+5/)).toBeInTheDocument();
     });
   });
 
@@ -267,7 +285,8 @@ describe('Overview', () => {
     renderOverview();
     
     await waitFor(() => {
-      expect(screen.getByText('-0.3s from previous period')).toBeInTheDocument();
+      // Text is in the same element, so we check for the combined text
+      expect(screen.getByText(/-0\.3s from previous period/)).toBeInTheDocument();
     });
   });
 

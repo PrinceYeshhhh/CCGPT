@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import { renderWithProviders as render, screen, fireEvent, waitFor } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Register } from '../Register';
 import { api } from '@/lib/api';
@@ -49,14 +49,14 @@ describe('Register', () => {
   it('should display all form fields', () => {
     renderRegister();
     
-    expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/confirm password/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/mobile/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/otp/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/organization/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/domain/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Choose a username')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your email')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Create a password')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Confirm your password')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your mobile number')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter OTP')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your organization name')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('company.com')).toBeInTheDocument();
   });
 
   it('should handle form submission with valid data', async () => {
@@ -64,14 +64,14 @@ describe('Register', () => {
     
     renderRegister();
     
-    const usernameInput = screen.getByLabelText(/username/i);
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-    const mobileInput = screen.getByLabelText(/mobile/i);
-    const otpInput = screen.getByLabelText(/otp/i);
-    const organizationInput = screen.getByLabelText(/organization/i);
-    const domainInput = screen.getByLabelText(/domain/i);
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
+    const domainInput = screen.getByPlaceholderText('company.com');
     
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
@@ -82,7 +82,7 @@ describe('Register', () => {
     fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
     fireEvent.change(domainInput, { target: { value: 'test.com' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -103,7 +103,7 @@ describe('Register', () => {
   it('should show validation errors for invalid data', async () => {
     renderRegister();
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -119,13 +119,13 @@ describe('Register', () => {
   it('should show password mismatch error', async () => {
     renderRegister();
     
-    const passwordInput = screen.getByLabelText(/password/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
     
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
     fireEvent.change(confirmPasswordInput, { target: { value: 'different123' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -138,13 +138,13 @@ describe('Register', () => {
     
     renderRegister();
     
-    const usernameInput = screen.getByLabelText(/username/i);
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-    const mobileInput = screen.getByLabelText(/mobile/i);
-    const otpInput = screen.getByLabelText(/otp/i);
-    const organizationInput = screen.getByLabelText(/organization/i);
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
     
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
@@ -154,7 +154,10 @@ describe('Register', () => {
     fireEvent.change(otpInput, { target: { value: '1234' } });
     fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    fireEvent.click(termsCheckbox);
+    
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -167,13 +170,13 @@ describe('Register', () => {
     
     renderRegister();
     
-    const usernameInput = screen.getByLabelText(/username/i);
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-    const mobileInput = screen.getByLabelText(/mobile/i);
-    const otpInput = screen.getByLabelText(/otp/i);
-    const organizationInput = screen.getByLabelText(/organization/i);
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
     
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
@@ -183,7 +186,10 @@ describe('Register', () => {
     fireEvent.change(otpInput, { target: { value: '1234' } });
     fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    fireEvent.click(termsCheckbox);
+    
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     expect(submitButton).toBeDisabled();
@@ -194,13 +200,13 @@ describe('Register', () => {
     
     renderRegister();
     
-    const usernameInput = screen.getByLabelText(/username/i);
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-    const mobileInput = screen.getByLabelText(/mobile/i);
-    const otpInput = screen.getByLabelText(/otp/i);
-    const organizationInput = screen.getByLabelText(/organization/i);
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
     
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
@@ -210,7 +216,10 @@ describe('Register', () => {
     fireEvent.change(otpInput, { target: { value: '1234' } });
     fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    fireEvent.click(termsCheckbox);
+    
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     expect(screen.getByText('Creating Account...')).toBeInTheDocument();
@@ -221,13 +230,13 @@ describe('Register', () => {
     
     renderRegister();
     
-    const usernameInput = screen.getByLabelText(/username/i);
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
-    const confirmPasswordInput = screen.getByLabelText(/confirm password/i);
-    const mobileInput = screen.getByLabelText(/mobile/i);
-    const otpInput = screen.getByLabelText(/otp/i);
-    const organizationInput = screen.getByLabelText(/organization/i);
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
     
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
@@ -238,7 +247,10 @@ describe('Register', () => {
     fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
     // Leave domain empty
     
-    const submitButton = screen.getByText('Create Account');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    fireEvent.click(termsCheckbox);
+    
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -257,28 +269,46 @@ describe('Register', () => {
   it('should display form icons', () => {
     renderRegister();
     
-    // Check if icons are present (they should be in the DOM)
-    expect(screen.getByLabelText(/username/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/mobile/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/organization/i)).toBeInTheDocument();
+    // Check if form fields are present (they should be in the DOM)    
+    expect(screen.getByPlaceholderText('Choose a username')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your email')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Create a password')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your mobile number')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Enter your organization name')).toBeInTheDocument();
   });
 
   it('should have proper form structure', () => {
     renderRegister();
     
-    expect(screen.getByRole('form')).toBeInTheDocument();
-    expect(screen.getByText('Create Account')).toBeInTheDocument();
+    expect(screen.getByText('Create your account')).toBeInTheDocument();
+    expect(screen.getByText('Start 7-day free trial')).toBeInTheDocument();
   });
 
   it('should handle email validation', async () => {
     renderRegister();
     
-    const emailInput = screen.getByLabelText(/email/i);
+    // Fill in all required fields except email
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    
+    fireEvent.change(usernameInput, { target: { value: 'testuser' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
+    fireEvent.change(mobileInput, { target: { value: '1234567890' } });
+    fireEvent.change(otpInput, { target: { value: '1234' } });
+    fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
+    fireEvent.click(termsCheckbox);
+    
+    // Set invalid email
+    const emailInput = screen.getByPlaceholderText('Enter your email');
     fireEvent.change(emailInput, { target: { value: 'invalid-email' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -289,10 +319,28 @@ describe('Register', () => {
   it('should handle password length validation', async () => {
     renderRegister();
     
-    const passwordInput = screen.getByLabelText(/password/i);
+    // Fill in all required fields except password
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    
+    fireEvent.change(usernameInput, { target: { value: 'testuser' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: '123' } });
+    fireEvent.change(mobileInput, { target: { value: '1234567890' } });
+    fireEvent.change(otpInput, { target: { value: '1234' } });
+    fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
+    fireEvent.click(termsCheckbox);
+    
+    // Set invalid password
+    const passwordInput = screen.getByPlaceholderText('Create a password');
     fireEvent.change(passwordInput, { target: { value: '123' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -303,10 +351,28 @@ describe('Register', () => {
   it('should handle mobile number validation', async () => {
     renderRegister();
     
-    const mobileInput = screen.getByLabelText(/mobile/i);
+    // Fill in all required fields except mobile
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    
+    fireEvent.change(usernameInput, { target: { value: 'testuser' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
+    fireEvent.change(otpInput, { target: { value: '1234' } });
+    fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
+    fireEvent.click(termsCheckbox);
+    
+    // Set invalid mobile number
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
     fireEvent.change(mobileInput, { target: { value: '123' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -317,10 +383,28 @@ describe('Register', () => {
   it('should handle OTP validation', async () => {
     renderRegister();
     
-    const otpInput = screen.getByLabelText(/otp/i);
+    // Fill in all required fields except OTP
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    
+    fireEvent.change(usernameInput, { target: { value: 'testuser' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
+    fireEvent.change(mobileInput, { target: { value: '1234567890' } });
+    fireEvent.change(organizationInput, { target: { value: 'Test Org' } });
+    fireEvent.click(termsCheckbox);
+    
+    // Set invalid OTP
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
     fireEvent.change(otpInput, { target: { value: '12' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {
@@ -331,10 +415,28 @@ describe('Register', () => {
   it('should handle organization name validation', async () => {
     renderRegister();
     
-    const organizationInput = screen.getByLabelText(/organization/i);
+    // Fill in all required fields except organization
+    const usernameInput = screen.getByPlaceholderText('Choose a username');
+    const emailInput = screen.getByPlaceholderText('Enter your email');
+    const passwordInput = screen.getByPlaceholderText('Create a password');
+    const confirmPasswordInput = screen.getByPlaceholderText('Confirm your password');
+    const mobileInput = screen.getByPlaceholderText('Enter your mobile number');
+    const otpInput = screen.getByPlaceholderText('Enter OTP');
+    const termsCheckbox = screen.getByRole('checkbox', { name: /terms/i });
+    
+    fireEvent.change(usernameInput, { target: { value: 'testuser' } });
+    fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+    fireEvent.change(passwordInput, { target: { value: 'password123' } });
+    fireEvent.change(confirmPasswordInput, { target: { value: 'password123' } });
+    fireEvent.change(mobileInput, { target: { value: '1234567890' } });
+    fireEvent.change(otpInput, { target: { value: '1234' } });
+    fireEvent.click(termsCheckbox);
+    
+    // Set invalid organization name
+    const organizationInput = screen.getByPlaceholderText('Enter your organization name');
     fireEvent.change(organizationInput, { target: { value: 'A' } });
     
-    const submitButton = screen.getByText('Create Account');
+    const submitButton = screen.getByText('Start 7-day free trial');
     fireEvent.click(submitButton);
     
     await waitFor(() => {

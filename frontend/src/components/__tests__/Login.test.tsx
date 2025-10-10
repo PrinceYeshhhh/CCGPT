@@ -2,11 +2,14 @@
  * Unit tests for Login component
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, mockNavigate, updateAuthState } from '@/test/test-utils';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { Login } from '@/pages/auth/Login';
 import { api } from '@/lib/api';
 import { useForm } from 'react-hook-form';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 // Mock react-hook-form
 const mockHandleSubmit = vi.hoisted(() => vi.fn());
@@ -32,19 +35,60 @@ vi.mock('react-hot-toast', () => ({
 }));
 
 // Mock the API
-vi.mock('../../lib/api', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     post: vi.fn(),
   },
   setAuthToken: vi.fn(),
+  getAuthToken: vi.fn(() => null),
 }));
 
-// Mock the auth utilities
-vi.mock('../../utils/auth', () => ({
-  setAuthToken: vi.fn(),
-  setSession: vi.fn(),
+// Mock react-router-dom
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    Link: ({ children, to, ...props }: any) => <a href={to} {...props}>{children}</a>,
+  };
+});
+
+// Mock UI components
+vi.mock('@/components/ui/button', () => ({
+  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
 }));
 
+vi.mock('@/components/ui/input', () => ({
+  Input: ({ ...props }: any) => <input {...props} />,
+}));
+
+vi.mock('@/components/ui/card', () => ({
+  Card: ({ children }: any) => <div data-testid="card">{children}</div>,
+  CardContent: ({ children }: any) => <div data-testid="card-content">{children}</div>,
+  CardDescription: ({ children }: any) => <div data-testid="card-description">{children}</div>,
+  CardHeader: ({ children }: any) => <div data-testid="card-header">{children}</div>,
+  CardTitle: ({ children }: any) => <div data-testid="card-title">{children}</div>,
+}));
+
+// Mock lucide-react icons
+vi.mock('lucide-react', () => ({
+  Bot: ({ className }: any) => <div data-testid="bot-icon" className={className} />,
+  User: ({ className }: any) => <div data-testid="user-icon" className={className} />,
+  Lock: ({ className }: any) => <div data-testid="lock-icon" className={className} />,
+}));
+
+
+// Helper function to render with providers
+const renderWithProviders = (ui: React.ReactElement) => {
+  return render(
+    <BrowserRouter>
+      <AuthProvider>
+        {ui}
+      </AuthProvider>
+    </BrowserRouter>
+  );
+};
 
 describe('Login Component', () => {
   beforeEach(() => {
@@ -69,11 +113,13 @@ describe('Login Component', () => {
   const mockApiPost = vi.mocked(api.post);
 
   it('renders login form with email and password fields', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
+    expect(screen.getByText('Sign in to your account')).toBeInTheDocument();
     expect(screen.getByLabelText(/username or email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByText('Welcome back')).toBeInTheDocument();
   });
 
   it('shows validation errors for empty fields', async () => {
@@ -91,7 +137,7 @@ describe('Login Component', () => {
       watch: mockWatch,
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     expect(screen.getByText('Username or email is required')).toBeInTheDocument();
     expect(screen.getByText('Password must be at least 6 characters')).toBeInTheDocument();
@@ -111,7 +157,7 @@ describe('Login Component', () => {
       watch: mockWatch,
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     expect(screen.getByText('Username or email is required')).toBeInTheDocument();
   });
@@ -130,7 +176,7 @@ describe('Login Component', () => {
       watch: mockWatch,
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     expect(screen.getByText('Password must be at least 6 characters')).toBeInTheDocument();
   });
@@ -147,7 +193,7 @@ describe('Login Component', () => {
       fn({ usernameOrEmail: 'test@example.com', password: 'password123' });
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const submitButton = screen.getByRole('button', { name: /sign in/i });
     fireEvent.click(submitButton);
@@ -168,7 +214,7 @@ describe('Login Component', () => {
     // Mock API error response
     mockApiPost.mockRejectedValue(new Error('Invalid credentials'));
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const emailInput = screen.getByLabelText(/username or email/i);
     const passwordInput = screen.getByLabelText(/password/i);
@@ -195,7 +241,7 @@ describe('Login Component', () => {
       watch: mockWatch,
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     // Check for loading state text
     expect(screen.getByText('Signing in...')).toBeInTheDocument();
@@ -214,7 +260,7 @@ describe('Login Component', () => {
       fn({ usernameOrEmail: 'test@example.com', password: 'password123' });
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const submitButton = screen.getByRole('button', { name: /sign in/i });
     fireEvent.click(submitButton);
@@ -225,22 +271,23 @@ describe('Login Component', () => {
   });
 
   it('shows link to register page', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const registerLink = screen.getByRole('link', { name: /sign up/i });
     expect(registerLink).toBeInTheDocument();
     expect(registerLink).toHaveAttribute('href', '/register');
+    expect(screen.getByText("Don't have an account?")).toBeInTheDocument();
   });
 
   it('shows forgot password link', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const forgotPasswordLink = screen.getByText(/forgot your password/i);
     expect(forgotPasswordLink).toBeInTheDocument();
   });
 
   it('handles forgot password click', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const forgotPasswordLink = screen.getByText(/forgot your password/i);
     fireEvent.click(forgotPasswordLink);
@@ -250,7 +297,7 @@ describe('Login Component', () => {
   });
 
   it('toggles password visibility', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const passwordInput = screen.getByLabelText(/password/i);
     
@@ -274,7 +321,7 @@ describe('Login Component', () => {
       fn({ usernameOrEmail: 'test@example.com', password: 'password123' });
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const form = document.querySelector('form');
     if (form) {
@@ -287,14 +334,14 @@ describe('Login Component', () => {
   });
 
   it('shows remember me checkbox', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const rememberMeCheckbox = screen.getByLabelText(/remember me/i);
     expect(rememberMeCheckbox).toBeInTheDocument();
   });
 
   it('handles remember me checkbox change', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const rememberMeCheckbox = screen.getByLabelText(/remember me/i);
     fireEvent.click(rememberMeCheckbox);
@@ -303,18 +350,19 @@ describe('Login Component', () => {
   });
 
   it('shows demo credentials', () => {
-    render(<Login />);
+    renderWithProviders(<Login />);
 
-    expect(screen.getByText(/demo credentials/i)).toBeInTheDocument();
-    expect(screen.getByText(/username: demo/i)).toBeInTheDocument();
-    expect(screen.getByText(/password: demo123/i)).toBeInTheDocument();
+    expect(screen.getByText('Demo Account')).toBeInTheDocument();
+    expect(screen.getByText('Demo credentials:')).toBeInTheDocument();
+    expect(screen.getByText('Username: demo')).toBeInTheDocument();
+    expect(screen.getByText('Password: demo123')).toBeInTheDocument();
   });
 
   it('shows error message for network errors', async () => {
     // Mock API error response
     mockApiPost.mockRejectedValue(new Error('Network error'));
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const emailInput = screen.getByLabelText(/username or email/i);
     const passwordInput = screen.getByLabelText(/password/i);
@@ -341,7 +389,7 @@ describe('Login Component', () => {
       fn({ usernameOrEmail: 'test@example.com', password: 'password123' });
     });
 
-    render(<Login />);
+    renderWithProviders(<Login />);
 
     const submitButton = screen.getByRole('button', { name: /sign in/i });
     fireEvent.click(submitButton);

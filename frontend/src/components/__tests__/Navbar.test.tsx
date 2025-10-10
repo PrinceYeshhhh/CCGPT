@@ -2,9 +2,67 @@
  * Unit tests for Navbar component
  */
 
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, mockNavigate, updateAuthState } from '../../test/test-utils';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { Navbar } from '../common/Navbar';
+import { AuthProvider } from '@/contexts/AuthContext';
+
+// Mock react-router-dom
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => ({ pathname: '/' }),
+    Link: ({ children, to, ...props }: any) => <a href={to} {...props}>{children}</a>,
+  };
+});
+
+// Mock UI components
+vi.mock('@/components/ui/button', () => ({
+  Button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+}));
+
+vi.mock('@/components/ui/theme-toggle', () => ({
+  ThemeToggle: () => <button data-testid="theme-toggle">Theme</button>,
+}));
+
+// Mock lucide-react icons
+vi.mock('lucide-react', () => ({
+  Bot: ({ className }: any) => <div data-testid="bot-icon" className={className} />,
+  Menu: ({ className }: any) => <div data-testid="menu-icon" className={className} />,
+  X: ({ className }: any) => <div data-testid="x-icon" className={className} />,
+  User: ({ className }: any) => <div data-testid="user-icon" className={className} />,
+  LogOut: ({ className }: any) => <div data-testid="logout-icon" className={className} />,
+  Settings: ({ className }: any) => <div data-testid="settings-icon" className={className} />,
+  ChevronDown: ({ className }: any) => <div data-testid="chevron-down-icon" className={className} />,
+}));
+
+// Mock the AuthContext
+const mockAuthValue = {
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+};
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => mockAuthValue,
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// Helper function to render with providers
+const renderWithProviders = (ui: React.ReactElement) => {
+  return render(
+    <BrowserRouter>
+      {ui}
+    </BrowserRouter>
+  );
+};
 
 describe('Navbar Component', () => {
   beforeEach(() => {
@@ -12,7 +70,7 @@ describe('Navbar Component', () => {
   });
 
   it('renders navbar with logo and navigation links', () => {
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     expect(screen.getByText('CustomerCareGPT')).toBeInTheDocument();
     expect(screen.getByText('Features')).toBeInTheDocument();
@@ -22,19 +80,19 @@ describe('Navbar Component', () => {
 
   it('shows login and register buttons when user is not authenticated', () => {
     // Reset auth state to show login/register buttons
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: false,
       user: null
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     expect(screen.getByText('Login')).toBeInTheDocument();
     expect(screen.getByText('Get Started')).toBeInTheDocument();
   });
 
   it('shows user menu when user is authenticated', () => {
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: true,
       user: {
         id: '1',
@@ -44,7 +102,7 @@ describe('Navbar Component', () => {
       }
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     expect(screen.getByText('Test User')).toBeInTheDocument();
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
@@ -53,12 +111,12 @@ describe('Navbar Component', () => {
 
   it('handles login button click', async () => {
     // Reset auth state to show login button
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: false,
       user: null
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const loginLink = screen.getByRole('link', { name: 'Login' });
     expect(loginLink).toHaveAttribute('href', '/login');
@@ -66,19 +124,19 @@ describe('Navbar Component', () => {
 
   it('handles register button click', async () => {
     // Reset auth state to show register button
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: false,
       user: null
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const registerLink = screen.getByRole('link', { name: 'Get Started' });
     expect(registerLink).toHaveAttribute('href', '/register');
   });
 
   it('handles logout button click', async () => {
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: true,
       user: {
         id: '1',
@@ -88,7 +146,7 @@ describe('Navbar Component', () => {
       }
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     // The logout functionality might be in a dropdown menu, so just verify the user menu exists
     const userMenuButton = screen.getByText('Test User');
@@ -102,7 +160,7 @@ describe('Navbar Component', () => {
   });
 
   it('shows mobile menu toggle on small screens', () => {
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     // Check for mobile menu button (hamburger icon) - it doesn't have a name, so we'll check by class
     const mobileMenuButton = screen.getByRole('button', { name: '' });
@@ -110,7 +168,7 @@ describe('Navbar Component', () => {
   });
 
   it('toggles mobile menu when hamburger button is clicked', () => {
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const mobileMenuButton = screen.getByRole('button', { name: '' });
     fireEvent.click(mobileMenuButton);
@@ -120,7 +178,7 @@ describe('Navbar Component', () => {
   });
 
   it('closes mobile menu when close button is clicked', () => {
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const mobileMenuButton = screen.getByRole('button', { name: '' });
     fireEvent.click(mobileMenuButton);
@@ -130,16 +188,16 @@ describe('Navbar Component', () => {
   });
 
   it('shows loading state when authentication is loading', () => {
-    updateAuthState({ isLoading: true });
+    Object.assign(mockAuthValue, { isLoading: true });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     // The component doesn't show "Loading..." text, so just verify it renders without error
     expect(screen.getByText('CustomerCareGPT')).toBeInTheDocument();
   });
 
   it('handles theme toggle', () => {
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const themeToggles = screen.getAllByRole('button', { name: /theme/i });
     expect(themeToggles).toHaveLength(2); // One for desktop, one for mobile
@@ -152,14 +210,14 @@ describe('Navbar Component', () => {
   });
 
   it('shows active navigation state for current page', () => {
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const homeLink = screen.getByText('Home');
     expect(homeLink).toHaveClass('text-blue-600'); // Active link has blue color
   });
 
   it('handles keyboard navigation', () => {
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const featuresLink = screen.getByText('Features');
     featuresLink.focus();
@@ -171,7 +229,7 @@ describe('Navbar Component', () => {
   });
 
   it('shows user avatar when authenticated', () => {
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: true,
       user: {
         id: '1',
@@ -181,7 +239,7 @@ describe('Navbar Component', () => {
       }
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     // Check for user name and email instead of avatar
     expect(screen.getByText('Test User')).toBeInTheDocument();
@@ -189,7 +247,7 @@ describe('Navbar Component', () => {
   });
 
   it('handles dropdown menu interactions', () => {
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: true,
       user: {
         id: '1',
@@ -199,7 +257,7 @@ describe('Navbar Component', () => {
       }
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const userMenuButton = screen.getByText('Test User');
     expect(userMenuButton).toBeInTheDocument();
@@ -209,7 +267,7 @@ describe('Navbar Component', () => {
   });
 
   it('closes dropdown menu when clicking outside', () => {
-    updateAuthState({
+    Object.assign(mockAuthValue, {
       isAuthenticated: true,
       user: {
         id: '1',
@@ -219,7 +277,7 @@ describe('Navbar Component', () => {
       }
     });
 
-    render(<Navbar />);
+    renderWithProviders(<Navbar />);
 
     const userMenuButton = screen.getByText('Test User');
     expect(userMenuButton).toBeInTheDocument();

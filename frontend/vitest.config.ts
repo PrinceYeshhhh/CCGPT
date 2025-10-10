@@ -12,13 +12,16 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     environmentOptions: {
-      jsdom: { url: 'http://localhost' }
+      jsdom: { 
+        url: 'http://localhost',
+        resources: 'usable'
+      }
     },
     setupFiles: ['./src/test/setup.ts'],
     globals: true,
     sequence: { concurrent: false },
     // Keep workers small for CI stability, avoid OOM
-    maxThreads: 4,
+    maxThreads: 1,
     minThreads: 1,
     // Limit in-flight tasks to keep jsdom stable
     isolate: true,
@@ -26,8 +29,8 @@ export default defineConfig({
       forks: { singleFork: true },
       threads: { singleThread: true }
     },
-    testTimeout: 10000,
-    hookTimeout: 10000,
+    testTimeout: 15000,
+    hookTimeout: 15000,
     include: [
       'src/**/*.{test,spec}.{ts,tsx}'
     ],

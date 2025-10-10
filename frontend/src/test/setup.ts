@@ -5,17 +5,7 @@ import { vi, afterEach, afterAll, beforeEach, beforeAll } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import { server } from './msw/server'
 
-// Ensure a root container exists for React 18 createRoot during tests
-beforeAll(() => {
-  if (typeof document !== 'undefined') {
-    const existing = document.getElementById('root')
-    if (!existing) {
-      const root = document.createElement('div')
-      root.id = 'root'
-      document.body.appendChild(root)
-    }
-  }
-})
+// Let @testing-library/react manage its own DOM container
 
 // Start MSW server for integration tests
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }))
@@ -437,14 +427,6 @@ afterEach(() => {
   vi.clearAllTimers()
   vi.clearAllMocks()
   cleanup()
-  
-  // Ensure root container persists between tests
-  const root = document.getElementById('root')
-  if (!root) {
-    const newRoot = document.createElement('div')
-    newRoot.id = 'root'
-    document.body.appendChild(newRoot)
-  }
 })
 
 afterAll(() => {
