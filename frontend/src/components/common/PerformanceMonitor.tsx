@@ -46,6 +46,8 @@ export function PerformanceMonitor({
     performanceScore: null,
   });
   const [isVisible, setIsVisible] = useState(showDetails);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Avoid installing timers in test environment to prevent open handles
@@ -54,43 +56,59 @@ export function PerformanceMonitor({
 
     // Get performance metrics
     const getPerformanceMetrics = () => {
-      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-      const paint = performance.getEntriesByType('paint');
-      
-      const fcp = paint.find(entry => entry.name === 'first-contentful-paint')?.startTime || null;
-      const lcp = performance.getEntriesByType('largest-contentful-paint')[0]?.startTime || null;
-      
-      const pageLoadTime = navigation ? navigation.loadEventEnd - (navigation as any).navigationStart : null;
-      const ttfb = navigation ? navigation.responseStart - navigation.requestStart : null;
-      
-      // Memory usage (if available)
-      const memory = (performance as any).memory;
-      const memoryUsage = memory ? memory.usedJSHeapSize / 1024 / 1024 : null; // Convert to MB
-      
-      // Calculate performance score
-      let score = 100;
-      if (lcp && lcp > 4000) score -= 30;
-      else if (lcp && lcp > 2500) score -= 15;
-      
-      if (fcp && fcp > 3000) score -= 20;
-      else if (fcp && fcp > 1500) score -= 10;
-      
-      if (pageLoadTime && pageLoadTime > 5000) score -= 25;
-      else if (pageLoadTime && pageLoadTime > 3000) score -= 15;
-      
-      if (memoryUsage && memoryUsage > 100) score -= 15;
-      else if (memoryUsage && memoryUsage > 50) score -= 10;
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        if (!performance || !performance.getEntriesByType) {
+          setError('Performance API not available');
+          setIsLoading(false);
+          return;
+        }
+        
+        const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+        const paint = performance.getEntriesByType('paint');
+        
+        const fcp = paint.find(entry => entry.name === 'first-contentful-paint')?.startTime || null;
+        const lcp = performance.getEntriesByType('largest-contentful-paint')[0]?.startTime || null;
+        
+        const pageLoadTime = navigation ? navigation.loadEventEnd - (navigation as any).navigationStart : null;
+        const ttfb = navigation ? navigation.responseStart - navigation.requestStart : null;
+        
+        // Memory usage (if available)
+        const memory = (performance as any).memory;
+        const memoryUsage = memory ? memory.usedJSHeapSize / 1024 / 1024 : null; // Convert to MB
+        
+        // Calculate performance score
+        let score = 100;
+        if (lcp && lcp > 4000) score -= 30;
+        else if (lcp && lcp > 2500) score -= 15;
+        
+        if (fcp && fcp > 3000) score -= 20;
+        else if (fcp && fcp > 1500) score -= 10;
+        
+        if (pageLoadTime && pageLoadTime > 5000) score -= 25;
+        else if (pageLoadTime && pageLoadTime > 3000) score -= 15;
+        
+        if (memoryUsage && memoryUsage > 100) score -= 15;
+        else if (memoryUsage && memoryUsage > 50) score -= 10;
 
-      setMetrics({
-        lcp,
-        fid: null, // FID requires user interaction
-        cls: null, // CLS requires layout shift tracking
-        fcp,
-        ttfb,
-        pageLoadTime,
-        memoryUsage,
-        performanceScore: Math.max(0, score),
-      });
+        setMetrics({
+          lcp,
+          fid: null, // FID requires user interaction
+          cls: null, // CLS requires layout shift tracking
+          fcp,
+          ttfb,
+          pageLoadTime,
+          memoryUsage,
+          performanceScore: Math.max(0, score),
+        });
+        setIsLoading(false);
+      } catch (error) {
+        console.warn('Performance monitoring error:', error);
+        setError(error instanceof Error ? error.message : 'Failed to collect performance metrics');
+        setIsLoading(false);
+      }
     };
 
     // Get metrics after page load
@@ -166,22 +184,38 @@ export function PerformanceMonitor({
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Performance Score */}
-        <div className="space-y-2">
-        <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Performance Score</span>
+        {error && (
+          <div className="p-3 bg-red-50 rounded-md border border-red-200">
             <div className="flex items-center space-x-2">
-              {getScoreIcon(metrics.performanceScore || 0)}
-              <span className={cn("text-sm font-bold", getScoreColor(metrics.performanceScore || 0))}>
-                {metrics.performanceScore || 0}
-              </span>
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+              <p className="text-sm text-red-800">{error}</p>
             </div>
           </div>
-          <Progress 
-            value={metrics.performanceScore || 0} 
-            className="h-2"
-          />
-        </div>
+        )}
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-sm text-muted-foreground">Collecting metrics...</span>
+          </div>
+        ) : (
+          <>
+            {/* Performance Score */}
+            <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Performance Score</span>
+                <div className="flex items-center space-x-2">
+                  {getScoreIcon(metrics.performanceScore || 0)}
+                  <span className={cn("text-sm font-bold", getScoreColor(metrics.performanceScore || 0))}>
+                    {metrics.performanceScore || 0}
+                  </span>
+                </div>
+              </div>
+              <Progress 
+                value={metrics.performanceScore || 0} 
+                className="h-2"
+              />
+            </div>
 
         {/* Core Web Vitals */}
         <div className="space-y-3">
@@ -263,6 +297,8 @@ export function PerformanceMonitor({
                 )}
               </div>
             </div>
+        )}
+          </>
         )}
       </CardContent>
     </Card>

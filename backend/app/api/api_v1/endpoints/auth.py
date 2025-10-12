@@ -2,12 +2,13 @@
 Authentication endpoints
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
 import structlog
+from app.utils.logging_config import security_logger, business_logger
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -17,6 +18,10 @@ from app.schemas.user import UserCreate, UserResponse, UserLogin
 from app.schemas.auth import Token, TokenRefresh, RegisterRequest, OTPRequest
 from app.services.auth import AuthService
 from app.services.user import UserService
+from app.utils.error_handling import (
+    CustomError, ValidationError, AuthenticationError, 
+    AuthorizationError, NotFoundError, DatabaseError
+)
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -94,6 +99,15 @@ async def login(
         
         logger.info("User logged in successfully", user_id=user.id, email=user.email)
         
+        # Log security event
+        security_logger.log_login_attempt(
+            email=user.email,
+            success=True,
+            ip_address=request.client.host if request.client else "unknown",
+            user_agent=request.headers.get("user-agent", ""),
+            user_id=str(user.id)
+        )
+        
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
@@ -101,13 +115,32 @@ async def login(
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
         }
         
-    except HTTPException:
+    except HTTPException as e:
+        # Log failed login attempt
+        security_logger.log_login_attempt(
+            email=user_data.identifier,
+            success=False,
+            ip_address=request.client.host if request.client else "unknown",
+            user_agent=request.headers.get("user-agent", ""),
+            error=str(e.detail)
+        )
         raise
     except Exception as e:
-        logger.error("Login failed", error=str(e), email=user_data.email)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed"
+        logger.error("Login failed", error=str(e), email=user_data.identifier)
+        
+        # Log failed login attempt
+        security_logger.log_login_attempt(
+            email=user_data.identifier,
+            success=False,
+            ip_address=request.client.host if request.client else "unknown",
+            user_agent=request.headers.get("user-agent", ""),
+            error=str(e)
+        )
+        
+        # Raise as custom error for better handling
+        raise AuthenticationError(
+            message="Login failed due to system error",
+            details={"original_error": str(e)}
         )
 @router.get("/verify-email")
 async def verify_email(token: str, db: Session = Depends(get_db)):
@@ -252,5 +285,20 @@ async def get_me(
 ):
     """Get current user information"""
     return UserResponse.from_orm(current_user)
+
+
+@router.get("/csrf-token")
+async def get_csrf_token(request: Request):
+    """Get CSRF token for form submissions"""
+    from app.middleware.security import CSRFProtectionMiddleware
+    
+    client_ip = request.client.host if request.client else "unknown"
+    csrf_middleware = CSRFProtectionMiddleware(None)
+    token = csrf_middleware.generate_csrf_token(client_ip)
+    
+    return {
+        "csrf_token": token,
+        "expires_in": 3600  # 1 hour
+    }
 
 

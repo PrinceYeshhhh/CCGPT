@@ -17,8 +17,8 @@ export default defineConfig({
         resources: 'usable'
       }
     },
-    setupFiles: ['./src/test/setup.ts'],
     globals: true,
+    setupFiles: ['./src/test/setup.ts'],
     sequence: { concurrent: false },
     // Keep workers small for CI stability, avoid OOM
     maxThreads: 1,

@@ -1,0 +1,78 @@
+# Artillery Stress Test Configuration
+# Tests system behavior under extreme load conditions
+
+config:
+  target: 'http://localhost:8000'
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 60
+      arrivalRate: 50
+      name: "Ramp up"
+    - duration: 120
+      arrivalRate: 100
+      name: "Sustained stress"
+    - duration: 60
+      arrivalRate: 200
+      name: "Peak stress"
+    - duration: 30
+      arrivalRate: 5
+      name: "Cool down"
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  plugins:
+    metrics-by-endpoint: {}
+    expect: {}
+
+scenarios:
+  - name: "High Frequency Health Checks"
+    weight: 20
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+
+  - name: "Rapid User Registration"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/v1/auth/register"
+          json:
+            email: "stress{{ $randomString() }}@example.com"
+            password: "StressPassword123!"
+            full_name: "Stress User {{ $randomString() }}"
+            mobile_phone: "+123456789{{ $randomInt(1000, 9999) }}"
+          expect:
+            - statusCode: 201
+
+  - name: "Concurrent Document Uploads"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/v1/documents/upload"
+          formData:
+            file: "@tests/fixtures/sample.pdf"
+          expect:
+            - statusCode: 200
+
+  - name: "Heavy Chat Load"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/v1/chat/message"
+          json:
+            message: "Stress test message {{ $randomString() }}"
+            session_id: "stress-session-{{ $randomString() }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Database Intensive Operations"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/v1/analytics/overview"
+          expect:
+            - statusCode: 200

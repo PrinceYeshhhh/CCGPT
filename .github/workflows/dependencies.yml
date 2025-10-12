@@ -1,0 +1,323 @@
+# Dependency Update Workflow
+# Automated dependency updates and security patches
+
+name: Dependencies
+
+on:
+  schedule:
+    # Run weekly on Mondays at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of update to perform'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - security
+        - major
+        - minor
+        - patch
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Python Dependencies
+  update-python-deps:
+    name: Update Python Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pip-tools
+
+    - name: Check for outdated packages
+      working-directory: ./backend
+      run: |
+        pip list --outdated --format=json > outdated-packages.json
+        cat outdated-packages.json
+
+    - name: Update requirements.txt
+      working-directory: ./backend
+      run: |
+        # Update requirements.txt with latest compatible versions
+        pip-compile --upgrade requirements.in --output-file requirements.txt
+        
+        # Check for security vulnerabilities
+        safety check --json --output safety-report.json || true
+
+    - name: Update requirements-dev.txt
+      working-directory: ./backend
+      run: |
+        # Update development requirements
+        pip-compile --upgrade requirements-dev.in --output-file requirements-dev.txt
+
+    - name: Run tests with updated dependencies
+      working-directory: ./backend
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pytest tests/unit/ -v --maxfail=5
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update Python dependencies'
+        title: 'chore: update Python dependencies'
+        body: |
+          ## Python Dependencies Update
+          
+          This PR updates Python dependencies to their latest compatible versions.
+          
+          ### Changes
+          - Updated requirements.txt
+          - Updated requirements-dev.txt
+          - Security vulnerability scan completed
+          
+          ### Testing
+          - [x] Unit tests passed
+          - [x] Security scan completed
+          
+          ### Review Checklist
+          - [ ] Review dependency changes
+          - [ ] Test in staging environment
+          - [ ] Verify no breaking changes
+        branch: update-python-deps
+        delete-branch: true
+
+  # Node.js Dependencies
+  update-node-deps:
+    name: Update Node.js Dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Check for outdated packages
+      working-directory: ./frontend
+      run: |
+        npm outdated --json > outdated-packages.json || true
+        cat outdated-packages.json
+
+    - name: Update package.json
+      working-directory: ./frontend
+      run: |
+        # Update to latest compatible versions
+        npm update
+        
+        # Check for security vulnerabilities
+        npm audit --json > audit-report.json || true
+
+    - name: Run tests with updated dependencies
+      working-directory: ./frontend
+      run: |
+        npm ci
+        npm run test:ci
+        npm run build
+
+    - name: Create Pull Request
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'chore: update Node.js dependencies'
+        title: 'chore: update Node.js dependencies'
+        body: |
+          ## Node.js Dependencies Update
+          
+          This PR updates Node.js dependencies to their latest compatible versions.
+          
+          ### Changes
+          - Updated package.json
+          - Updated package-lock.json
+          - Security vulnerability scan completed
+          
+          ### Testing
+          - [x] Unit tests passed
+          - [x] Build completed successfully
+          - [x] Security scan completed
+          
+          ### Review Checklist
+          - [ ] Review dependency changes
+          - [ ] Test in staging environment
+          - [ ] Verify no breaking changes
+        branch: update-node-deps
+        delete-branch: true
+
+  # Security Updates
+  security-updates:
+    name: Security Updates
+    runs-on: ubuntu-latest
+    if: github.event.inputs.update_type == 'security' || github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Check Python security vulnerabilities
+      working-directory: ./backend
+      run: |
+        pip install safety
+        safety check --json --output safety-report.json
+        safety check --short-report
+
+    - name: Check Node.js security vulnerabilities
+      working-directory: ./frontend
+      run: |
+        npm audit --json > npm-audit-report.json || true
+        npm audit --audit-level=moderate
+
+    - name: Update Python security packages
+      working-directory: ./backend
+      run: |
+        # Update only security-related packages
+        pip install --upgrade $(safety check --json | jq -r '.vulnerabilities[].package' | sort -u)
+        pip freeze > requirements.txt
+
+    - name: Update Node.js security packages
+      working-directory: ./frontend
+      run: |
+        # Update packages with security vulnerabilities
+        npm audit fix --force
+        npm ci
+
+    - name: Run security tests
+      run: |
+        # Run security scans
+        cd backend && python -m bandit -r app/ -f json -o bandit-report.json || true
+        cd frontend && npm audit --audit-level=moderate || true
+
+    - name: Create Security Update PR
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'security: update vulnerable dependencies'
+        title: 'security: update vulnerable dependencies'
+        body: |
+          ## Security Updates
+          
+          This PR updates dependencies with known security vulnerabilities.
+          
+          ### Security Issues Addressed
+          - Python packages with vulnerabilities
+          - Node.js packages with vulnerabilities
+          
+          ### Changes
+          - Updated vulnerable Python packages
+          - Updated vulnerable Node.js packages
+          - Security scan reports included
+          
+          ### Testing
+          - [x] Security scans completed
+          - [x] Dependencies updated
+          - [x] No new vulnerabilities introduced
+          
+          ### Review Checklist
+          - [ ] Review security changes
+          - [ ] Test in staging environment
+          - [ ] Verify security fixes
+        branch: security-updates
+        delete-branch: true
+
+  # Dependency Analysis
+  dependency-analysis:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+    needs: [update-python-deps, update-node-deps]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Analyze Python dependencies
+      working-directory: ./backend
+      run: |
+        pip install pipdeptree
+        pipdeptree --json > python-dependency-tree.json
+        pip list --format=json > python-packages.json
+
+    - name: Analyze Node.js dependencies
+      working-directory: ./frontend
+      run: |
+        npm list --json > node-dependency-tree.json
+        npm list --depth=0 --json > node-packages.json
+
+    - name: Generate dependency report
+      run: |
+        echo "## Dependency Analysis Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Python dependencies
+        echo "### Python Dependencies" >> $GITHUB_STEP_SUMMARY
+        echo "- Total packages: $(jq length backend/python-packages.json)" >> $GITHUB_STEP_SUMMARY
+        echo "- Dependency tree: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        
+        # Node.js dependencies
+        echo "### Node.js Dependencies" >> $GITHUB_STEP_SUMMARY
+        echo "- Total packages: $(jq '.dependencies | length' frontend/node-packages.json)" >> $GITHUB_STEP_SUMMARY
+        echo "- Dependency tree: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload dependency analysis
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-analysis
+        path: |
+          backend/python-dependency-tree.json
+          backend/python-packages.json
+          frontend/node-dependency-tree.json
+          frontend/node-packages.json

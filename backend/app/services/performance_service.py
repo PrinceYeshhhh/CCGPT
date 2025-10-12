@@ -1,538 +1,541 @@
-"""
-Performance monitoring service for collecting and analyzing frontend metrics
-"""
+# Performance Monitoring and Optimization Service
+# Real-time performance tracking, optimization recommendations, and automated tuning
 
+import time
 import asyncio
-import json
+import psutil
+import threading
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, and_, or_
+from dataclasses import dataclass, field
+from collections import defaultdict, deque
 import structlog
-
 from app.core.config import settings
-from app.models.performance import PerformanceMetric as PerformanceMetricModel
-from app.schemas.performance import (
-    PerformanceSummary,
-    PerformanceTrends,
-    PerformanceTrendData,
-    PerformanceAlerts,
-    AlertSeverity,
-    BenchmarkResult,
-    HealthStatus,
-    MetricType
-)
-from app.exceptions import AnalyticsError, DatabaseError
+from app.services.cache_service import cache_service
+from app.services.query_optimizer import query_monitor, db_optimizer
+from app.core.database import db_manager
+from app.utils.metrics import metrics_collector
 
 logger = structlog.get_logger()
 
+@dataclass
+class PerformanceMetrics:
+    """Performance metrics data structure"""
+    timestamp: datetime
+    cpu_percent: float
+    memory_percent: float
+    memory_used_mb: float
+    memory_available_mb: float
+    disk_usage_percent: float
+    disk_free_gb: float
+    network_sent_mb: float
+    network_recv_mb: float
+    active_connections: int
+    db_connections_active: int
+    db_connections_idle: int
+    redis_connections: int
+    response_time_p50: float
+    response_time_p95: float
+    response_time_p99: float
+    error_rate: float
+    requests_per_second: float
 
-class PerformanceService:
-    """Service for managing performance metrics and analytics"""
+@dataclass
+class OptimizationRecommendation:
+    """Performance optimization recommendation"""
+    category: str
+    priority: str  # high, medium, low
+    title: str
+    description: str
+    impact: str
+    effort: str
+    current_value: Any
+    recommended_value: Any
+    estimated_improvement: str
+
+class PerformanceMonitor:
+    """Real-time performance monitoring"""
     
-    def __init__(self, db: Session):
-        self.db = db
-    
-    async def store_metrics(
-        self, 
-        workspace_id: str, 
-        user_id: str, 
-        metrics: List[Dict[str, Any]], 
-        metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Store performance metrics in the database"""
-        try:
-            stored_count = 0
-            
-            for metric_data in metrics:
-                # Create performance metric record
-                metric = PerformanceMetricModel(
-                    workspace_id=workspace_id,
-                    user_id=user_id,
-                    metric_type=metric_data.get('type'),
-                    value=metric_data.get('value', 0.0),
-                    url=metadata.get('url'),
-                    user_agent=metadata.get('userAgent'),
-                    session_id=metadata.get('sessionId'),
-                    timestamp=datetime.utcnow(),
-                    metadata=json.dumps(metadata)
-                )
-                
-                self.db.add(metric)
-                stored_count += 1
-            
-            self.db.commit()
-            
-            # Trigger real-time analysis
-            await self._analyze_metrics(workspace_id)
-            
-            return {"stored_count": stored_count}
-            
-        except Exception as e:
-            self.db.rollback()
-            logger.error(
-                "Failed to store performance metrics",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-            raise DatabaseError(f"Failed to store performance metrics: {str(e)}")
-    
-    async def get_performance_summary(
-        self, 
-        workspace_id: str, 
-        days: int = 7
-    ) -> PerformanceSummary:
-        """Get performance summary for a workspace"""
-        try:
-            end_date = datetime.utcnow()
-            start_date = end_date - timedelta(days=days)
-            
-            # Get metrics for the period
-            metrics = self.db.query(PerformanceMetricModel).filter(
-                and_(
-                    PerformanceMetricModel.workspace_id == workspace_id,
-                    PerformanceMetricModel.timestamp >= start_date,
-                    PerformanceMetricModel.timestamp <= end_date
-                )
-            ).all()
-            
-            # Calculate summary statistics
-            summary = await self._calculate_summary(workspace_id, metrics, days)
-            
-            return summary
-            
-        except Exception as e:
-            logger.error(
-                "Failed to get performance summary",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-            raise AnalyticsError(f"Failed to get performance summary: {str(e)}")
-    
-    async def get_performance_trends(
-        self, 
-        workspace_id: str, 
-        days: int = 30,
-        metric_type: Optional[str] = None
-    ) -> PerformanceTrends:
-        """Get performance trends over time"""
-        try:
-            end_date = datetime.utcnow()
-            start_date = end_date - timedelta(days=days)
-            
-            # Build query
-            query = self.db.query(PerformanceMetricModel).filter(
-                and_(
-                    PerformanceMetricModel.workspace_id == workspace_id,
-                    PerformanceMetricModel.timestamp >= start_date,
-                    PerformanceMetricModel.timestamp <= end_date
-                )
-            )
-            
-            if metric_type:
-                query = query.filter(PerformanceMetricModel.metric_type == metric_type)
-            
-            metrics = query.all()
-            
-            # Group metrics by type and date
-            trends = {}
-            for metric in metrics:
-                metric_type = metric.metric_type
-                date = metric.timestamp.date()
-                
-                if metric_type not in trends:
-                    trends[metric_type] = {}
-                
-                if date not in trends[metric_type]:
-                    trends[metric_type][date] = []
-                
-                trends[metric_type][date].append(metric.value)
-            
-            # Calculate daily averages
-            trend_data = {}
-            for metric_type, daily_metrics in trends.items():
-                trend_data[metric_type] = []
-                for date, values in daily_metrics.items():
-                    avg_value = sum(values) / len(values)
-                    trend_data[metric_type].append(
-                        PerformanceTrendData(
-                            date=datetime.combine(date, datetime.min.time()),
-                            value=avg_value,
-                            metric_type=MetricType(metric_type)
-                        )
-                    )
-                
-                # Sort by date
-                trend_data[metric_type].sort(key=lambda x: x.date)
-            
-            # Calculate summary statistics
-            summary = await self._calculate_trends_summary(trend_data)
-            
-            return PerformanceTrends(
-                workspace_id=workspace_id,
-                period_days=days,
-                trends=trend_data,
-                summary=summary
-            )
-            
-        except Exception as e:
-            logger.error(
-                "Failed to get performance trends",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-            raise AnalyticsError(f"Failed to get performance trends: {str(e)}")
-    
-    async def get_performance_alerts(
-        self, 
-        workspace_id: str
-    ) -> List[PerformanceAlerts]:
-        """Get performance alerts for a workspace"""
-        try:
-            # This would typically query an alerts table
-            # For now, we'll generate alerts based on current metrics
-            alerts = await self._generate_alerts(workspace_id)
-            
-            return alerts
-            
-        except Exception as e:
-            logger.error(
-                "Failed to get performance alerts",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-            raise AnalyticsError(f"Failed to get performance alerts: {str(e)}")
-    
-    async def get_real_time_metrics(
-        self, 
-        workspace_id: str
-    ) -> Dict[str, Any]:
-        """Get real-time performance metrics"""
-        try:
-            # Get metrics from the last hour
-            end_time = datetime.utcnow()
-            start_time = end_time - timedelta(hours=1)
-            
-            metrics = self.db.query(PerformanceMetricModel).filter(
-                and_(
-                    PerformanceMetricModel.workspace_id == workspace_id,
-                    PerformanceMetricModel.timestamp >= start_time,
-                    PerformanceMetricModel.timestamp <= end_time
-                )
-            ).all()
-            
-            # Calculate real-time statistics
-            real_time_data = {
-                "timestamp": end_time.isoformat(),
-                "metrics": {},
-                "active_users": len(set(m.user_id for m in metrics)),
-                "total_requests": len(metrics)
-            }
-            
-            # Group by metric type
-            for metric in metrics:
-                metric_type = metric.metric_type
-                if metric_type not in real_time_data["metrics"]:
-                    real_time_data["metrics"][metric_type] = []
-                real_time_data["metrics"][metric_type].append(metric.value)
-            
-            # Calculate averages
-            for metric_type, values in real_time_data["metrics"].items():
-                if values:
-                    real_time_data["metrics"][metric_type] = {
-                        "current": values[-1] if values else 0,
-                        "average": sum(values) / len(values),
-                        "min": min(values),
-                        "max": max(values),
-                        "count": len(values)
-                    }
-            
-            return real_time_data
-            
-        except Exception as e:
-            logger.error(
-                "Failed to get real-time metrics",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-            raise AnalyticsError(f"Failed to get real-time metrics: {str(e)}")
-    
-    async def run_benchmark(
-        self, 
-        workspace_id: str, 
-        benchmark_type: str = "full"
-    ) -> BenchmarkResult:
-        """Run performance benchmark for a workspace"""
-        try:
-            start_time = datetime.utcnow()
-            
-            # Simulate benchmark tests
-            benchmark_results = await self._run_benchmark_tests(
-                workspace_id, 
-                benchmark_type
-            )
-            
-            end_time = datetime.utcnow()
-            duration = (end_time - start_time).total_seconds()
-            
-            return BenchmarkResult(
-                benchmark_type=benchmark_type,
-                workspace_id=workspace_id,
-                started_at=start_time,
-                completed_at=end_time,
-                duration_seconds=duration,
-                **benchmark_results
-            )
-            
-        except Exception as e:
-            logger.error(
-                "Failed to run performance benchmark",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-            raise AnalyticsError(f"Failed to run performance benchmark: {str(e)}")
-    
-    async def get_health_status(
-        self, 
-        workspace_id: str
-    ) -> HealthStatus:
-        """Get overall performance health status"""
-        try:
-            # Get recent metrics
-            end_time = datetime.utcnow()
-            start_time = end_time - timedelta(hours=24)
-            
-            metrics = self.db.query(PerformanceMetricModel).filter(
-                and_(
-                    PerformanceMetricModel.workspace_id == workspace_id,
-                    PerformanceMetricModel.timestamp >= start_time,
-                    PerformanceMetricModel.timestamp <= end_time
-                )
-            ).all()
-            
-            # Calculate health indicators
-            health_status = await self._calculate_health_status(
-                workspace_id, 
-                metrics
-            )
-            
-            return health_status
-            
-        except Exception as e:
-            logger.error(
-                "Failed to get performance health",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-            raise AnalyticsError(f"Failed to get performance health: {str(e)}")
-    
-    async def _analyze_metrics(self, workspace_id: str) -> None:
-        """Analyze metrics and generate alerts if needed"""
-        try:
-            # This would typically run in the background
-            # For now, we'll just log the analysis
-            logger.info(
-                "Analyzing performance metrics",
-                workspace_id=workspace_id
-            )
-            
-        except Exception as e:
-            logger.error(
-                "Failed to analyze metrics",
-                error=str(e),
-                workspace_id=workspace_id
-            )
-    
-    async def _calculate_summary(
-        self, 
-        workspace_id: str, 
-        metrics: List[PerformanceMetricModel], 
-        days: int
-    ) -> PerformanceSummary:
-        """Calculate performance summary from metrics"""
-        # Group metrics by type
-        metrics_by_type = {}
-        for metric in metrics:
-            metric_type = metric.metric_type
-            if metric_type not in metrics_by_type:
-                metrics_by_type[metric_type] = []
-            metrics_by_type[metric_type].append(metric.value)
-        
-        # Calculate averages
-        summary_data = {
-            "workspace_id": workspace_id,
-            "period_days": days,
-            "is_healthy": True,
-            "health_issues": []
+    def __init__(self):
+        self.metrics_history = deque(maxlen=1000)  # Keep last 1000 measurements
+        self.alert_thresholds = {
+            "cpu_percent": 80.0,
+            "memory_percent": 85.0,
+            "disk_usage_percent": 90.0,
+            "response_time_p95": 2.0,  # 2 seconds
+            "error_rate": 0.05,  # 5%
+            "db_connections_active": 40  # 80% of pool size
         }
+        self.alerts = []
+        self.monitoring_active = False
+        self.monitor_thread = None
+        self.interval = 30  # seconds
         
-        # Core Web Vitals
-        for vitals_type in ["lcp", "fid", "cls", "fcp", "ttfb"]:
-            if vitals_type in metrics_by_type:
-                values = metrics_by_type[vitals_type]
-                summary_data[f"avg_{vitals_type}"] = sum(values) / len(values)
+        # Performance baselines
+        self.baselines = {}
+        self.baseline_calculated = False
         
-        # Custom metrics
-        for custom_type in ["page_load", "api_response", "render", "memory"]:
-            if custom_type in metrics_by_type:
-                values = metrics_by_type[custom_type]
-                summary_data[f"avg_{custom_type}_time"] = sum(values) / len(values)
+        # Request tracking
+        self.request_times = deque(maxlen=1000)
+        self.error_counts = defaultdict(int)
+        self.request_counts = defaultdict(int)
+    
+    def start_monitoring(self):
+        """Start performance monitoring"""
+        if self.monitoring_active:
+            return
         
-        # User interaction metrics
-        if "clicks" in metrics_by_type:
-            summary_data["total_clicks"] = sum(metrics_by_type["clicks"])
+        self.monitoring_active = True
+        self.monitor_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+        self.monitor_thread.start()
         
-        if "scroll" in metrics_by_type:
-            scroll_values = metrics_by_type["scroll"]
-            summary_data["avg_scroll_depth"] = sum(scroll_values) / len(scroll_values)
+        logger.info("Performance monitoring started")
+    
+    def stop_monitoring(self):
+        """Stop performance monitoring"""
+        self.monitoring_active = False
+        if self.monitor_thread:
+            self.monitor_thread.join(timeout=5)
         
-        if "time_on_page" in metrics_by_type:
-            time_values = metrics_by_type["time_on_page"]
-            summary_data["avg_time_on_page"] = sum(time_values) / len(time_values)
+        logger.info("Performance monitoring stopped")
+    
+    def _monitoring_loop(self):
+        """Main monitoring loop"""
+        while self.monitoring_active:
+            try:
+                metrics = self._collect_metrics()
+                self.metrics_history.append(metrics)
+                
+                # Check for alerts
+                self._check_alerts(metrics)
+                
+                # Calculate baselines if needed
+                if not self.baseline_calculated and len(self.metrics_history) >= 10:
+                    self._calculate_baselines()
+                
+                time.sleep(self.interval)
+                
+            except Exception as e:
+                logger.error("Performance monitoring error", error=str(e))
+                time.sleep(60)  # Wait 1 minute on error
+    
+    def _collect_metrics(self) -> PerformanceMetrics:
+        """Collect current performance metrics"""
+        # System metrics
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        network = psutil.net_io_counters()
         
-        # Error metrics
-        if "errors" in metrics_by_type:
-            summary_data["total_errors"] = sum(metrics_by_type["errors"])
+        # Database metrics
+        db_stats = db_manager.get_connection_stats()
+        db_active = db_stats.get('write_db', {}).get('checked_out', 0)
+        db_idle = db_stats.get('write_db', {}).get('checked_in', 0)
         
-        if "api_errors" in metrics_by_type:
-            summary_data["total_api_errors"] = sum(metrics_by_type["api_errors"])
+        # Redis metrics
+        redis_connections = 0
+        try:
+            from app.core.database import redis_manager
+            redis_client = redis_manager.get_client()
+            if hasattr(redis_client, 'connection_pool'):
+                redis_connections = redis_client.connection_pool.connection_kwargs.get('max_connections', 0)
+        except Exception:
+            pass
         
-        # Calculate error rate
-        total_requests = len(metrics)
-        total_errors = summary_data.get("total_errors", 0)
-        summary_data["error_rate"] = total_errors / total_requests if total_requests > 0 else 0
+        # Response time metrics
+        response_times = list(self.request_times)
+        if response_times:
+            response_times.sort()
+            p50 = response_times[int(len(response_times) * 0.5)]
+            p95 = response_times[int(len(response_times) * 0.95)]
+            p99 = response_times[int(len(response_times) * 0.99)]
+        else:
+            p50 = p95 = p99 = 0.0
         
-        # Calculate performance score
-        summary_data["performance_score"] = await self._calculate_performance_score(
-            summary_data
+        # Error rate
+        total_requests = sum(self.request_counts.values())
+        total_errors = sum(self.error_counts.values())
+        error_rate = total_errors / total_requests if total_requests > 0 else 0.0
+        
+        # Requests per second (last minute)
+        now = time.time()
+        recent_requests = sum(
+            count for timestamp, count in self.request_counts.items()
+            if now - timestamp < 60
         )
+        rps = recent_requests / 60.0
         
-        return PerformanceSummary(**summary_data)
+        return PerformanceMetrics(
+            timestamp=datetime.now(),
+            cpu_percent=cpu_percent,
+            memory_percent=memory.percent,
+            memory_used_mb=memory.used / (1024 * 1024),
+            memory_available_mb=memory.available / (1024 * 1024),
+            disk_usage_percent=disk.percent,
+            disk_free_gb=disk.free / (1024 * 1024 * 1024),
+            network_sent_mb=network.bytes_sent / (1024 * 1024),
+            network_recv_mb=network.bytes_recv / (1024 * 1024),
+            active_connections=len(psutil.net_connections()),
+            db_connections_active=db_active,
+            db_connections_idle=db_idle,
+            redis_connections=redis_connections,
+            response_time_p50=p50,
+            response_time_p95=p95,
+            response_time_p99=p99,
+            error_rate=error_rate,
+            requests_per_second=rps
+        )
     
-    async def _calculate_trends_summary(self, trends: Dict[str, List[PerformanceTrendData]]) -> Dict[str, Any]:
-        """Calculate trends summary"""
-        summary = {}
-        
-        for metric_type, trend_data in trends.items():
-            if not trend_data:
-                continue
-            
-            values = [point.value for point in trend_data]
-            summary[metric_type] = {
-                "trend": "stable",
-                "change_percent": 0.0,
-                "current_value": values[-1] if values else 0,
-                "average_value": sum(values) / len(values) if values else 0,
-                "min_value": min(values) if values else 0,
-                "max_value": max(values) if values else 0
-            }
-            
-            # Calculate trend direction
-            if len(values) >= 2:
-                first_half = values[:len(values)//2]
-                second_half = values[len(values)//2:]
-                
-                first_avg = sum(first_half) / len(first_half)
-                second_avg = sum(second_half) / len(second_half)
-                
-                change_percent = ((second_avg - first_avg) / first_avg) * 100 if first_avg > 0 else 0
-                summary[metric_type]["change_percent"] = change_percent
-                
-                if change_percent > 5:
-                    summary[metric_type]["trend"] = "improving"
-                elif change_percent < -5:
-                    summary[metric_type]["trend"] = "degrading"
-        
-        return summary
-    
-    async def _generate_alerts(self, workspace_id: str) -> List[PerformanceAlerts]:
-        """Generate performance alerts based on current metrics"""
+    def _check_alerts(self, metrics: PerformanceMetrics):
+        """Check for performance alerts"""
         alerts = []
         
-        # This would typically query recent metrics and check against thresholds
-        # For now, we'll return an empty list
-        return alerts
+        for metric, threshold in self.alert_thresholds.items():
+            value = getattr(metrics, metric, 0)
+            if value > threshold:
+                alert = {
+                    "timestamp": metrics.timestamp,
+                    "metric": metric,
+                    "value": value,
+                    "threshold": threshold,
+                    "severity": "high" if value > threshold * 1.5 else "medium"
+                }
+                alerts.append(alert)
+                logger.warning(
+                    "Performance alert",
+                    metric=metric,
+                    value=value,
+                    threshold=threshold
+                )
+        
+        self.alerts.extend(alerts)
+        
+        # Keep only recent alerts
+        cutoff = datetime.now() - timedelta(hours=24)
+        self.alerts = [a for a in self.alerts if a["timestamp"] > cutoff]
     
-    async def _run_benchmark_tests(
-        self, 
-        workspace_id: str, 
-        benchmark_type: str
-    ) -> Dict[str, Any]:
-        """Run benchmark tests"""
-        # This would typically run actual performance tests
-        # For now, we'll return mock results
+    def _calculate_baselines(self):
+        """Calculate performance baselines"""
+        if len(self.metrics_history) < 10:
+            return
+        
+        recent_metrics = list(self.metrics_history)[-10:]
+        
+        self.baselines = {
+            "cpu_percent": sum(m.cpu_percent for m in recent_metrics) / len(recent_metrics),
+            "memory_percent": sum(m.memory_percent for m in recent_metrics) / len(recent_metrics),
+            "response_time_p95": sum(m.response_time_p95 for m in recent_metrics) / len(recent_metrics),
+            "requests_per_second": sum(m.requests_per_second for m in recent_metrics) / len(recent_metrics)
+        }
+        
+        self.baseline_calculated = True
+        logger.info("Performance baselines calculated", baselines=self.baselines)
+    
+    def record_request(self, duration: float, status_code: int):
+        """Record request performance"""
+        self.request_times.append(duration)
+        
+        # Track by minute
+        minute = int(time.time() / 60) * 60
+        self.request_counts[minute] += 1
+        
+        if status_code >= 400:
+            self.error_counts[minute] += 1
+    
+    def get_current_metrics(self) -> Optional[PerformanceMetrics]:
+        """Get current performance metrics"""
+        if not self.metrics_history:
+            return None
+        return self.metrics_history[-1]
+    
+    def get_metrics_history(self, hours: int = 1) -> List[PerformanceMetrics]:
+        """Get metrics history for specified hours"""
+        cutoff = datetime.now() - timedelta(hours=hours)
+        return [m for m in self.metrics_history if m.timestamp > cutoff]
+    
+    def get_alerts(self, hours: int = 24) -> List[Dict]:
+        """Get recent alerts"""
+        cutoff = datetime.now() - timedelta(hours=hours)
+        return [a for a in self.alerts if a["timestamp"] > cutoff]
+    
+    def get_baselines(self) -> Dict[str, float]:
+        """Get performance baselines"""
+        return self.baselines.copy()
+
+class PerformanceOptimizer:
+    """Performance optimization engine"""
+    
+    def __init__(self, monitor: PerformanceMonitor):
+        self.monitor = monitor
+        self.optimization_history = []
+    
+    async def analyze_performance(self) -> List[OptimizationRecommendation]:
+        """Analyze current performance and generate recommendations"""
+        recommendations = []
+        
+        # Get current metrics
+        current = self.monitor.get_current_metrics()
+        if not current:
+            return recommendations
+        
+        # Get baselines
+        baselines = self.monitor.get_baselines()
+        
+        # CPU optimization
+        if current.cpu_percent > 70:
+            recommendations.append(OptimizationRecommendation(
+                category="cpu",
+                priority="high" if current.cpu_percent > 85 else "medium",
+                title="High CPU Usage",
+                description=f"CPU usage is {current.cpu_percent:.1f}%, above optimal levels",
+                impact="Reduced response times and potential service degradation",
+                effort="medium",
+                current_value=f"{current.cpu_percent:.1f}%",
+                recommended_value="< 70%",
+                estimated_improvement="20-30% better response times"
+            ))
+        
+        # Memory optimization
+        if current.memory_percent > 80:
+            recommendations.append(OptimizationRecommendation(
+                category="memory",
+                priority="high" if current.memory_percent > 90 else "medium",
+                title="High Memory Usage",
+                description=f"Memory usage is {current.memory_percent:.1f}%, approaching limits",
+                impact="Potential out-of-memory errors and service crashes",
+                effort="high",
+                current_value=f"{current.memory_percent:.1f}%",
+                recommended_value="< 80%",
+                estimated_improvement="Prevent service crashes and improve stability"
+            ))
+        
+        # Database optimization
+        if current.db_connections_active > 40:
+            recommendations.append(OptimizationRecommendation(
+                category="database",
+                priority="high",
+                title="High Database Connection Usage",
+                description=f"Using {current.db_connections_active} of 50 database connections",
+                impact="Potential connection pool exhaustion and request failures",
+                effort="medium",
+                current_value=f"{current.db_connections_active} connections",
+                recommended_value="< 40 connections",
+                estimated_improvement="Better connection availability and reduced timeouts"
+            ))
+        
+        # Response time optimization
+        if current.response_time_p95 > 1.0:
+            recommendations.append(OptimizationRecommendation(
+                category="response_time",
+                priority="high" if current.response_time_p95 > 2.0 else "medium",
+                title="Slow Response Times",
+                description=f"95th percentile response time is {current.response_time_p95:.2f}s",
+                impact="Poor user experience and potential timeout errors",
+                effort="medium",
+                current_value=f"{current.response_time_p95:.2f}s",
+                recommended_value="< 1.0s",
+                estimated_improvement="30-50% faster response times"
+            ))
+        
+        # Error rate optimization
+        if current.error_rate > 0.02:
+            recommendations.append(OptimizationRecommendation(
+                category="reliability",
+                priority="high" if current.error_rate > 0.05 else "medium",
+                title="High Error Rate",
+                description=f"Error rate is {current.error_rate:.2%}, above acceptable levels",
+                impact="Poor user experience and potential data loss",
+                effort="high",
+                current_value=f"{current.error_rate:.2%}",
+                recommended_value="< 2%",
+                estimated_improvement="Better reliability and user satisfaction"
+            ))
+        
+        # Cache optimization
+        cache_stats = await cache_service.get_stats()
+        if cache_stats.get("hit_rate", 0) < 0.7:
+            recommendations.append(OptimizationRecommendation(
+                category="caching",
+                priority="medium",
+                title="Low Cache Hit Rate",
+                description=f"Cache hit rate is {cache_stats.get('hit_rate', 0):.1%}",
+                impact="Increased database load and slower response times",
+                effort="low",
+                current_value=f"{cache_stats.get('hit_rate', 0):.1%}",
+                recommended_value="> 70%",
+                estimated_improvement="20-40% faster response times"
+            ))
+        
+        return recommendations
+    
+    async def get_optimization_summary(self) -> Dict[str, Any]:
+        """Get comprehensive optimization summary"""
+        recommendations = await self.analyze_performance()
+        current = self.monitor.get_current_metrics()
+        baselines = self.monitor.get_baselines()
+        alerts = self.monitor.get_alerts(24)
+        
+        # Categorize recommendations
+        by_category = defaultdict(list)
+        for rec in recommendations:
+            by_category[rec.category].append(rec)
+        
+        # Calculate optimization score
+        total_issues = len(recommendations)
+        high_priority = len([r for r in recommendations if r.priority == "high"])
+        medium_priority = len([r for r in recommendations if r.priority == "medium"])
+        
+        optimization_score = max(0, 100 - (high_priority * 20 + medium_priority * 10))
+        
         return {
-            "tests_run": 10,
-            "tests_passed": 9,
-            "tests_failed": 1,
-            "avg_response_time": 150.0,
-            "max_response_time": 300.0,
-            "min_response_time": 50.0,
-            "requests_per_second": 100.0,
-            "cpu_usage_percent": 45.0,
-            "memory_usage_mb": 512.0,
-            "disk_io_mb": 1024.0,
-            "recommendations": [
-                "Consider optimizing database queries",
-                "Enable caching for static assets"
-            ],
-            "score": 85.0
+            "optimization_score": optimization_score,
+            "total_recommendations": total_issues,
+            "high_priority_issues": high_priority,
+            "medium_priority_issues": medium_priority,
+            "recommendations_by_category": dict(by_category),
+            "current_metrics": current.__dict__ if current else {},
+            "baselines": baselines,
+            "recent_alerts": len(alerts),
+            "performance_trend": self._calculate_trend()
         }
     
-    async def _calculate_health_status(
-        self, 
-        workspace_id: str, 
-        metrics: List[PerformanceMetricModel]
-    ) -> HealthStatus:
-        """Calculate overall health status"""
-        # This would typically analyze various health indicators
-        # For now, we'll return a basic health status
-        return HealthStatus(
-            workspace_id=workspace_id,
-            overall_health="healthy",
-            health_score=85.0,
-            database_health="healthy",
-            api_health="healthy",
-            frontend_health="healthy",
-            cache_health="healthy",
-            response_time_status="good",
-            error_rate_status="low",
-            resource_usage_status="normal",
-            active_issues=[],
-            recommendations=[],
-            last_updated=datetime.utcnow()
-        )
+    def _calculate_trend(self) -> str:
+        """Calculate performance trend"""
+        history = self.monitor.get_metrics_history(2)
+        if len(history) < 10:
+            return "insufficient_data"
+        
+        # Compare first half vs second half
+        mid = len(history) // 2
+        first_half = history[:mid]
+        second_half = history[mid:]
+        
+        # Calculate average response time for each half
+        first_avg = sum(m.response_time_p95 for m in first_half) / len(first_half)
+        second_avg = sum(m.response_time_p95 for m in second_half) / len(second_half)
+        
+        if second_avg < first_avg * 0.9:
+            return "improving"
+        elif second_avg > first_avg * 1.1:
+            return "degrading"
+        else:
+            return "stable"
+
+class PerformanceService:
+    """Main performance service"""
     
-    async def _calculate_performance_score(self, summary_data: Dict[str, Any]) -> float:
-        """Calculate overall performance score (0-100)"""
-        score = 100.0
+    def __init__(self):
+        self.monitor = PerformanceMonitor()
+        self.optimizer = PerformanceOptimizer(self.monitor)
+        self.auto_optimization_enabled = False
+    
+    def start(self):
+        """Start performance monitoring and optimization"""
+        self.monitor.start_monitoring()
+        logger.info("Performance service started")
+    
+    def stop(self):
+        """Stop performance monitoring"""
+        self.monitor.stop_monitoring()
+        logger.info("Performance service stopped")
+    
+    def record_request(self, duration: float, status_code: int):
+        """Record request performance"""
+        self.monitor.record_request(duration, status_code)
+    
+    async def get_performance_dashboard(self) -> Dict[str, Any]:
+        """Get comprehensive performance dashboard data"""
+        current = self.monitor.get_current_metrics()
+        history = self.monitor.get_metrics_history(24)
+        recommendations = await self.optimizer.analyze_performance()
+        summary = await self.optimizer.get_optimization_summary()
+        alerts = self.monitor.get_alerts(24)
         
-        # LCP scoring (0-2.5s = 100, 2.5-4s = 50, >4s = 0)
-        lcp = summary_data.get("avg_lcp", 0)
-        if lcp > 4000:
-            score -= 50
-        elif lcp > 2500:
-            score -= 25
+        # Query performance analysis
+        query_analysis = await db_optimizer.analyze_query_performance()
         
-        # FID scoring (0-100ms = 100, 100-300ms = 50, >300ms = 0)
-        fid = summary_data.get("avg_fid", 0)
-        if fid > 300:
-            score -= 50
-        elif fid > 100:
-            score -= 25
+        # Cache statistics
+        cache_stats = await cache_service.get_stats()
         
-        # CLS scoring (0-0.1 = 100, 0.1-0.25 = 50, >0.25 = 0)
-        cls = summary_data.get("avg_cls", 0)
-        if cls > 0.25:
-            score -= 50
-        elif cls > 0.1:
-            score -= 25
+        return {
+            "current_metrics": current.__dict__ if current else {},
+            "metrics_history": [m.__dict__ for m in history[-100:]],  # Last 100 points
+            "recommendations": [
+                {
+                    "category": r.category,
+                    "priority": r.priority,
+                    "title": r.title,
+                    "description": r.description,
+                    "impact": r.impact,
+                    "effort": r.effort,
+                    "current_value": r.current_value,
+                    "recommended_value": r.recommended_value,
+                    "estimated_improvement": r.estimated_improvement
+                }
+                for r in recommendations
+            ],
+            "optimization_summary": summary,
+            "recent_alerts": alerts,
+            "query_performance": query_analysis,
+            "cache_statistics": cache_stats,
+            "system_info": {
+                "cpu_count": psutil.cpu_count(),
+                "total_memory_gb": psutil.virtual_memory().total / (1024 * 1024 * 1024),
+                "disk_total_gb": psutil.disk_usage('/').total / (1024 * 1024 * 1024)
+            }
+        }
+    
+    async def apply_optimization(self, recommendation_id: str) -> bool:
+        """Apply a specific optimization recommendation"""
+        # This would implement specific optimizations based on recommendation type
+        # For now, we'll just log the action
+        logger.info("Optimization applied", recommendation_id=recommendation_id)
+        return True
+    
+    async def get_performance_alerts(self) -> List[Dict[str, Any]]:
+        """Get recent performance alerts"""
+        return self.monitor.get_alerts(24)
+    
+    async def clear_alerts(self):
+        """Clear all performance alerts"""
+        self.monitor.alerts.clear()
+        logger.info("Performance alerts cleared")
+
+# Global performance service instance
+performance_service = PerformanceService()
+
+# Performance monitoring decorator
+def monitor_performance(func):
+    """Decorator to monitor function performance"""
+    async def async_wrapper(*args, **kwargs):
+        start_time = time.time()
+        status_code = 200
         
-        # Error rate penalty
-        error_rate = summary_data.get("error_rate", 0)
-        if error_rate > 0.05:
-            score -= 30
-        elif error_rate > 0.01:
-            score -= 15
+        try:
+            result = await func(*args, **kwargs)
+            return result
+        except Exception as e:
+            status_code = 500
+            raise
+        finally:
+            duration = time.time() - start_time
+            performance_service.record_request(duration, status_code)
+    
+    def sync_wrapper(*args, **kwargs):
+        start_time = time.time()
+        status_code = 200
         
-        return max(0.0, score)
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except Exception as e:
+            status_code = 500
+            raise
+        finally:
+            duration = time.time() - start_time
+            performance_service.record_request(duration, status_code)
+    
+    if asyncio.iscoroutinefunction(func):
+        return async_wrapper
+    else:
+        return sync_wrapper

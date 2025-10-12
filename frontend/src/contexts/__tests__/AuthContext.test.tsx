@@ -157,19 +157,11 @@ describe('AuthContext', () => {
     // Suppress console.error for this test to avoid unhandled errors
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     
-    // Use a try-catch to handle the error properly
-    let errorThrown = false;
-    try {
+    // This test verifies that the error is thrown when useAuth is used outside provider
+    // We need to catch the error that React will throw during rendering
+    expect(() => {
       render(<TestComponent />);
-    } catch (error) {
-      errorThrown = true;
-      expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toBe('useAuth must be used within AuthProvider');
-    }
-    
-    // If no error was thrown synchronously, the test should still pass
-    // as the error handling is working as expected
-    expect(true).toBe(true);
+    }).toThrow('useAuth must be used within AuthProvider');
     
     consoleSpy.mockRestore();
   });

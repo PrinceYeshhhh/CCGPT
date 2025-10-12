@@ -7,6 +7,7 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 import redis
 import asyncio
+import time
 from typing import Generator, List, Optional
 from contextlib import asynccontextmanager
 import structlog
@@ -158,6 +159,13 @@ class DatabaseManager:
         self.read_engines = read_engines
         self.current_read_engine = 0
         self._read_engines_lock = asyncio.Lock()
+        self._connection_stats = {
+            'total_connections': 0,
+            'active_connections': 0,
+            'idle_connections': 0,
+            'failed_connections': 0,
+            'last_health_check': None
+        }
     
     def get_write_session(self):
         """Get write database session"""
@@ -175,33 +183,132 @@ class DatabaseManager:
         
         return sessionmaker(autocommit=False, autoflush=False, bind=engine)()
     
+    def get_connection_stats(self) -> dict:
+        """Get current connection pool statistics"""
+        try:
+            # Get write engine stats
+            write_pool = self.write_engine.pool
+            stats = {
+                'write_db': {
+                    'size': write_pool.size(),
+                    'checked_in': write_pool.checkedin(),
+                    'checked_out': write_pool.checkedout(),
+                    'overflow': write_pool.overflow(),
+                    'invalid': write_pool.invalid()
+                },
+                'read_dbs': []
+            }
+            
+            # Get read engine stats
+            for i, engine in enumerate(self.read_engines):
+                read_pool = engine.pool
+                stats['read_dbs'].append({
+                    'index': i,
+                    'size': read_pool.size(),
+                    'checked_in': read_pool.checkedin(),
+                    'checked_out': read_pool.checkedout(),
+                    'overflow': read_pool.overflow(),
+                    'invalid': read_pool.invalid()
+                })
+            
+            return stats
+        except Exception as e:
+            logger.error("Failed to get connection stats", error=str(e))
+            return {}
+    
+    def cleanup_connections(self):
+        """Clean up invalid connections and reset pool"""
+        try:
+            # Cleanup write engine
+            write_pool = self.write_engine.pool
+            invalid_count = write_pool.invalid()
+            if invalid_count > 0:
+                logger.warning(f"Cleaning up {invalid_count} invalid write connections")
+                write_pool.recreate()
+            
+            # Cleanup read engines
+            for i, engine in enumerate(self.read_engines):
+                read_pool = engine.pool
+                invalid_count = read_pool.invalid()
+                if invalid_count > 0:
+                    logger.warning(f"Cleaning up {invalid_count} invalid read connections from engine {i}")
+                    read_pool.recreate()
+            
+            logger.info("Connection cleanup completed")
+        except Exception as e:
+            logger.error("Connection cleanup failed", error=str(e))
+    
+    def monitor_connections(self):
+        """Monitor connection health and perform maintenance"""
+        try:
+            stats = self.get_connection_stats()
+            
+            # Check for connection issues
+            write_db = stats.get('write_db', {})
+            if write_db.get('invalid', 0) > 5:  # More than 5 invalid connections
+                logger.warning("High number of invalid write connections detected")
+                self.cleanup_connections()
+            
+            # Check read databases
+            for read_db in stats.get('read_dbs', []):
+                if read_db.get('invalid', 0) > 5:
+                    logger.warning(f"High number of invalid read connections detected in engine {read_db.get('index', 'unknown')}")
+                    self.cleanup_connections()
+                    break
+            
+            # Update metrics
+            from app.utils.metrics import metrics_collector
+            total_active = write_db.get('checked_out', 0) + sum(rd.get('checked_out', 0) for rd in stats.get('read_dbs', []))
+            total_idle = write_db.get('checked_in', 0) + sum(rd.get('checked_in', 0) for rd in stats.get('read_dbs', []))
+            metrics_collector.set_database_connections(total_active, total_idle)
+            
+        except Exception as e:
+            logger.error("Connection monitoring failed", error=str(e))
+    
     async def health_check(self) -> dict:
-        """Check database health"""
+        """Check database health with detailed diagnostics"""
         health_status = {
             'write_db': False,
             'read_dbs': [],
-            'overall': False
+            'overall': False,
+            'connection_stats': {},
+            'response_times': {}
         }
         
         # Check write database
         try:
+            start_time = time.time()
             with self.get_write_session() as db:
                 db.execute(text("SELECT 1"))
+                response_time = (time.time() - start_time) * 1000
                 health_status['write_db'] = True
+                health_status['response_times']['write_db'] = response_time
         except Exception as e:
             logger.error("Write database health check failed", error=str(e))
+            health_status['write_db'] = False
         
         # Check read databases
         for i, engine in enumerate(self.read_engines):
             try:
+                start_time = time.time()
                 with sessionmaker(bind=engine)() as db:
                     db.execute(text("SELECT 1"))
+                    response_time = (time.time() - start_time) * 1000
                     health_status['read_dbs'].append(True)
+                    health_status['response_times'][f'read_db_{i}'] = response_time
             except Exception as e:
                 logger.error(f"Read database {i} health check failed", error=str(e))
                 health_status['read_dbs'].append(False)
         
+        # Get connection statistics
+        health_status['connection_stats'] = self.get_connection_stats()
+        
+        # Determine overall health
         health_status['overall'] = health_status['write_db'] and any(health_status['read_dbs'])
+        
+        # Update last health check time
+        self._connection_stats['last_health_check'] = time.time()
+        
         return health_status
 
 db_manager = DatabaseManager()

@@ -96,8 +96,14 @@ export function Overview() {
       
     } catch (e: any) {
       console.error('Failed to fetch overview data:', e);
-      setError(e.response?.data?.detail || 'Failed to load dashboard data');
-      toast.error('Failed to load dashboard data');
+      const errorMessage = e.response?.data?.detail || e.response?.data?.message || e.message || 'Failed to load dashboard data';
+      setError(errorMessage);
+      
+      if (isRefresh) {
+        toast.error(`Refresh failed: ${errorMessage}`);
+      } else {
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -197,9 +203,17 @@ export function Overview() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => fetchData()}
+                disabled={loading || refreshing}
                 className="ml-auto"
               >
-                Retry
+                {loading || refreshing ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  'Retry'
+                )}
               </Button>
             </div>
           </CardContent>

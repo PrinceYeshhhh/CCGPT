@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { api } from '@/lib/api';
 import { WidgetPreview } from '@/components/common/WidgetPreview';
 import { ApiEmbedCode, ApiWorkspaceSettings } from '@/types';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
 
 export function Embed() {
   const [copied, setCopied] = useState(false);
@@ -38,7 +39,7 @@ export function Embed() {
 
   const [codes, setCodes] = useState<ApiEmbedCode[]>([]);
   const [loading, setLoading] = useState(false);
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const { workspaceId } = useWorkspace();
   const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [previewCss, setPreviewCss] = useState<string | null>(null);
   const [previewJs, setPreviewJs] = useState<string | null>(null);
@@ -58,12 +59,6 @@ export function Embed() {
   };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const ws = await api.get('/workspace/settings');
-        if (ws?.data?.id) setWorkspaceId(ws.data.id);
-      } catch (e) {}
-    })();
     fetchCodes();
   }, []);
 

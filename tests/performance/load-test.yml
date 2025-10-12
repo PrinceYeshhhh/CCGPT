@@ -1,0 +1,100 @@
+# Artillery Load Test Configuration
+# Simulates normal expected load on the application
+
+config:
+  target: 'http://localhost:8000'
+  phases:
+    - duration: 60
+      arrivalRate: 10
+      name: "Warm up"
+    - duration: 300
+      arrivalRate: 20
+      name: "Sustained load"
+    - duration: 60
+      arrivalRate: 10
+      name: "Cool down"
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  plugins:
+    metrics-by-endpoint: {}
+    expect: {}
+
+scenarios:
+  - name: "Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/health"
+          expect:
+            - statusCode: 200
+
+  - name: "API Health Check"
+    weight: 10
+    flow:
+      - get:
+          url: "/ready"
+          expect:
+            - statusCode: 200
+
+  - name: "User Registration"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/v1/auth/register"
+          json:
+            email: "test{{ $randomString() }}@example.com"
+            password: "TestPassword123!"
+            full_name: "Test User {{ $randomString() }}"
+            mobile_phone: "+123456789{{ $randomInt(1000, 9999) }}"
+          expect:
+            - statusCode: 201
+
+  - name: "User Login"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/v1/auth/login"
+          json:
+            identifier: "test@example.com"
+            password: "TestPassword123!"
+          expect:
+            - statusCode: 200
+          capture:
+            - json: "$.access_token"
+              as: "accessToken"
+
+  - name: "Document Upload"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/v1/documents/upload"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          formData:
+            file: "@tests/fixtures/sample.pdf"
+          expect:
+            - statusCode: 200
+
+  - name: "Chat Message"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/v1/chat/message"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          json:
+            message: "What is this document about?"
+            session_id: "test-session-{{ $randomString() }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Analytics Overview"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/v1/analytics/overview"
+          headers:
+            Authorization: "Bearer {{ accessToken }}"
+          expect:
+            - statusCode: 200

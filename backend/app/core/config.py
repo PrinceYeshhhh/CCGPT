@@ -25,10 +25,10 @@ class Settings(BaseSettings):
     """Application settings"""
     
     # Database
-    DATABASE_URL: str = "sqlite:///./dev.db"
+    DATABASE_URL: str = ""  # Must be set via environment variable
     POSTGRES_DB: str = "customercaregpt"
     POSTGRES_USER: str = "customercaregpt"
-    POSTGRES_PASSWORD: str = "secure-password"
+    POSTGRES_PASSWORD: str = ""  # Must be set via environment variable
     
     # Database Pool Configuration
     DB_POOL_SIZE: int = 50
@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     READ_REPLICA_URLS: List[str] = []
     
     # Redis Configuration
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: str = ""  # Must be set via environment variable
     REDIS_PASSWORD: str = ""
     REDIS_MAX_CONNECTIONS: int = 100
     REDIS_RETRY_ON_TIMEOUT: bool = True
@@ -53,8 +53,8 @@ class Settings(BaseSettings):
     LOW_PRIORITY_QUEUE: str = "low_priority"
     
     # JWT Security Configuration
-    SECRET_KEY: str = "your-secret-key-here-change-in-production"
-    JWT_SECRET: str = "your-jwt-secret-key-here-change-in-production"
+    SECRET_KEY: str = ""  # Must be set via environment variable
+    JWT_SECRET: str = ""  # Must be set via environment variable
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Reduced for security
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -81,15 +81,15 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     
     # ChromaDB Configuration
-    CHROMA_URL: str = "http://localhost:8001"
+    CHROMA_URL: str = ""  # Must be set via environment variable
     CHROMA_PERSIST_DIRECTORY: str = "/chroma/chroma"
     CHROMA_AUTH_CREDENTIALS: str = ""
     
     # Stripe Configuration
     STRIPE_API_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
-    STRIPE_SUCCESS_URL: str = "http://localhost:3000/billing/success"
-    STRIPE_CANCEL_URL: str = "http://localhost:3000/billing/cancel"
+    STRIPE_SUCCESS_URL: str = ""  # Must be set via environment variable
+    STRIPE_CANCEL_URL: str = ""  # Must be set via environment variable
     BILLING_DEFAULT_TIER: str = "starter"
     
     # Stripe Price IDs
@@ -102,7 +102,7 @@ class Settings(BaseSettings):
     FROM_EMAIL: str = "noreply@customercaregpt.com"
     SES_FROM_EMAIL: str = ""  # Legacy; fallback to FROM_EMAIL
     SENDGRID_API_KEY: str = ""
-    PUBLIC_BASE_URL: str = "http://localhost:8000"
+    PUBLIC_BASE_URL: str = ""  # Must be set via environment variable
     
     # Storage Configuration
     USE_S3: bool = False
@@ -116,10 +116,10 @@ class Settings(BaseSettings):
     STRIPE_WHITE_LABEL_PRICE_ID: str = ""
     
     # Application
-    DEBUG: bool = True
+    DEBUG: bool = False  # Default to False for security
     ENVIRONMENT: str = "development"
-    LOG_LEVEL: str = "DEBUG"
-    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173"]
+    LOG_LEVEL: str = "INFO"  # Default to INFO for production
+    CORS_ORIGINS: Union[List[str], str] = []  # Must be set via environment variable
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     CORS_ALLOW_HEADERS: List[str] = [
@@ -134,7 +134,7 @@ class Settings(BaseSettings):
         "Origin",
         "Referer"
     ]
-    ALLOWED_HOSTS: Union[List[str], str] = ["localhost", "127.0.0.1", "0.0.0.0", "testserver"]
+    ALLOWED_HOSTS: Union[List[str], str] = []  # Must be set via environment variable
     
     # Security Headers
     ENABLE_SECURITY_HEADERS: bool = True
@@ -145,6 +145,13 @@ class Settings(BaseSettings):
     SENTRY_DSN: str = ""
     PROMETHEUS_ENABLED: bool = True
     METRICS_ENABLED: bool = True
+    
+    # Backup Configuration
+    BACKUP_DIR: str = "/app/backups"
+    USE_S3_BACKUP: bool = False
+    S3_BACKUP_BUCKET: str = ""
+    BACKUP_RETENTION_DAYS: int = 30
+    BACKUP_SCHEDULER_ENABLED: bool = True
     HEALTH_CHECK_ENABLED: bool = True
     
     # Vector Cache Configuration
@@ -213,7 +220,7 @@ class Settings(BaseSettings):
     WEBSOCKET_MAX_RECONNECT_ATTEMPTS: int = 5
     
     # API Configuration
-    API_BASE_URL: str = "http://localhost:8000"
+    API_BASE_URL: str = ""  # Must be set via environment variable
     API_V1_PREFIX: str = "/api/v1"
     
     # Multi-language Support
@@ -248,6 +255,13 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
         extra = "ignore"
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Apply environment-aware defaults
+        self.apply_environment_defaults()
+        # Validate production secrets
+        self.validate_production_secrets()
 
     # Accept comma-separated strings or JSON arrays for list settings
     @field_validator("CORS_ORIGINS", "ALLOWED_HOSTS", mode="before")
@@ -266,6 +280,93 @@ class Settings(BaseSettings):
             # Fallback to comma-separated parsing
             return [item.strip() for item in v.split(",") if item.strip()]
         return value
+
+    def get_environment_aware_defaults(self) -> dict:
+        """Get environment-aware default values"""
+        is_production = self.ENVIRONMENT.lower() in ["production", "staging"]
+        
+        defaults = {}
+        
+        if not is_production:
+            # Development defaults
+            defaults.update({
+                "DATABASE_URL": "sqlite:///./dev.db",
+                "REDIS_URL": "redis://localhost:6379",
+                "CHROMA_URL": "http://localhost:8001",
+                "PUBLIC_BASE_URL": "http://localhost:8000",
+                "API_BASE_URL": "http://localhost:8000",
+                "STRIPE_SUCCESS_URL": "http://localhost:3000/billing/success",
+                "STRIPE_CANCEL_URL": "http://localhost:3000/billing/cancel",
+                "CORS_ORIGINS": ["http://localhost:3000", "http://localhost:3001"],
+                "ALLOWED_HOSTS": ["localhost", "127.0.0.1"],
+                "DEBUG": True,
+                "LOG_LEVEL": "DEBUG"
+            })
+        else:
+            # Production defaults
+            defaults.update({
+                "DEBUG": False,
+                "LOG_LEVEL": "INFO",
+                "ENABLE_SECURITY_HEADERS": True,
+                "ENABLE_RATE_LIMITING": True,
+                "ENABLE_INPUT_VALIDATION": True,
+                "ENABLE_REQUEST_LOGGING": True,
+                "PROMETHEUS_ENABLED": True,
+                "METRICS_ENABLED": True,
+                "HEALTH_CHECK_ENABLED": True
+            })
+        
+        return defaults
+    
+    def apply_environment_defaults(self) -> None:
+        """Apply environment-aware defaults to unset values"""
+        defaults = self.get_environment_aware_defaults()
+        
+        for key, value in defaults.items():
+            if hasattr(self, key) and not getattr(self, key):
+                setattr(self, key, value)
+    
+    def validate_production_secrets(self) -> None:
+        """Validate that critical secrets are set for production deployment"""
+        if self.ENVIRONMENT.lower() in ["production", "staging"]:
+            critical_secrets = [
+                ("SECRET_KEY", self.SECRET_KEY),
+                ("JWT_SECRET", self.JWT_SECRET),
+                ("DATABASE_URL", self.DATABASE_URL),
+                ("REDIS_URL", self.REDIS_URL),
+                ("GEMINI_API_KEY", self.GEMINI_API_KEY),
+                ("PUBLIC_BASE_URL", self.PUBLIC_BASE_URL),
+                ("API_BASE_URL", self.API_BASE_URL),
+            ]
+            
+            missing_secrets = []
+            for name, value in critical_secrets:
+                if not value or value in ["", "your-secret-key-here-change-in-production", "your-jwt-secret-key-here-change-in-production"]:
+                    missing_secrets.append(name)
+            
+            if missing_secrets:
+                raise ValueError(
+                    f"Critical secrets not set for {self.ENVIRONMENT} environment: {', '.join(missing_secrets)}. "
+                    "Please set these environment variables before starting the application."
+                )
+            
+            # Validate CORS origins are set for production
+            if not self.CORS_ORIGINS:
+                raise ValueError(
+                    f"CORS_ORIGINS must be set for {self.ENVIRONMENT} environment. "
+                    "This is required for security."
+                )
+            
+            # Validate allowed hosts are set for production
+            if not self.ALLOWED_HOSTS:
+                raise ValueError(
+                    f"ALLOWED_HOSTS must be set for {self.ENVIRONMENT} environment. "
+                    "This is required for security."
+                )
+
+    def __post_init__(self):
+        """Run validation after initialization"""
+        self.validate_production_secrets()
 
 # Global settings instance
 settings = Settings()

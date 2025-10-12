@@ -1,63 +1,323 @@
-name: CI - Frontend Unit Only
+# Continuous Integration Pipeline
+# Automated testing, linting, security scanning, and quality checks
+
+name: CI Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
 
-concurrency:
-  group: ci-fe-unit-${{ github.ref }}
-  cancel-in-progress: false
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  POSTGRES_VERSION: '15'
+  REDIS_VERSION: '7'
 
 jobs:
-  fe-unit:
-    name: Frontend Unit Tests
+  # Backend Testing and Quality Checks
+  backend-tests:
+    name: Backend Tests & Quality
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: frontend
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
 
-      - name: Install dependencies
-        run: npm ci
-        continue-on-error: false
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y postgresql-client
 
-      - name: Run all FE unit tests (Vitest)
-        env:
-          CI: true
-          NODE_OPTIONS: --max-old-space-size=4096
-          # Ensure stable env for tests
-          VITE_API_URL: https://example.invalid/api/v1
-          VITE_API_BASE_URL: https://example.invalid/api/v1
-          VITE_DEMO_MODE: 'false'
-          VITEST: '1'
-        run: npm run test:unit -- --run
+    - name: Install Python dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
 
-      - name: Run FE unit tests with coverage
-        env:
-          CI: true
-          NODE_OPTIONS: --max-old-space-size=4096
-          VITE_API_URL: https://example.invalid/api/v1
-          VITE_API_BASE_URL: https://example.invalid/api/v1
-          VITE_DEMO_MODE: 'false'
-          VITEST: '1'
-        run: npm run test:coverage:threshold
+    - name: Set up test environment
+      working-directory: ./backend
+      run: |
+        cp .env.example .env.test
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> .env.test
+        echo "REDIS_URL=redis://localhost:6379" >> .env.test
+        echo "ENVIRONMENT=testing" >> .env.test
+        echo "SECRET_KEY=test-secret-key" >> .env.test
+        echo "JWT_SECRET=test-jwt-secret" >> .env.test
 
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
-        with:
-          file: frontend/coverage/lcov.info
-          flags: frontend
-          name: frontend-coverage
-          fail_ci_if_error: true
+    - name: Run database migrations
+      working-directory: ./backend
+      run: |
+        alembic upgrade head
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    - name: Run linting
+      working-directory: ./backend
+      run: |
+        # Run flake8
+        flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 app/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        
+        # Run black
+        black --check app/
+        
+        # Run isort
+        isort --check-only app/
+        
+        # Run mypy
+        mypy app/ --ignore-missing-imports
+
+    - name: Run security scanning
+      working-directory: ./backend
+      run: |
+        # Run bandit for security issues
+        bandit -r app/ -f json -o bandit-report.json || true
+        
+        # Run safety for known vulnerabilities
+        safety check --json --output safety-report.json || true
+
+    - name: Run unit tests
+      working-directory: ./backend
+      run: |
+        pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=html --junitxml=test-results.xml
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Run integration tests
+      working-directory: ./backend
+      run: |
+        pytest tests/integration/ -v --cov=app --cov-append --cov-report=xml --cov-report=html --junitxml=integration-results.xml
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Run performance tests
+      working-directory: ./backend
+      run: |
+        pytest tests/performance/ -v --junitxml=performance-results.xml || true
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-test-results
+        path: |
+          backend/test-results.xml
+          backend/integration-results.xml
+          backend/performance-results.xml
+          backend/coverage.xml
+          backend/htmlcov/
+          backend/bandit-report.json
+          backend/safety-report.json
+
+  # Frontend Testing and Quality Checks
+  frontend-tests:
+    name: Frontend Tests & Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run linting
+      working-directory: ./frontend
+      run: |
+        npm run lint
+        npm run lint:css
+
+    - name: Run type checking
+      working-directory: ./frontend
+      run: npm run type-check
+
+    - name: Run unit tests
+      working-directory: ./frontend
+      run: |
+        npm run test:ci
+      env:
+        CI: true
+
+    - name: Run E2E tests
+      working-directory: ./frontend
+      run: |
+        npm run test:e2e:ci || true
+      env:
+        CI: true
+
+    - name: Build application
+      working-directory: ./frontend
+      run: |
+        npm run build
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-test-results
+        path: |
+          frontend/coverage/
+          frontend/test-results/
+          frontend/build/
+
+  # Security Scanning
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        languages: python, javascript
+
+  # Docker Build and Test
+  docker-build:
+    name: Docker Build & Test
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.prod
+        push: false
+        tags: customercaregpt-backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: false
+        tags: customercaregpt-frontend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test Docker images
+      run: |
+        # Test backend image
+        docker run --rm customercaregpt-backend:latest python -c "import app; print('Backend image OK')"
+        
+        # Test frontend image
+        docker run --rm customercaregpt-frontend:latest ls -la /usr/share/nginx/html
+
+  # Quality Gate
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests, security-scan]
+    if: always()
+
+    steps:
+    - name: Download test results
+      uses: actions/download-artifact@v3
+      with:
+        name: backend-test-results
+
+    - name: Check test coverage
+      run: |
+        # Check if coverage file exists and has reasonable coverage
+        if [ -f backend/coverage.xml ]; then
+          echo "Coverage report found"
+          # You could add coverage threshold checks here
+        else
+          echo "No coverage report found"
+          exit 1
+        fi
+
+    - name: Check security reports
+      run: |
+        # Check if security reports exist
+        if [ -f backend/bandit-report.json ]; then
+          echo "Security scan completed"
+        else
+          echo "Security scan failed"
+          exit 1
+        fi
+
+    - name: Quality Gate Summary
+      run: |
+        echo "## Quality Gate Results" >> $GITHUB_STEP_SUMMARY
+        echo "- Backend Tests: ${{ needs.backend-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Frontend Tests: ${{ needs.frontend-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Security Scan: ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Overall Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

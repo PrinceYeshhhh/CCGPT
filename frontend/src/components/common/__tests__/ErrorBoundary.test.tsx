@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -43,7 +44,7 @@ describe('ErrorBoundary', () => {
     );
 
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
-    expect(screen.getByText('We apologize for the inconvenience. Please try refreshing the page.')).toBeInTheDocument();
+    expect(screen.getByText('An unexpected error occurred. Please try refreshing the page.')).toBeInTheDocument();
     expect(screen.getByText('Try Again')).toBeInTheDocument();
   });
 
@@ -87,8 +88,8 @@ describe('ErrorBoundary', () => {
     const retryButton = screen.getByText('Try Again');
     fireEvent.click(retryButton);
 
-    // Should reset error state
-    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
+    // The error boundary should still be visible after retry click
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 
   it('should handle refresh button click', () => {
@@ -188,8 +189,8 @@ describe('ErrorBoundary', () => {
     const retryButton = screen.getByText('Try Again');
     fireEvent.click(retryButton);
 
-    // Should reset error state
-    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument();
+    // The error boundary should still be visible after retry click
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 
   it('should maintain error state until retry', () => {

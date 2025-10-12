@@ -1,0 +1,135 @@
+# Prometheus Configuration for CustomerCareGPT
+# Monitoring configuration for production deployment
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'customercaregpt'
+    environment: 'production'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+scrape_configs:
+  # =============================================================================
+  # Prometheus itself
+  # =============================================================================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # =============================================================================
+  # CustomerCareGPT Backend API
+  # =============================================================================
+  - job_name: 'customercaregpt-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    scrape_interval: 15s
+    metrics_path: /metrics
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+
+  # =============================================================================
+  # PostgreSQL Database
+  # =============================================================================
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Note: Requires postgres_exporter to be running
+
+  # =============================================================================
+  # Redis Cache
+  # =============================================================================
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Note: Requires redis_exporter to be running
+
+  # =============================================================================
+  # ChromaDB Vector Database
+  # =============================================================================
+  - job_name: 'chromadb'
+    static_configs:
+      - targets: ['chromadb:8001']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    # Note: Requires ChromaDB metrics endpoint
+
+  # =============================================================================
+  # Nginx Reverse Proxy
+  # =============================================================================
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: /nginx_status
+    # Note: Requires nginx-prometheus-exporter
+
+  # =============================================================================
+  # Node Exporter (System Metrics)
+  # =============================================================================
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Note: Requires node_exporter to be running
+
+  # =============================================================================
+  # Docker Container Metrics
+  # =============================================================================
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    # Note: Requires cAdvisor to be running
+
+# =============================================================================
+# Recording Rules
+# =============================================================================
+recording_rules:
+  - name: customercaregpt.rules
+    rules:
+      # API Request Rate
+      - record: customercaregpt:http_requests_per_second
+        expr: rate(http_requests_total[5m])
+      
+      # API Error Rate
+      - record: customercaregpt:http_errors_per_second
+        expr: rate(http_requests_total{status=~"5.."}[5m])
+      
+      # Database Connection Pool Usage
+      - record: customercaregpt:database_connections_usage_ratio
+        expr: database_connections_active / database_connections_max
+      
+      # Redis Memory Usage
+      - record: customercaregpt:redis_memory_usage_ratio
+        expr: redis_memory_used_bytes / redis_memory_max_bytes
+      
+      # Response Time Percentiles
+      - record: customercaregpt:http_request_duration_p50
+        expr: histogram_quantile(0.5, rate(http_request_duration_seconds_bucket[5m]))
+      
+      - record: customercaregpt:http_request_duration_p95
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+      
+      - record: customercaregpt:http_request_duration_p99
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))

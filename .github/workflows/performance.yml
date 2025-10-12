@@ -1,0 +1,365 @@
+# Performance Testing Pipeline
+# Load testing, stress testing, and performance monitoring
+
+name: Performance Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run performance tests daily at 5 AM UTC
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test to run'
+        required: true
+        default: 'load'
+        type: choice
+        options:
+        - load
+        - stress
+        - spike
+        - volume
+        - endurance
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Load Testing
+  load-test:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'load' || github.event.inputs.test_type == '' || github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install Artillery
+      run: npm install -g artillery
+
+    - name: Start test environment
+      run: |
+        # Start the application for testing
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 120  # Wait for application to start
+
+    - name: Run load tests
+      run: |
+        # Run load tests with Artillery
+        artillery run tests/performance/load-test.yml --output load-test-results.json
+        
+        # Generate HTML report
+        artillery run tests/performance/load-test.yml --output load-test-results.json
+        artillery report load-test-results.json --output load-test-report.html
+
+    - name: Run K6 load tests
+      run: |
+        # Install K6
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+        
+        # Run K6 tests
+        k6 run tests/performance/k6-load-test.js --out json=k6-results.json
+
+    - name: Stop test environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down
+
+    - name: Upload load test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: load-test-results
+        path: |
+          load-test-results.json
+          load-test-report.html
+          k6-results.json
+
+  # Stress Testing
+  stress-test:
+    name: Stress Testing
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'stress' || github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install Artillery
+      run: npm install -g artillery
+
+    - name: Start test environment
+      run: |
+        # Start the application for testing
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 120  # Wait for application to start
+
+    - name: Run stress tests
+      run: |
+        # Run stress tests with Artillery
+        artillery run tests/performance/stress-test.yml --output stress-test-results.json
+        
+        # Generate HTML report
+        artillery report stress-test-results.json --output stress-test-report.html
+
+    - name: Run K6 stress tests
+      run: |
+        # Install K6
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+        
+        # Run K6 stress tests
+        k6 run tests/performance/k6-stress-test.js --out json=k6-stress-results.json
+
+    - name: Stop test environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down
+
+    - name: Upload stress test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: stress-test-results
+        path: |
+          stress-test-results.json
+          stress-test-report.html
+          k6-stress-results.json
+
+  # Spike Testing
+  spike-test:
+    name: Spike Testing
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'spike' || github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install Artillery
+      run: npm install -g artillery
+
+    - name: Start test environment
+      run: |
+        # Start the application for testing
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 120  # Wait for application to start
+
+    - name: Run spike tests
+      run: |
+        # Run spike tests with Artillery
+        artillery run tests/performance/spike-test.yml --output spike-test-results.json
+        
+        # Generate HTML report
+        artillery report spike-test-results.json --output spike-test-report.html
+
+    - name: Stop test environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down
+
+    - name: Upload spike test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: spike-test-results
+        path: |
+          spike-test-results.json
+          spike-test-report.html
+
+  # Volume Testing
+  volume-test:
+    name: Volume Testing
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'volume' || github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install Artillery
+      run: npm install -g artillery
+
+    - name: Start test environment
+      run: |
+        # Start the application for testing
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 120  # Wait for application to start
+
+    - name: Run volume tests
+      run: |
+        # Run volume tests with Artillery
+        artillery run tests/performance/volume-test.yml --output volume-test-results.json
+        
+        # Generate HTML report
+        artillery report volume-test-results.json --output volume-test-report.html
+
+    - name: Stop test environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down
+
+    - name: Upload volume test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: volume-test-results
+        path: |
+          volume-test-results.json
+          volume-test-report.html
+
+  # Endurance Testing
+  endurance-test:
+    name: Endurance Testing
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'endurance' || github.event_name == 'schedule'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install Artillery
+      run: npm install -g artillery
+
+    - name: Start test environment
+      run: |
+        # Start the application for testing
+        docker-compose -f docker-compose.test.yml up -d
+        sleep 120  # Wait for application to start
+
+    - name: Run endurance tests
+      run: |
+        # Run endurance tests with Artillery
+        artillery run tests/performance/endurance-test.yml --output endurance-test-results.json
+        
+        # Generate HTML report
+        artillery report endurance-test-results.json --output endurance-test-report.html
+
+    - name: Stop test environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down
+
+    - name: Upload endurance test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: endurance-test-results
+        path: |
+          endurance-test-results.json
+          endurance-test-report.html
+
+  # Performance Monitoring
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+    needs: [load-test, stress-test, spike-test, volume-test, endurance-test]
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all performance results
+      uses: actions/download-artifact@v3
+
+    - name: Generate performance report
+      run: |
+        echo "## Performance Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Load test results
+        if [ -f load-test-results/load-test-results.json ]; then
+          echo "### Load Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.load-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Report: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Stress test results
+        if [ -f stress-test-results/stress-test-results.json ]; then
+          echo "### Stress Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.stress-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Report: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Spike test results
+        if [ -f spike-test-results/spike-test-results.json ]; then
+          echo "### Spike Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.spike-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Report: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Volume test results
+        if [ -f volume-test-results/volume-test-results.json ]; then
+          echo "### Volume Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.volume-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Report: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Endurance test results
+        if [ -f endurance-test-results/endurance-test-results.json ]; then
+          echo "### Endurance Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ${{ needs.endurance-test.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Report: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Performance Metrics" >> $GITHUB_STEP_SUMMARY
+        echo "- Response Time: < 2s (target)" >> $GITHUB_STEP_SUMMARY
+        echo "- Throughput: > 100 req/s (target)" >> $GITHUB_STEP_SUMMARY
+        echo "- Error Rate: < 1% (target)" >> $GITHUB_STEP_SUMMARY
+        echo "- Availability: > 99.9% (target)" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload performance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report
+        path: |
+          load-test-results/
+          stress-test-results/
+          spike-test-results/
+          volume-test-results/
+          endurance-test-results/

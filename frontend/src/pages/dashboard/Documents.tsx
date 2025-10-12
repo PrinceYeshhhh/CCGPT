@@ -16,12 +16,14 @@ import {
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Document, ApiDocument, ApiResponse } from '@/types';
+import { useWorkspace } from '@/contexts/WorkspaceContext';
+import toast from 'react-hot-toast';
 
 export function Documents() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [workspaceId, setWorkspaceId] = useState<string>('');
+  const { workspaceId } = useWorkspace();
   const [askText, setAskText] = useState<string>('');
   const [askLoading, setAskLoading] = useState<boolean>(false);
   const [askAnswer, setAskAnswer] = useState<string>('');
@@ -43,6 +45,7 @@ export function Documents() {
       setDocuments(mapped);
     } catch (e) {
       console.error('Failed to fetch documents', e);
+      toast.error('Failed to load documents. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -71,9 +74,11 @@ export function Documents() {
           if (newJobId) {
             setDocJobs(prev => ({ ...prev, [newId]: newJobId }));
             setJobStatuses(prev => ({ ...prev, [newJobId]: 'queued' }));
+            toast.success(`${file.name} uploaded successfully`);
           }
         } catch (e) {
           console.error('Upload failed', e);
+          toast.error(`Failed to upload ${file.name}. Please try again.`);
         }
       }
       // Give backend a moment to enqueue, then refresh list
@@ -128,16 +133,7 @@ export function Documents() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [docJobs, fetchDocuments]);
 
-  // Fetch current user for workspace_id
-  React.useEffect(() => {
-    (async () => {
-      try {
-        const res = await api.get('/auth/me');
-        const id = res.data?.id;
-        if (id) setWorkspaceId(String(id));
-      } catch {}
-    })();
-  }, []);
+  // Workspace ID is now provided by WorkspaceContext
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -159,10 +155,12 @@ export function Documents() {
         document_ids: Array.from(selectedIds),
         top_k: 6,
       };
-      const res = await api.post('/production_rag/query', body);
-      setAskAnswer(res.data?.answer ?? '');
+      const res = await api.post('/rag/query', body);
+      setAskAnswer(res.data?.answer ?? 'No answer available');
     } catch (e) {
-      setAskAnswer('Failed to get answer');
+      console.error('RAG query failed', e);
+      setAskAnswer('Failed to get answer. Please try again.');
+      toast.error('Failed to process your question. Please try again.');
     } finally {
       setAskLoading(false);
     }

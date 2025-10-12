@@ -1,6 +1,6 @@
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import { renderWithProviders as render } from '@/test/test-utils';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Billing } from '../Billing';
 import { api } from '@/lib/api';
 
@@ -129,6 +129,10 @@ describe('Billing', () => {
       }
       return Promise.resolve({ data: {} });
     });
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('should render loading state initially', () => {
@@ -531,7 +535,7 @@ describe('Billing', () => {
     render(<Billing />);
     
     await waitFor(() => {
-      expect(screen.getByText('No Payment Method')).toBeInTheDocument();
+      expect(screen.getAllByText('No Payment Method')).toHaveLength(1);
       expect(screen.getByText('Add a payment method to manage your subscription')).toBeInTheDocument();
     });
   });
@@ -560,7 +564,7 @@ describe('Billing', () => {
     render(<Billing />);
     
     await waitFor(() => {
-      expect(screen.getByText('No Invoices')).toBeInTheDocument();
+      expect(screen.getAllByText('No Invoices')).toHaveLength(1);
       expect(screen.getByText('Your billing history will appear here once you have active subscriptions')).toBeInTheDocument();
     });
   });

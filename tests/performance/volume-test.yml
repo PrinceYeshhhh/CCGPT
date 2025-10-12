@@ -1,0 +1,67 @@
+# Artillery Volume Test Configuration
+# Tests system behavior with large data volumes
+
+config:
+  target: 'http://localhost:8000'
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm up"
+    - duration: 300
+      arrivalRate: 30
+      name: "Sustained volume"
+    - duration: 180
+      arrivalRate: 50
+      name: "High volume"
+    - duration: 60
+      arrivalRate: 5
+      name: "Cool down"
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+  plugins:
+    metrics-by-endpoint: {}
+    expect: {}
+
+scenarios:
+  - name: "Volume Document Uploads"
+    weight: 40
+    flow:
+      - post:
+          url: "/api/v1/documents/upload"
+          formData:
+            file: "@tests/fixtures/large-document.pdf"
+          expect:
+            - statusCode: 200
+
+  - name: "Volume Chat Sessions"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/v1/chat/message"
+          json:
+            message: "Volume test message {{ $randomString() }}"
+            session_id: "volume-session-{{ $randomString() }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Volume User Operations"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/v1/auth/register"
+          json:
+            email: "volume{{ $randomString() }}@example.com"
+            password: "VolumePassword123!"
+            full_name: "Volume User {{ $randomString() }}"
+            mobile_phone: "+123456789{{ $randomInt(1000, 9999) }}"
+          expect:
+            - statusCode: 201
+
+  - name: "Volume Analytics Queries"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/v1/analytics/overview"
+          expect:
+            - statusCode: 200

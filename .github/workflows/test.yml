@@ -1,0 +1,419 @@
+# Comprehensive Testing Pipeline
+# Unit, integration, performance, and security testing
+
+name: Test Pipeline
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run full test suite daily at 3 AM UTC
+    - cron: '0 3 * * *'
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  POSTGRES_VERSION: '15'
+  REDIS_VERSION: '7'
+
+jobs:
+  # Backend Unit Tests
+  backend-unit-tests:
+    name: Backend Unit Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    strategy:
+      matrix:
+        test-suite: [auth, documents, chat, analytics, billing, performance, security]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Set up test environment
+      working-directory: ./backend
+      run: |
+        cp .env.example .env.test
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> .env.test
+        echo "REDIS_URL=redis://localhost:6379" >> .env.test
+        echo "ENVIRONMENT=testing" >> .env.test
+        echo "SECRET_KEY=test-secret-key" >> .env.test
+        echo "JWT_SECRET=test-jwt-secret" >> .env.test
+
+    - name: Run database migrations
+      working-directory: ./backend
+      run: |
+        alembic upgrade head
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    - name: Run unit tests for ${{ matrix.test-suite }}
+      working-directory: ./backend
+      run: |
+        pytest tests/unit/test_${{ matrix.test-suite }}*.py -v \
+          --cov=app \
+          --cov-report=xml \
+          --cov-report=html \
+          --junitxml=test-results-${{ matrix.test-suite }}.xml \
+          --maxfail=5
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-unit-tests-${{ matrix.test-suite }}
+        path: |
+          backend/test-results-${{ matrix.test-suite }}.xml
+          backend/coverage.xml
+          backend/htmlcov/
+
+  # Backend Integration Tests
+  backend-integration-tests:
+    name: Backend Integration Tests
+    runs-on: ubuntu-latest
+    needs: backend-unit-tests
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Set up test environment
+      working-directory: ./backend
+      run: |
+        cp .env.example .env.test
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> .env.test
+        echo "REDIS_URL=redis://localhost:6379" >> .env.test
+        echo "ENVIRONMENT=testing" >> .env.test
+        echo "SECRET_KEY=test-secret-key" >> .env.test
+        echo "JWT_SECRET=test-jwt-secret" >> .env.test
+
+    - name: Run database migrations
+      working-directory: ./backend
+      run: |
+        alembic upgrade head
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+
+    - name: Run integration tests
+      working-directory: ./backend
+      run: |
+        pytest tests/integration/ -v \
+          --cov=app \
+          --cov-report=xml \
+          --cov-report=html \
+          --junitxml=integration-results.xml \
+          --maxfail=3
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: backend-integration-tests
+        path: |
+          backend/integration-results.xml
+          backend/coverage.xml
+          backend/htmlcov/
+
+  # Frontend Tests
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        test-type: [unit, integration, e2e]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run ${{ matrix.test-type }} tests
+      working-directory: ./frontend
+      run: |
+        case "${{ matrix.test-type }}" in
+          "unit")
+            npm run test:ci
+            ;;
+          "integration")
+            npm run test:integration:ci
+            ;;
+          "e2e")
+            npm run test:e2e:ci
+            ;;
+        esac
+      env:
+        CI: true
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: frontend-${{ matrix.test-type }}-tests
+        path: |
+          frontend/coverage/
+          frontend/test-results/
+
+  # Performance Tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, frontend-tests]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Set up test environment
+      working-directory: ./backend
+      run: |
+        cp .env.example .env.test
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> .env.test
+        echo "REDIS_URL=redis://localhost:6379" >> .env.test
+        echo "ENVIRONMENT=testing" >> .env.test
+        echo "SECRET_KEY=test-secret-key" >> .env.test
+        echo "JWT_SECRET=test-jwt-secret" >> .env.test
+
+    - name: Run performance tests
+      working-directory: ./backend
+      run: |
+        pytest tests/performance/ -v \
+          --junitxml=performance-results.xml \
+          --maxfail=1
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379
+
+    - name: Run load tests
+      run: |
+        # Install artillery for load testing
+        npm install -g artillery
+        
+        # Run load tests
+        artillery run tests/performance/load-test.yml
+
+    - name: Upload performance test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: performance-tests
+        path: |
+          backend/performance-results.xml
+          artillery-report.json
+
+  # Security Tests
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run security tests
+      working-directory: ./backend
+      run: |
+        # Run bandit security linter
+        bandit -r app/ -f json -o bandit-report.json || true
+        
+        # Run safety check for known vulnerabilities
+        safety check --json --output safety-report.json || true
+        
+        # Run semgrep security analysis
+        semgrep --config=auto app/ --json --output=semgrep-report.json || true
+
+    - name: Run OWASP ZAP security scan
+      uses: zaproxy/action-full-scan@v0.4.0
+      with:
+        target: 'http://localhost:8000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Upload security test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-tests
+        path: |
+          backend/bandit-report.json
+          backend/safety-report.json
+          backend/semgrep-report.json
+          zap-results.json
+
+  # Test Coverage Report
+  coverage-report:
+    name: Test Coverage Report
+    runs-on: ubuntu-latest
+    needs: [backend-unit-tests, backend-integration-tests, frontend-tests]
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all test results
+      uses: actions/download-artifact@v3
+
+    - name: Generate coverage report
+      run: |
+        # Combine coverage reports
+        echo "## Test Coverage Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Backend coverage
+        if [ -f backend-unit-tests-auth/coverage.xml ]; then
+          echo "### Backend Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ✅" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ -f backend-integration-tests/coverage.xml ]; then
+          echo "- Integration Tests: ✅" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Frontend coverage
+        if [ -d frontend-unit-tests/coverage ]; then
+          echo "### Frontend Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit Tests: ✅" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Overall Test Status" >> $GITHUB_STEP_SUMMARY
+        echo "- Backend Unit Tests: ${{ needs.backend-unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Backend Integration Tests: ${{ needs.backend-integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Frontend Tests: ${{ needs.frontend-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Performance Tests: ${{ needs.performance-tests.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Security Tests: ${{ needs.security-tests.result }}" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+
+    - name: Upload frontend coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage

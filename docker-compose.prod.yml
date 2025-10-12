@@ -1,80 +1,190 @@
+# Production Docker Compose Configuration for CustomerCareGPT
+# This configuration is optimized for production deployment
+
 version: '3.8'
 
 services:
+  # =============================================================================
   # PostgreSQL Database
+  # =============================================================================
   postgres:
     image: postgres:15-alpine
+    container_name: customercaregpt-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB:-customercaregpt}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./docker/postgres/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-customercaregpt}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - customercaregpt-network
 
+  # =============================================================================
   # Redis Cache
+  # =============================================================================
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    container_name: customercaregpt-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    networks:
+      - customercaregpt-network
 
+  # =============================================================================
   # ChromaDB Vector Database
+  # =============================================================================
   chromadb:
     image: chromadb/chroma:latest
+    container_name: customercaregpt-chromadb
+    restart: unless-stopped
     environment:
       CHROMA_SERVER_HOST: 0.0.0.0
       CHROMA_SERVER_HTTP_PORT: 8001
-      CHROMA_SERVER_AUTH_CREDENTIALS: ${CHROMA_AUTH_CREDENTIALS}
+      CHROMA_SERVER_AUTH_CREDENTIALS: ${CHROMA_AUTH_CREDENTIALS:-}
+      CHROMA_SERVER_AUTH_PROVIDER: ${CHROMA_AUTH_PROVIDER:-}
     volumes:
       - chroma_data:/chroma/chroma
     ports:
       - "8001:8001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/api/v1/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - customercaregpt-network
 
+  # =============================================================================
   # Backend API
+  # =============================================================================
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
       target: production
+    container_name: customercaregpt-backend
+    restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-customercaregpt}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      
+      # ChromaDB
       CHROMA_URL: http://chromadb:8001
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CHROMA_AUTH_CREDENTIALS: ${CHROMA_AUTH_CREDENTIALS:-}
+      
+      # Security
       SECRET_KEY: ${SECRET_KEY}
-      DEBUG: "false"
-      LOG_LEVEL: INFO
-      # Stripe configuration
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      
+      # External APIs
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
       STRIPE_API_KEY: ${STRIPE_API_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      # Rate limiting
-      RATE_LIMIT_WORKSPACE_PER_MIN: ${RATE_LIMIT_WORKSPACE_PER_MIN:-60}
-      RATE_LIMIT_EMBED_PER_MIN: ${RATE_LIMIT_EMBED_PER_MIN:-600}
-      # Database pool
-      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
-      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
+      
+      # Email
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-ses}
+      FROM_EMAIL: ${FROM_EMAIL}
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      
+      # Storage
+      USE_S3: ${USE_S3:-false}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
+      
+      # Application
+      ENVIRONMENT: production
+      DEBUG: false
+      LOG_LEVEL: INFO
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      API_BASE_URL: ${API_BASE_URL}
+      
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      
+      # Monitoring
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      PROMETHEUS_ENABLED: true
+      METRICS_ENABLED: true
+      
+      # Security Features
+      ENABLE_SECURITY_HEADERS: true
+      ENABLE_RATE_LIMITING: true
+      ENABLE_INPUT_VALIDATION: true
+      ENABLE_REQUEST_LOGGING: true
+      ENABLE_CORS: true
+      
+      # Performance
+      DB_POOL_SIZE: 50
+      DB_MAX_OVERFLOW: 30
+      REDIS_MAX_CONNECTIONS: 100
+      
+      # Gunicorn
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      GUNICORN_WORKER_CLASS: uvicorn.workers.UvicornWorker
+      GUNICORN_MAX_REQUESTS: 1000
+      GUNICORN_MAX_REQUESTS_JITTER: 100
+    volumes:
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+      - backend_chroma:/app/chroma_data
     ports:
       - "8000:8000"
     depends_on:
@@ -89,49 +199,51 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    restart: unless-stopped
+      start_period: 60s
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '0.5'
+          memory: 4G
+          cpus: '2.0'
         reservations:
-          memory: 512M
-          cpus: '0.25'
+          memory: 2G
+          cpus: '1.0'
+    networks:
+      - customercaregpt-network
 
-  # Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: production
-    ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - backend
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
-
-  # Worker (for background jobs)
+  # =============================================================================
+  # Background Worker
+  # =============================================================================
   worker:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
       target: production
-    command: python -m rq worker --url redis://:${REDIS_PASSWORD}@redis:6379
+    container_name: customercaregpt-worker
+    restart: unless-stopped
+    command: python -m rq worker --url redis://redis:6379 ingest
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      # Same environment as backend
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-customercaregpt}
+      REDIS_URL: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
       CHROMA_URL: http://chromadb:8001
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      CHROMA_AUTH_CREDENTIALS: ${CHROMA_AUTH_CREDENTIALS:-}
       SECRET_KEY: ${SECRET_KEY}
-      DEBUG: "false"
+      JWT_SECRET: ${JWT_SECRET}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ENVIRONMENT: production
+      DEBUG: false
       LOG_LEVEL: INFO
+      USE_S3: ${USE_S3:-false}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-}
+    volumes:
+      - backend_logs:/app/logs
+      - backend_uploads:/app/uploads
+      - backend_chroma:/app/chroma_data
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,32 +251,151 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_healthy
-    restart: unless-stopped
     deploy:
-      replicas: 2
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - customercaregpt-network
+
+  # =============================================================================
+  # Frontend
+  # =============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      target: production
+    container_name: customercaregpt-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
       resources:
         limits:
           memory: 512M
-          cpus: '0.25'
+          cpus: '0.5'
         reservations:
           memory: 256M
-          cpus: '0.1'
+          cpus: '0.25'
+    networks:
+      - customercaregpt-network
 
-  # Nginx Load Balancer
+  # =============================================================================
+  # Nginx Reverse Proxy (Optional)
+  # =============================================================================
   nginx:
     image: nginx:alpine
-    volumes:
-      - ./infra/nginx.prod.conf:/etc/nginx/nginx.conf
-      - ./infra/ssl:/etc/nginx/ssl
+    container_name: customercaregpt-nginx
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+      - nginx_logs:/var/log/nginx
     depends_on:
-      - frontend
       - backend
-    restart: unless-stopped
+      - frontend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    networks:
+      - customercaregpt-network
 
+  # =============================================================================
+  # Prometheus Monitoring (Optional)
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: customercaregpt-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - customercaregpt-network
+
+  # =============================================================================
+  # Grafana Dashboard (Optional)
+  # =============================================================================
+  grafana:
+    image: grafana/grafana:latest
+    container_name: customercaregpt-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - customercaregpt-network
+
+# =============================================================================
+# Volumes
+# =============================================================================
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
   chroma_data:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_uploads:
+    driver: local
+  backend_chroma:
+    driver: local
+  nginx_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  customercaregpt-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

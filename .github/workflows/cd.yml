@@ -1,0 +1,325 @@
+# Continuous Deployment Pipeline
+# Automated deployment to staging and production environments
+
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      skip_tests:
+        description: 'Skip tests (use with caution)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment: staging
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.prod
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:staging
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:staging
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Deploy to Google Cloud Run (Staging)
+      uses: google-github-actions/deploy-cloudrun@v1
+      with:
+        service: customercaregpt-backend-staging
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:staging
+        region: us-central1
+        platform: managed
+        flags: |
+          --set-env-vars=ENVIRONMENT=staging
+          --set-env-vars=DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
+          --set-env-vars=REDIS_URL=${{ secrets.STAGING_REDIS_URL }}
+          --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          --set-env-vars=SECRET_KEY=${{ secrets.STAGING_SECRET_KEY }}
+          --set-env-vars=JWT_SECRET=${{ secrets.STAGING_JWT_SECRET }}
+          --set-env-vars=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+          --set-env-vars=PUBLIC_BASE_URL=${{ secrets.STAGING_PUBLIC_BASE_URL }}
+          --set-env-vars=API_BASE_URL=${{ secrets.STAGING_API_BASE_URL }}
+          --memory=2Gi
+          --cpu=2
+          --max-instances=10
+          --min-instances=1
+          --port=8000
+          --allow-unauthenticated
+
+    - name: Deploy Frontend to Vercel (Staging)
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        working-directory: ./frontend
+        vercel-args: '--prod --env NEXT_PUBLIC_API_URL=${{ secrets.STAGING_API_BASE_URL }}'
+
+    - name: Run smoke tests
+      run: |
+        # Wait for deployment to be ready
+        sleep 60
+        
+        # Run smoke tests against staging
+        curl -f ${{ secrets.STAGING_API_BASE_URL }}/health || exit 1
+        curl -f ${{ secrets.STAGING_API_BASE_URL }}/ready || exit 1
+        
+        echo "Staging deployment successful"
+
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment: production
+    needs: [deploy-staging]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=tag
+          type=sha,prefix=prod-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.prod
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:production
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:latest
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:production
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:latest
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Create database backup before deployment
+      run: |
+        # Create backup using our backup service
+        curl -X POST "${{ secrets.PRODUCTION_API_BASE_URL }}/api/v1/backup/create" \
+          -H "Authorization: Bearer ${{ secrets.ADMIN_API_TOKEN }}" \
+          -H "Content-Type: application/json" \
+          -d '{"backup_type": "full", "description": "Pre-deployment backup"}'
+
+    - name: Deploy to Google Cloud Run (Production)
+      uses: google-github-actions/deploy-cloudrun@v1
+      with:
+        service: customercaregpt-backend-production
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:production
+        region: us-central1
+        platform: managed
+        flags: |
+          --set-env-vars=ENVIRONMENT=production
+          --set-env-vars=DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}
+          --set-env-vars=REDIS_URL=${{ secrets.PRODUCTION_REDIS_URL }}
+          --set-env-vars=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          --set-env-vars=SECRET_KEY=${{ secrets.PRODUCTION_SECRET_KEY }}
+          --set-env-vars=JWT_SECRET=${{ secrets.PRODUCTION_JWT_SECRET }}
+          --set-env-vars=SENTRY_DSN=${{ secrets.SENTRY_DSN }}
+          --set-env-vars=PUBLIC_BASE_URL=${{ secrets.PRODUCTION_PUBLIC_BASE_URL }}
+          --set-env-vars=API_BASE_URL=${{ secrets.PRODUCTION_API_BASE_URL }}
+          --memory=4Gi
+          --cpu=4
+          --max-instances=50
+          --min-instances=2
+          --port=8000
+          --allow-unauthenticated
+
+    - name: Deploy Frontend to Vercel (Production)
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        working-directory: ./frontend
+        vercel-args: '--prod --env NEXT_PUBLIC_API_URL=${{ secrets.PRODUCTION_API_BASE_URL }}'
+
+    - name: Run production smoke tests
+      run: |
+        # Wait for deployment to be ready
+        sleep 120
+        
+        # Run comprehensive smoke tests
+        curl -f ${{ secrets.PRODUCTION_API_BASE_URL }}/health || exit 1
+        curl -f ${{ secrets.PRODUCTION_API_BASE_URL }}/ready || exit 1
+        curl -f ${{ secrets.PRODUCTION_API_BASE_URL }}/health/detailed || exit 1
+        
+        # Test critical endpoints
+        curl -f ${{ secrets.PRODUCTION_API_BASE_URL }}/api/v1/auth/register -X POST \
+          -H "Content-Type: application/json" \
+          -d '{"email":"test@example.com","password":"TestPassword123!","full_name":"Test User"}' || exit 1
+        
+        echo "Production deployment successful"
+
+    - name: Run performance tests
+      run: |
+        # Run load tests against production
+        npm install -g artillery
+        artillery run tests/performance/load-test.yml --target ${{ secrets.PRODUCTION_API_BASE_URL }}
+
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        body: |
+          ## Changes in this Release
+          
+          - Automated deployment to production
+          - Performance optimizations
+          - Security updates
+          - Bug fixes
+          
+          ## Deployment Details
+          - Backend: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:production
+          - Frontend: Deployed to Vercel
+          - Environment: Production
+        draft: false
+        prerelease: false
+
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+
+  # Rollback job (manual trigger)
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'rollback'
+    environment: production
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Rollback to previous version
+      run: |
+        # Get previous deployment
+        gcloud run services list --platform=managed --region=us-central1 --format="value(metadata.name,status.traffic[0].percent,status.traffic[1].percent)"
+        
+        # Rollback to previous version
+        gcloud run services update-traffic customercaregpt-backend-production \
+          --to-revisions=LATEST=0,previous-revision=100 \
+          --region=us-central1
+
+    - name: Verify rollback
+      run: |
+        sleep 30
+        curl -f ${{ secrets.PRODUCTION_API_BASE_URL }}/health || exit 1
+        echo "Rollback successful"
+
+    - name: Notify rollback
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow

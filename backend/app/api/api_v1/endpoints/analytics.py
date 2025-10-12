@@ -15,6 +15,7 @@ from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
 from app.models.document import Document
 from app.services.analytics_service import AnalyticsService
+from app.schemas.common import BaseResponse
 
 logger = structlog.get_logger()
 router = APIRouter()
@@ -444,4 +445,35 @@ async def export_analytics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to export analytics data"
+        )
+
+
+@router.post("/performance", response_model=BaseResponse)
+async def track_performance_event(
+    event_data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Track performance event"""
+    try:
+        from app.schemas.common import BaseResponse
+        
+        # Log performance event
+        logger.info(
+            "Performance event tracked",
+            user_id=current_user.id,
+            event_type=event_data.get('event_type'),
+            event_data=event_data
+        )
+        
+        return BaseResponse(
+            success=True,
+            message="Performance event tracked successfully"
+        )
+        
+    except Exception as e:
+        logger.error("Failed to track performance event", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to track performance event"
         )

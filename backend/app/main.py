@@ -22,28 +22,30 @@ from app.middleware.security import (
     SecurityExceptionHandler,
     CSRFProtectionMiddleware
 )
+from app.middleware.logging_middleware import (
+    RequestContextMiddleware,
+    PerformanceLoggingMiddleware,
+    SecurityLoggingMiddleware
+)
+from app.middleware.error_handler_middleware import (
+    GlobalErrorHandlerMiddleware,
+    ErrorRecoveryMiddleware,
+    ErrorMetricsMiddleware
+)
+from app.middleware.performance_middleware import (
+    PerformanceMonitoringMiddleware,
+    CacheOptimizationMiddleware,
+    DatabaseQueryOptimizationMiddleware,
+    MemoryOptimizationMiddleware
+)
 from app.middleware.security_headers import SecurityHeadersMiddleware as NewSecurityHeadersMiddleware, create_cors_middleware
 from app.utils.error_monitoring import error_monitor, create_error_response, log_api_call
 from app.utils.observability import init_observability
+from app.utils.backup_init import initialize_backup_system, shutdown_backup_system
 
 # Configure structured logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
-    ],
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
-    wrapper_class=structlog.stdlib.BoundLogger,
-    cache_logger_on_first_use=True,
-)
+from app.utils.logging_config import configure_logging
+configure_logging()
 
 logger = structlog.get_logger()
 
@@ -51,6 +53,23 @@ logger = structlog.get_logger()
 
 # Initialize observability (safe no-op if disabled)
 init_observability("customercaregpt-backend")
+
+# Background task for connection monitoring
+import asyncio
+from app.core.database import db_manager
+
+async def connection_monitor():
+    """Periodic connection monitoring and cleanup"""
+    while True:
+        try:
+            db_manager.monitor_connections()
+            await asyncio.sleep(300)  # Check every 5 minutes
+        except Exception as e:
+            logger.error("Connection monitoring task failed", error=str(e))
+            await asyncio.sleep(60)  # Wait 1 minute before retrying
+
+# Start connection monitoring task
+asyncio.create_task(connection_monitor())
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -74,6 +93,22 @@ if settings.ENABLE_CORS:
 # Security and request middlewares (order after CORS)
 if settings.ENABLE_SECURITY_HEADERS:
     app.add_middleware(NewSecurityHeadersMiddleware)
+
+# Add error handling middlewares (order matters - error handlers should be first)
+app.add_middleware(ErrorMetricsMiddleware)
+app.add_middleware(ErrorRecoveryMiddleware, max_failures=5, recovery_timeout=60)
+app.add_middleware(GlobalErrorHandlerMiddleware)
+
+# Add performance optimization middlewares
+app.add_middleware(MemoryOptimizationMiddleware)
+app.add_middleware(DatabaseQueryOptimizationMiddleware)
+app.add_middleware(CacheOptimizationMiddleware)
+app.add_middleware(PerformanceMonitoringMiddleware, slow_request_threshold=1.0)
+
+# Add logging middlewares
+app.add_middleware(RequestContextMiddleware)
+app.add_middleware(PerformanceLoggingMiddleware, slow_request_threshold_ms=1000.0)
+app.add_middleware(SecurityLoggingMiddleware)
 
 if settings.ENABLE_REQUEST_LOGGING:
     app.add_middleware(RequestLoggingMiddleware)
@@ -141,6 +176,49 @@ async def general_exception_handler(request: Request, exc: Exception):
         request=request
     )
 
+# Add custom error handlers
+from app.utils.error_handling import handle_exception, CustomError, ValidationError, AuthenticationError, AuthorizationError, NotFoundError, DatabaseError, ExternalAPIError, RateLimitError
+
+@app.exception_handler(CustomError)
+async def custom_error_handler(request: Request, exc: CustomError):
+    """Handle custom errors"""
+    return handle_exception(exc, request)
+
+@app.exception_handler(ValidationError)
+async def validation_error_handler(request: Request, exc: ValidationError):
+    """Handle validation errors"""
+    return handle_exception(exc, request)
+
+@app.exception_handler(AuthenticationError)
+async def authentication_error_handler(request: Request, exc: AuthenticationError):
+    """Handle authentication errors"""
+    return handle_exception(exc, request)
+
+@app.exception_handler(AuthorizationError)
+async def authorization_error_handler(request: Request, exc: AuthorizationError):
+    """Handle authorization errors"""
+    return handle_exception(exc, request)
+
+@app.exception_handler(NotFoundError)
+async def not_found_error_handler(request: Request, exc: NotFoundError):
+    """Handle not found errors"""
+    return handle_exception(exc, request)
+
+@app.exception_handler(DatabaseError)
+async def database_error_handler(request: Request, exc: DatabaseError):
+    """Handle database errors"""
+    return handle_exception(exc, request)
+
+@app.exception_handler(ExternalAPIError)
+async def external_api_error_handler(request: Request, exc: ExternalAPIError):
+    """Handle external API errors"""
+    return handle_exception(exc, request)
+
+@app.exception_handler(RateLimitError)
+async def rate_limit_error_handler(request: Request, exc: RateLimitError):
+    """Handle rate limit errors"""
+    return handle_exception(exc, request)
+
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -167,6 +245,18 @@ async def detailed_health_check():
     """Detailed health check with performance metrics"""
     from app.utils.health import get_detailed_health_status
     return await get_detailed_health_status()
+
+@app.get("/health/external")
+async def external_services_health_check():
+    """Check external services like Gemini API, Stripe, etc."""
+    from app.utils.health import get_external_services_status
+    return await get_external_services_status()
+
+@app.get("/health/startup")
+async def startup_health_check():
+    """Startup health check for application initialization"""
+    from app.utils.health import get_startup_checks
+    return await get_startup_checks()
 
 @app.get("/metrics")
 async def metrics():
@@ -195,6 +285,15 @@ async def startup_event():
         from app.core.queue import queue_manager
         from app.utils.circuit_breaker import circuit_breaker_manager
         
+        # Initialize backup system
+        await initialize_backup_system()
+        logger.info("Backup system initialization completed")
+
+        # Initialize performance service
+        from app.services.performance_service import performance_service
+        performance_service.start()
+        logger.info("Performance service initialization completed")
+        
         logger.info("System startup completed successfully")
         
     except Exception as e:
@@ -211,6 +310,15 @@ async def shutdown_event():
         # Stop background workers
         from app.worker.enhanced_worker import enhanced_worker
         enhanced_worker.stop()
+        
+        # Shutdown backup system
+        await shutdown_backup_system()
+        logger.info("Backup system shutdown completed")
+
+        # Shutdown performance service
+        from app.services.performance_service import performance_service
+        performance_service.stop()
+        logger.info("Performance service shutdown completed")
         
         logger.info("System shutdown completed")
         

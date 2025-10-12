@@ -1,0 +1,127 @@
+# Docker Compose for Testing Environment
+# Isolated test environment with all required services
+
+version: '3.8'
+
+services:
+  postgres-test:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: test_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-test:
+    image: redis:7
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chromadb-test:
+    image: chromadb/chroma:latest
+    ports:
+      - "8002:8000"
+    volumes:
+      - chromadb_test_data:/chroma/chroma
+    environment:
+      CHROMA_SERVER_HOST: 0.0.0.0
+      CHROMA_SERVER_HTTP_PORT: 8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres-test:5432/test_db
+      REDIS_URL: redis://redis-test:6379
+      CHROMA_URL: http://chromadb-test:8000
+      ENVIRONMENT: testing
+      SECRET_KEY: test-secret-key
+      JWT_SECRET: test-jwt-secret
+      GEMINI_API_KEY: test-gemini-key
+      PUBLIC_BASE_URL: http://localhost:8001
+      API_BASE_URL: http://localhost:8001
+      DEBUG: true
+      LOG_LEVEL: DEBUG
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      chromadb-test:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+
+  worker-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    command: python -m rq worker --url redis://redis-test:6379 ingest
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres-test:5432/test_db
+      REDIS_URL: redis://redis-test:6379
+      CHROMA_URL: http://chromadb-test:8000
+      ENVIRONMENT: testing
+      SECRET_KEY: test-secret-key
+      JWT_SECRET: test-jwt-secret
+      GEMINI_API_KEY: test-gemini-key
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      chromadb-test:
+        condition: service_healthy
+      backend-test:
+        condition: service_healthy
+
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8001
+      NODE_ENV: test
+    depends_on:
+      backend-test:
+        condition: service_healthy
+
+volumes:
+  postgres_test_data:
+  redis_test_data:
+  chromadb_test_data:
+
+networks:
+  default:
+    name: customercaregpt-test

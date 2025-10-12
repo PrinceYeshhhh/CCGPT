@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import ReactLazy, { Suspense, lazy } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { WorkspaceProvider } from '@/contexts/WorkspaceContext';
 import { initErrorMonitoring, ErrorBoundary, ErrorFallback } from '@/lib/error-monitoring';
 
 // Public pages
@@ -65,8 +66,9 @@ function App() {
   return (
     <ErrorBoundary fallback={ErrorFallback}>
       <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <WorkspaceProvider>
             <Router>
               <div className="App">
                 <ErrorBoundary>
@@ -144,8 +146,9 @@ function App() {
                 )}
               </div>
             </Router>
-          </AuthProvider>
-        </QueryClientProvider>
+          </WorkspaceProvider>
+        </AuthProvider>
+      </QueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

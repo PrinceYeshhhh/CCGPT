@@ -28,6 +28,7 @@ import {
   Cell
 } from 'recharts';
 import { api } from '@/lib/api';
+import toast from 'react-hot-toast';
 
 export function Analytics() {
   const [timeRange, setTimeRange] = useState('7d');
@@ -122,6 +123,7 @@ export function Analytics() {
 
       } catch (e) {
         console.error('Failed to load analytics data:', e);
+        toast.error('Failed to load analytics data. Please try again.');
         // Keep default values on error
       } finally {
         console.log('Analytics useEffect finishing, setting loading to false');
@@ -139,7 +141,10 @@ export function Analytics() {
       a.href = dataStr;
       a.download = 'analytics.json';
       a.click();
-    } catch (e) {}
+    } catch (e) {
+      console.error('Export failed:', e);
+      toast.error('Failed to export data. Please try again.');
+    }
   };
 
   return (

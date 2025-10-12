@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Bot, Mail, Lock, User, Phone } from 'lucide-react';
 import { api, setAuthToken } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import toast from 'react-hot-toast';
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(3, 'Username or email is required'),
@@ -34,18 +35,28 @@ export function Login() {
         return;
       }
       
-      const payload = data.usernameOrEmail.includes('@')
-        ? { email: data.usernameOrEmail, password: data.password }
-        : { email: data.usernameOrEmail, password: data.password };
-      const response = await api.post('/auth/login', payload);
+      // Create FormData to match OAuth2PasswordRequestForm
+      const formData = new FormData();
+      formData.append('username', data.usernameOrEmail);
+      formData.append('password', data.password);
+      
+      const response = await api.post('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      
       const token = response.data?.access_token || response.data?.accessToken || response.data?.token;
       if (token) {
         setAuthToken(token);
         setSession(token, { username: data.usernameOrEmail });
+        navigate('/dashboard');
+      } else {
+        toast.error('Login failed: No token received');
       }
-      navigate('/dashboard');
     } catch (error) {
       // Error handling is done by the API interceptor
+      console.error('Login error:', error);
     }
   };
 

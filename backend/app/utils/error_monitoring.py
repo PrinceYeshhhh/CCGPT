@@ -11,11 +11,47 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 import asyncio
 import aiohttp
+import os
+
+from app.core.config import settings
 
 logger = structlog.get_logger()
 
+# Initialize Sentry if configured
+try:
+    if settings.SENTRY_DSN:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        from sentry_sdk.integrations.redis import RedisIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
+        
+        sentry_sdk.init(
+            dsn=settings.SENTRY_DSN,
+            integrations=[
+                FastApiIntegration(auto_enabling_instrumentations=True),
+                SqlalchemyIntegration(),
+                RedisIntegration(),
+                StarletteIntegration(),
+            ],
+            traces_sample_rate=0.1,  # 10% of transactions
+            profiles_sample_rate=0.1,  # 10% of transactions
+            environment=settings.ENVIRONMENT,
+            release=f"customercaregpt@{settings.ENVIRONMENT}",
+            attach_stacktrace=True,
+            send_default_pii=False,  # Don't send personally identifiable information
+        )
+        SENTRY_AVAILABLE = True
+        logger.info("Sentry initialized successfully")
+    else:
+        SENTRY_AVAILABLE = False
+        logger.info("Sentry DSN not configured, skipping initialization")
+except Exception as e:
+    SENTRY_AVAILABLE = False
+    logger.warning(f"Failed to initialize Sentry: {e}")
+
 class ErrorMonitor:
-    """Centralized error monitoring and logging"""
+    """Centralized error monitoring and logging with Sentry integration"""
     
     def __init__(self):
         self.error_count = 0
@@ -27,7 +63,7 @@ class ErrorMonitor:
                   context: Optional[Dict[str, Any]] = None,
                   request: Optional[Request] = None,
                   user_id: Optional[str] = None):
-        """Log an error with full context"""
+        """Log an error with full context and send to Sentry"""
         
         self.error_count += 1
         error_type = type(error).__name__
@@ -60,6 +96,38 @@ class ErrorMonitor:
         if len(self.recent_errors) > 100:
             self.recent_errors.pop(0)
         
+        # Send to Sentry if available
+        if SENTRY_AVAILABLE:
+            try:
+                import sentry_sdk
+                
+                # Set user context
+                if user_id:
+                    sentry_sdk.set_user({"id": user_id})
+                
+                # Set additional context
+                if context:
+                    sentry_sdk.set_context("custom_context", context)
+                
+                # Set request context
+                if request:
+                    sentry_sdk.set_context("request", {
+                        "method": request.method,
+                        "url": str(request.url),
+                        "headers": dict(request.headers),
+                        "client_ip": request.client.host if request.client else None,
+                    })
+                
+                # Set tags
+                sentry_sdk.set_tag("error_type", error_type)
+                sentry_sdk.set_tag("environment", settings.ENVIRONMENT)
+                
+                # Capture the exception
+                sentry_sdk.capture_exception(error)
+                
+            except Exception as sentry_error:
+                logger.warning(f"Failed to send error to Sentry: {sentry_error}")
+        
         # Log with structured logging
         logger.error(
             "Error occurred",
@@ -69,7 +137,8 @@ class ErrorMonitor:
             context=context,
             user_id=user_id,
             request_method=request.method if request else None,
-            request_url=str(request.url) if request else None
+            request_url=str(request.url) if request else None,
+            sentry_available=SENTRY_AVAILABLE
         )
         
         return error_context

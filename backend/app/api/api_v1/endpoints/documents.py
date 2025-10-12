@@ -278,6 +278,78 @@ async def delete_document(
             detail="Failed to delete document"
         )
 
+
+@router.get("/jobs/{job_id}", response_model=JobStatusResponse)
+async def get_job_status(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get the status of a document processing job"""
+    try:
+        from app.core.queue import get_ingest_queue
+        
+        # Get the RQ job
+        queue = get_ingest_queue()
+        job = queue.fetch_job(job_id)
+        
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found"
+            )
+        
+        # Check if user has access to this job
+        # (In a real implementation, you'd verify the job belongs to the user)
+        
+        # Determine job status
+        if job.is_finished:
+            if job.result:
+                status = "completed"
+                result = job.result
+                error = None
+            else:
+                status = "failed"
+                result = None
+                error = str(job.exc_info) if job.exc_info else "Unknown error"
+        elif job.is_failed:
+            status = "failed"
+            result = None
+            error = str(job.exc_info) if job.exc_info else "Job failed"
+        elif job.is_started:
+            status = "processing"
+            result = None
+            error = None
+        else:
+            status = "queued"
+            result = None
+            error = None
+        
+        # Calculate progress (mock for now)
+        progress = 100 if status == "completed" else (50 if status == "processing" else 0)
+        
+        return JobStatusResponse(
+            job_id=job_id,
+            status=status,
+            result=result,
+            error=error,
+            progress=progress
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to get job status",
+            error=str(e),
+            user_id=current_user.id,
+            job_id=job_id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get job status"
+        )
+
 @router.post("/{document_id}/reprocess", response_model=JobStatusResponse)
 async def reprocess_document(
     document_id: str,
@@ -298,50 +370,3 @@ async def reprocess_document(
         logger.error("Failed to reprocess document", error=str(e), user_id=current_user.id, document_id=document_id)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to reprocess document")
 
-
-@router.get("/jobs/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(
-    job_id: str,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get job status"""
-    try:
-        queue = get_ingest_queue()
-        job = queue.fetch_job(job_id)
-        
-        if not job:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Job not found"
-            )
-        
-        # Try to extract progress/phase if job.result is partial
-        result = job.result if isinstance(job.result, dict) else None
-        progress = None
-        phase = None
-        if result:
-            progress = result.get('progress')
-            phase = result.get('phase')
-        return JobStatusResponse(
-            job_id=job_id,
-            status=job.get_status(),
-            result=result,
-            error=str(job.exc_info) if job.exc_info else None,
-            progress=progress,
-            phase=phase
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(
-            "Failed to get job status",
-            error=str(e),
-            user_id=current_user.id,
-            job_id=job_id
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve job status"
-        )

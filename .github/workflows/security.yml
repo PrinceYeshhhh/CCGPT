@@ -1,0 +1,353 @@
+# Security Scanning Pipeline
+# Comprehensive security analysis and vulnerability scanning
+
+name: Security Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 4 AM UTC
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+
+jobs:
+  # Dependency Vulnerability Scanning
+  dependency-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install Python dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Install Node.js dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run Python dependency scan
+      working-directory: ./backend
+      run: |
+        # Run safety check
+        safety check --json --output safety-report.json || true
+        
+        # Run pip-audit
+        pip-audit --format=json --output=pip-audit-report.json || true
+
+    - name: Run Node.js dependency scan
+      working-directory: ./frontend
+      run: |
+        # Run npm audit
+        npm audit --json > npm-audit-report.json || true
+        
+        # Run snyk test
+        npx snyk test --json > snyk-report.json || true
+
+    - name: Upload dependency scan results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dependency-scan-results
+        path: |
+          backend/safety-report.json
+          backend/pip-audit-report.json
+          frontend/npm-audit-report.json
+          frontend/snyk-report.json
+
+  # Code Security Analysis
+  code-security-scan:
+    name: Code Security Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install bandit semgrep
+
+    - name: Run Bandit security linter
+      working-directory: ./backend
+      run: |
+        bandit -r app/ -f json -o bandit-report.json || true
+        bandit -r app/ -f txt -o bandit-report.txt || true
+
+    - name: Run Semgrep security analysis
+      working-directory: ./backend
+      run: |
+        semgrep --config=auto app/ --json --output=semgrep-report.json || true
+        semgrep --config=auto app/ --text --output=semgrep-report.txt || true
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        languages: python, javascript
+
+    - name: Upload code security results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: code-security-results
+        path: |
+          backend/bandit-report.json
+          backend/bandit-report.txt
+          backend/semgrep-report.json
+          backend/semgrep-report.txt
+
+  # Container Security Scanning
+  container-security-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build backend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile.prod
+        push: false
+        tags: customercaregpt-backend:security-scan
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build frontend image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: false
+        tags: customercaregpt-frontend:security-scan
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'customercaregpt-backend:security-scan'
+        format: 'sarif'
+        output: 'trivy-backend-results.sarif'
+
+    - name: Run Trivy vulnerability scanner (Frontend)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'customercaregpt-frontend:security-scan'
+        format: 'sarif'
+        output: 'trivy-frontend-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-backend-results.sarif'
+
+    - name: Upload Trivy frontend scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-frontend-results.sarif'
+
+  # SAST (Static Application Security Testing)
+  sast-scan:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    - name: Run OWASP Dependency Check
+      uses: dependency-check/Dependency-Check_Action@main
+      with:
+        project: 'CustomerCareGPT'
+        path: '.'
+        format: 'JSON'
+        out: './dependency-check-report.json'
+
+    - name: Upload SAST results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: sast-scan-results
+        path: |
+          dependency-check-report.json
+          sonarcloud-report.json
+
+  # DAST (Dynamic Application Security Testing)
+  dast-scan:
+    name: DAST Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Start application
+      run: |
+        # Start the application for testing
+        docker-compose up -d
+        sleep 60  # Wait for application to start
+
+    - name: Run OWASP ZAP Baseline Scan
+      uses: zaproxy/action-baseline@v0.7.0
+      with:
+        target: 'http://localhost:8000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Run OWASP ZAP Full Scan
+      uses: zaproxy/action-full-scan@v0.4.0
+      with:
+        target: 'http://localhost:8000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+
+    - name: Stop application
+      if: always()
+      run: |
+        docker-compose down
+
+    - name: Upload DAST results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: dast-scan-results
+        path: |
+          zap-results.json
+          zap-report.html
+
+  # Security Policy Compliance
+  security-compliance:
+    name: Security Compliance Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run security policy checks
+      run: |
+        echo "## Security Compliance Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check for hardcoded secrets
+        if grep -r "password\|secret\|key" --include="*.py" --include="*.js" --include="*.ts" . | grep -v "test\|example\|placeholder"; then
+          echo "❌ Potential hardcoded secrets found" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ No hardcoded secrets found" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Check for security headers
+        if grep -r "X-Frame-Options\|X-Content-Type-Options\|Strict-Transport-Security" --include="*.py" .; then
+          echo "✅ Security headers implemented" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Security headers missing" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        # Check for input validation
+        if grep -r "validate\|sanitize\|escape" --include="*.py" .; then
+          echo "✅ Input validation implemented" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Input validation missing" >> $GITHUB_STEP_SUMMARY
+        fi
+
+  # Security Report Generation
+  security-report:
+    name: Security Report Generation
+    runs-on: ubuntu-latest
+    needs: [dependency-scan, code-security-scan, container-security-scan, sast-scan, dast-scan, security-compliance]
+    if: always()
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all security results
+      uses: actions/download-artifact@v3
+
+    - name: Generate security report
+      run: |
+        echo "## Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Scan Results" >> $GITHUB_STEP_SUMMARY
+        echo "- Dependency Scan: ${{ needs.dependency-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Code Security Scan: ${{ needs.code-security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Container Security Scan: ${{ needs.container-security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- SAST Scan: ${{ needs.sast-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- DAST Scan: ${{ needs.dast-scan.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Security Compliance: ${{ needs.security-compliance.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Count vulnerabilities
+        if [ -f dependency-scan-results/safety-report.json ]; then
+          echo "### Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "- Python packages: $(jq length dependency-scan-results/safety-report.json 2>/dev/null || echo '0')" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ -f dependency-scan-results/npm-audit-report.json ]; then
+          echo "- Node.js packages: $(jq '.vulnerabilities | length' dependency-scan-results/npm-audit-report.json 2>/dev/null || echo '0')" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Recommendations" >> $GITHUB_STEP_SUMMARY
+        echo "1. Review and fix any high/critical vulnerabilities" >> $GITHUB_STEP_SUMMARY
+        echo "2. Update dependencies to latest secure versions" >> $GITHUB_STEP_SUMMARY
+        echo "3. Implement additional security controls as needed" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: |
+          dependency-scan-results/
+          code-security-results/
+          container-security-results/
+          sast-scan-results/
+          dast-scan-results/

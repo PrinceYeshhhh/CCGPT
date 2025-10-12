@@ -97,7 +97,7 @@ export function Billing() {
       setInvoices(invoicesRes.data?.invoices || []);
     } catch (error) {
       console.error('Failed to fetch billing data:', error);
-      toast.error('Failed to load billing information');
+      toast.error('Failed to load billing information. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);

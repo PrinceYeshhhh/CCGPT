@@ -35,12 +35,12 @@ except Exception:  # pragma: no cover
 
 logger = structlog.get_logger()
 
-# Password hashing: default to PBKDF2-SHA256, but accept old bcrypt variants
-# This ensures existing users with bcrypt hashes can still log in, while
-# new hashes are created using PBKDF2-SHA256.
-pwd_context = CryptContext(
-    schemes=["pbkdf2_sha256"],
-    deprecated="auto",
+# Import enhanced password utilities
+from app.utils.password import (
+    get_password_hash, 
+    verify_password, 
+    validate_password_requirements,
+    check_password_strength
 )
 
 # OAuth2 scheme (absolute token URL to match mounted docs prefix)
@@ -83,45 +83,26 @@ class AuthService:
         self._password_history: dict[str, list] = {}  # Track password history
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Verify a password against its hash"""
-        return pwd_context.verify(plain_password, hashed_password)
+        """Verify a password against its hash using enhanced utilities"""
+        return verify_password(plain_password, hashed_password)
     
     def get_password_hash(self, password: str) -> str:
-        """Hash a password with enhanced security"""
-        return pwd_context.hash(password)
+        """Hash a password with enhanced security using bcrypt"""
+        return get_password_hash(password)
 
     # Backwards-compatibility alias expected by tests
     def hash_password(self, password: str) -> str:
         return self.get_password_hash(password)
     
     def validate_password_strength_details(self, password: str) -> Dict[str, Any]:
-        """Detailed password strength validation returning errors and score."""
-        errors: list[str] = []
-        if len(password) < settings.PASSWORD_MIN_LENGTH:
-            errors.append(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters long")
-        if settings.PASSWORD_REQUIRE_UPPERCASE and not re.search(r'[A-Z]', password):
-            errors.append("Password must contain at least one uppercase letter")
-        if settings.PASSWORD_REQUIRE_LOWERCASE and not re.search(r'[a-z]', password):
-            errors.append("Password must contain at least one lowercase letter")
-        if settings.PASSWORD_REQUIRE_NUMBERS and not re.search(r'\d', password):
-            errors.append("Password must contain at least one number")
-        if settings.PASSWORD_REQUIRE_SPECIAL_CHARS and not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-            errors.append("Password must contain at least one special character")
-        # Check for common weak patterns (more specific to avoid false positives)
-        weak_patterns = [
-            r'(.)\1{2,}',  # Repeated characters (3+ in a row)
-            r'123456',  # Sequential numbers
-            r'^password$',  # Exact word "password" (not as substring)
-            r'^qwerty$',  # Exact word "qwerty" (not as substring)
-            r'^admin$',  # Exact word "admin"
-            r'^letmein$',  # Exact word "letmein"
-        ]
-        
-        for pattern in weak_patterns:
-            if re.search(pattern, password, re.IGNORECASE):
-                errors.append("Password contains weak patterns")
-                break
-        return {"is_valid": len(errors) == 0, "errors": errors, "strength_score": self._calculate_password_strength(password)}
+        """Detailed password strength validation using enhanced utilities."""
+        validation_result = validate_password_requirements(password, settings.PASSWORD_MIN_LENGTH)
+        return {
+            "is_valid": validation_result["is_valid"],
+            "errors": validation_result["requirements_failed"],
+            "strength_score": validation_result["strength_analysis"]["score"],
+            "strength_level": validation_result["strength_analysis"]["strength"]
+        }
 
     def validate_password_strength(self, password: str) -> bool:
         """Boolean convenience result expected by tests: True if strong, False otherwise."""
