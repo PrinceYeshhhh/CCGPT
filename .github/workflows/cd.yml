@@ -4,9 +4,10 @@
 name: CD Pipeline
 
 on:
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+  # DISABLED - Use backend-unit-tests.yml instead
+  # push:
+  #   branches: [ main ]
+  #   tags: [ 'v*' ]
   workflow_dispatch:
     inputs:
       environment:
@@ -37,7 +38,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -88,7 +89,6 @@ jobs:
         service: customercaregpt-backend-staging
         image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:staging
         region: us-central1
-        platform: managed
         flags: |
           --set-env-vars=ENVIRONMENT=staging
           --set-env-vars=DATABASE_URL=${{ secrets.STAGING_DATABASE_URL }}
@@ -127,13 +127,13 @@ jobs:
         echo "Staging deployment successful"
 
     - name: Notify deployment
-      uses: 8398a7/action-slack@v3
       if: always()
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow
+      run: |
+        if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"Deployment Status: ${{ job.status }}\"}" \
+            "${{ secrets.SLACK_WEBHOOK }}"
+        fi
 
   # Deploy to Production
   deploy-production:
@@ -145,7 +145,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -207,7 +207,6 @@ jobs:
         service: customercaregpt-backend-production
         image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend:production
         region: us-central1
-        platform: managed
         flags: |
           --set-env-vars=ENVIRONMENT=production
           --set-env-vars=DATABASE_URL=${{ secrets.PRODUCTION_DATABASE_URL }}
@@ -281,13 +280,13 @@ jobs:
         prerelease: false
 
     - name: Notify deployment
-      uses: 8398a7/action-slack@v3
       if: always()
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow
+      run: |
+        if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"Deployment Status: ${{ job.status }}\"}" \
+            "${{ secrets.SLACK_WEBHOOK }}"
+        fi
 
   # Rollback job (manual trigger)
   rollback:
@@ -298,7 +297,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Rollback to previous version
       run: |
@@ -317,9 +316,10 @@ jobs:
         echo "Rollback successful"
 
     - name: Notify rollback
-      uses: 8398a7/action-slack@v3
-      with:
-        status: ${{ job.status }}
-        channel: '#deployments'
-        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
-        fields: repo,message,commit,author,action,eventName,ref,workflow
+      if: always()
+      run: |
+        if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"Rollback Status: ${{ job.status }}\"}" \
+            "${{ secrets.SLACK_WEBHOOK }}"
+        fi

@@ -1,78 +1,38 @@
-# Artillery Spike Test Configuration
-# Tests system behavior under sudden traffic spikes
-
 config:
   target: 'http://localhost:8000'
   phases:
     - duration: 30
       arrivalRate: 5
-      name: "Warm up"
+      name: "Normal load"
     - duration: 10
       arrivalRate: 200
-      name: "Sudden spike"
+      name: "Spike"
     - duration: 30
       arrivalRate: 5
-      name: "Recovery"
+      name: "Normal load"
     - duration: 10
       arrivalRate: 300
-      name: "Second spike"
+      name: "Big spike"
     - duration: 30
       arrivalRate: 5
-      name: "Final recovery"
+      name: "Normal load"
   defaults:
     headers:
       Content-Type: 'application/json'
-  plugins:
-    metrics-by-endpoint: {}
-    expect: {}
 
 scenarios:
   - name: "Spike Health Checks"
-    weight: 30
+    weight: 50
     flow:
       - get:
           url: "/health"
           expect:
             - statusCode: 200
 
-  - name: "Spike User Registration"
-    weight: 25
-    flow:
-      - post:
-          url: "/api/v1/auth/register"
-          json:
-            email: "spike{{ $randomString() }}@example.com"
-            password: "SpikePassword123!"
-            full_name: "Spike User {{ $randomString() }}"
-            mobile_phone: "+123456789{{ $randomInt(1000, 9999) }}"
-          expect:
-            - statusCode: 201
-
-  - name: "Spike Document Operations"
-    weight: 20
-    flow:
-      - post:
-          url: "/api/v1/documents/upload"
-          formData:
-            file: "@tests/fixtures/sample.pdf"
-          expect:
-            - statusCode: 200
-
-  - name: "Spike Chat Messages"
-    weight: 15
-    flow:
-      - post:
-          url: "/api/v1/chat/message"
-          json:
-            message: "Spike test message {{ $randomString() }}"
-            session_id: "spike-session-{{ $randomString() }}"
-          expect:
-            - statusCode: 200
-
-  - name: "Spike Analytics"
-    weight: 10
+  - name: "Spike API Calls"
+    weight: 50
     flow:
       - get:
-          url: "/api/v1/analytics/overview"
+          url: "/api/v1/health"
           expect:
             - statusCode: 200

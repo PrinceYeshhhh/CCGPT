@@ -1,4 +1,4 @@
-name: DEPRECATED - Comprehensive Backend Tests (Disabled)
+name: DISABLED - Comprehensive Backend Tests (Use backend-unit-tests.yml instead)
 
 on:
   workflow_dispatch:
@@ -45,7 +45,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Python
         uses: actions/setup-python@v5

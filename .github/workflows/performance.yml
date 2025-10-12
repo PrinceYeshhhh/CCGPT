@@ -4,13 +4,14 @@
 name: Performance Pipeline
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-  schedule:
-    # Run performance tests daily at 5 AM UTC
-    - cron: '0 5 * * *'
+  # DISABLED - Use backend-unit-tests.yml instead
+  # push:
+  #   branches: [ main, develop ]
+  # pull_request:
+  #   branches: [ main, develop ]
+  # schedule:
+  #   # Run performance tests daily at 5 AM UTC
+  #   - cron: '0 5 * * *'
   workflow_dispatch:
     inputs:
       test_type:
@@ -38,7 +39,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -82,7 +83,7 @@ jobs:
         docker-compose -f docker-compose.test.yml down
 
     - name: Upload load test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: load-test-results
@@ -99,7 +100,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -142,7 +143,7 @@ jobs:
         docker-compose -f docker-compose.test.yml down
 
     - name: Upload stress test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: stress-test-results
@@ -159,7 +160,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -190,7 +191,7 @@ jobs:
         docker-compose -f docker-compose.test.yml down
 
     - name: Upload spike test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: spike-test-results
@@ -206,7 +207,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -237,7 +238,7 @@ jobs:
         docker-compose -f docker-compose.test.yml down
 
     - name: Upload volume test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: volume-test-results
@@ -253,7 +254,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -284,7 +285,7 @@ jobs:
         docker-compose -f docker-compose.test.yml down
 
     - name: Upload endurance test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: endurance-test-results
@@ -301,10 +302,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Download all performance results
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: Generate performance report
       run: |
@@ -354,7 +355,7 @@ jobs:
         echo "- Availability: > 99.9% (target)" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload performance report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: performance-report
         path: |

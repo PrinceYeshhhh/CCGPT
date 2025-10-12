@@ -20,7 +20,7 @@ from app.main import app
 from app.models import Document, DocumentChunk, User, Workspace
 from app.services.document_service import DocumentService
 from app.services.vector_service import VectorService
-from app.utils.text_chunker import TextChunker
+from app.utils.chunker import chunk_text
 from app.utils.error_handling import ValidationError, DatabaseError
 
 client = TestClient(app)

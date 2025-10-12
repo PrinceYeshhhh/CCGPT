@@ -25,12 +25,12 @@ from app.schemas.auth import (
 )
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.schemas.workspace import WorkspaceCreate, WorkspaceUpdate, WorkspaceResponse
-from app.schemas.document import DocumentCreate, DocumentUpdate, DocumentResponse
+from app.schemas.document import DocumentResponse
 from app.schemas.chat import ChatSessionCreate, ChatMessageCreate, ChatResponse
 from app.schemas.embed import EmbedCodeCreate, EmbedCodeUpdate, EmbedCodeResponse
-from app.schemas.billing import SubscriptionCreate, SubscriptionUpdate, SubscriptionResponse
+from app.schemas.billing import BillingInfo, PricingPlan, CheckoutRequest
 from app.schemas.rag import RAGQueryRequest, RAGQueryResponse, RAGSource
-from app.schemas.analytics import AnalyticsRequest, AnalyticsResponse, AnalyticsFilter
+from app.schemas.analytics import AnalyticsOverview, DocumentAnalytics, SessionAnalytics
 from app.schemas.performance import PerformanceMetricsRequest, PerformanceMetricsResponse
 
 class TestUserModel:

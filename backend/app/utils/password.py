@@ -20,10 +20,16 @@ pwd_context = CryptContext(
 
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt with salt"""
+    # Truncate password to 72 bytes to avoid bcrypt limitation
+    if len(password.encode('utf-8')) > 72:
+        password = password[:72]
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
+    # Truncate password to 72 bytes to avoid bcrypt limitation
+    if len(plain_password.encode('utf-8')) > 72:
+        plain_password = plain_password[:72]
     return pwd_context.verify(plain_password, hashed_password)
 
 def generate_salt() -> str:

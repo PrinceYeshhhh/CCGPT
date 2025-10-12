@@ -4,9 +4,10 @@
 name: Dependencies
 
 on:
-  schedule:
-    # Run weekly on Mondays at 9 AM UTC
-    - cron: '0 9 * * 1'
+  # DISABLED - Use backend-unit-tests.yml instead
+  # schedule:
+  #   # Run weekly on Mondays at 9 AM UTC
+  #   - cron: '0 9 * * 1'
   workflow_dispatch:
     inputs:
       update_type:
@@ -33,10 +34,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
@@ -110,7 +111,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -181,10 +182,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
@@ -269,10 +270,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
@@ -313,7 +314,7 @@ jobs:
         echo "- Dependency tree: Available in artifacts" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload dependency analysis
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-analysis
         path: |

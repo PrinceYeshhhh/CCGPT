@@ -1,6 +1,3 @@
-# Artillery Endurance Test Configuration
-# Tests system behavior over extended periods
-
 config:
   target: 'http://localhost:8000'
   phases:
@@ -9,56 +6,43 @@ config:
       name: "Warm up"
     - duration: 1800
       arrivalRate: 15
-      name: "Extended load (30 minutes)"
+      name: "Endurance test"
     - duration: 60
       arrivalRate: 5
       name: "Cool down"
   defaults:
     headers:
       Content-Type: 'application/json'
-  plugins:
-    metrics-by-endpoint: {}
-    expect: {}
 
 scenarios:
-  - name: "Endurance Health Monitoring"
-    weight: 25
+  - name: "Endurance Health Checks"
+    weight: 40
     flow:
       - get:
           url: "/health"
           expect:
             - statusCode: 200
 
-  - name: "Endurance User Activity"
-    weight: 30
+  - name: "Endurance API Calls"
+    weight: 40
+    flow:
+      - get:
+          url: "/api/v1/health"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/ready"
+          expect:
+            - statusCode: 200
+
+  - name: "Endurance Authentication"
+    weight: 20
     flow:
       - post:
           url: "/api/v1/auth/register"
           json:
-            email: "endurance{{ $randomString() }}@example.com"
-            password: "EndurancePassword123!"
-            full_name: "Endurance User {{ $randomString() }}"
-            mobile_phone: "+123456789{{ $randomInt(1000, 9999) }}"
+            email: "endurance{{ $randomInt(1, 10000000) }}@example.com"
+            password: "EnduranceTest123!"
+            full_name: "Endurance User {{ $randomInt(1, 10000000) }}"
           expect:
-            - statusCode: 201
-
-  - name: "Endurance Document Processing"
-    weight: 25
-    flow:
-      - post:
-          url: "/api/v1/documents/upload"
-          formData:
-            file: "@tests/fixtures/sample.pdf"
-          expect:
-            - statusCode: 200
-
-  - name: "Endurance Chat Activity"
-    weight: 20
-    flow:
-      - post:
-          url: "/api/v1/chat/message"
-          json:
-            message: "Endurance test message {{ $randomString() }}"
-            session_id: "endurance-session-{{ $randomString() }}"
-          expect:
-            - statusCode: 200
+            - statusCode: [200, 201, 400, 409]

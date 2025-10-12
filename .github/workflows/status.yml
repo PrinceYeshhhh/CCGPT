@@ -4,17 +4,18 @@
 name: Status Dashboard
 
 on:
-  workflow_run:
-    workflows: ["CI Pipeline", "CD Pipeline", "Test Pipeline", "Security Pipeline", "Performance Pipeline"]
-    types: [completed]
-  schedule:
-    # Run every 6 hours
-    - cron: '0 */6 * * *'
+  # DISABLED - Use backend-unit-tests.yml instead
+  # workflow_run:
+  #   workflows: ["CI Pipeline", "CD Pipeline", "Test Pipeline", "Security Pipeline", "Performance Pipeline"]
+  #   types: [completed]
+  # schedule:
+  #   # Run every 6 hours
+  #   - cron: '0 */6 * * *'
   workflow_dispatch:
 
 env:
-  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-  STATUS_PAGE_API: ${{ secrets.STATUS_PAGE_API }}
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK || '' }}
+  STATUS_PAGE_API: ${{ secrets.STATUS_PAGE_API || '' }}
 
 jobs:
   # Collect Status Information
@@ -30,7 +31,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Get workflow status
       id: status
@@ -69,7 +70,7 @@ jobs:
         echo "performance-score=92" >> $GITHUB_OUTPUT
 
     - name: Upload status data
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: status-data
         path: workflow-status.json
@@ -82,10 +83,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Download status data
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: status-data
 
@@ -129,7 +130,7 @@ jobs:
         EOF
 
     - name: Upload status report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: status-report
         path: status-report.md
@@ -143,10 +144,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Download status report
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: status-report
 
@@ -171,10 +172,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Download status report
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: status-report
 
@@ -214,7 +215,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Check backend health
       run: |
@@ -273,7 +274,7 @@ jobs:
         EOF
 
     - name: Upload health report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: health-report
         path: health-report.md

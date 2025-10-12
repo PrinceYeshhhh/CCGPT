@@ -114,7 +114,7 @@ class PerformanceMonitor:
                     self._calculate_baselines()
                 
                 time.sleep(self.interval)
-                
+            
             except Exception as e:
                 logger.error("Performance monitoring error", error=str(e))
                 time.sleep(60)  # Wait 1 minute on error

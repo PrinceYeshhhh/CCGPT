@@ -20,7 +20,7 @@ from app.core.config import settings
 from app.models import User, Workspace
 from app.services.auth import AuthService
 from app.utils.error_handling import AuthenticationError, ValidationError
-from app.utils.password import PasswordValidator
+from app.utils.password import validate_password_requirements, check_password_strength
 
 client = TestClient(app)
 

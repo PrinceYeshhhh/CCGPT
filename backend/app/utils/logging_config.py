@@ -157,6 +157,8 @@ class JSONFormatter(logging.Formatter):
     """Custom JSON formatter for structured logging"""
     
     def format(self, record):
+        import json
+        
         log_entry = {
             "timestamp": self.formatTime(record),
             "level": record.levelname,
@@ -178,9 +180,14 @@ class JSONFormatter(logging.Formatter):
                           'msecs', 'relativeCreated', 'thread', 'threadName', 
                           'processName', 'process', 'getMessage', 'exc_info', 
                           'exc_text', 'stack_info']:
-                log_entry[key] = value
+                # Ensure value is JSON serializable
+                try:
+                    json.dumps(value)
+                    log_entry[key] = value
+                except (TypeError, ValueError):
+                    log_entry[key] = str(value)
         
-        return log_entry
+        return json.dumps(log_entry)
 
 
 class SecurityLogger:
