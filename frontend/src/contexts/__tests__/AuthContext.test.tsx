@@ -39,6 +39,8 @@ describe('AuthContext', () => {
       value: { ...originalEnv, VITE_DEMO_MODE: 'false' },
       writable: true,
     });
+    // Clear DOM between tests
+    document.body.innerHTML = '';
   });
 
   afterEach(() => {
