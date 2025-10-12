@@ -84,7 +84,7 @@ def run_migrations_online() -> None:
         isolation_level='AUTOCOMMIT',
         # Additional PostgreSQL-specific settings
         connect_args={
-            "options": "-c default_transaction_isolation=read_committed"
+            "options": "-c default_transaction_isolation='read committed'"
         } if "postgresql" in get_url() else {}
     )
 

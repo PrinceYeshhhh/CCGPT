@@ -47,9 +47,10 @@ def run_migration_chain():
     print("=" * 60)
     
     # Migration chain with fallback strategies
+    # Direct migration first since it bypasses Alembic and avoids PostgreSQL connection issues
     migration_scripts = [
-        ("validate_migration_state.py", "Migration state validation"),
         ("direct_migrate.py", "Direct migration (bypasses Alembic)"),
+        ("validate_migration_state.py", "Migration state validation"),
         ("nuclear_migrate.py", "Nuclear migration (aggressive reset)"),
         ("smart_migrate.py", "Smart migration (intelligent detection)"),
         ("simple_migrate.py", "Simple migration (direct Alembic)"),
@@ -57,12 +58,8 @@ def run_migration_chain():
         ("ultra_migrate.py", "Ultra migration (ultra-aggressive reset)")
     ]
     
-    # First, validate the migration state
-    if not run_migration_script("validate_migration_state.py", "Migration state validation"):
-        print("WARNING: Migration state validation failed, but continuing with migration chain...")
-    
     # Try each migration script in order
-    for script_name, description in migration_scripts[1:]:  # Skip validation as we already ran it
+    for script_name, description in migration_scripts:
         if run_migration_script(script_name, description):
             print(f"\nSUCCESS: Migration chain completed successfully with: {description}")
             return True
