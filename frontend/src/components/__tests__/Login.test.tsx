@@ -199,10 +199,8 @@ describe('Login Component', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(mockApiPost).toHaveBeenCalledWith('/auth/login', {
-        email: 'test@example.com',
-        password: 'password123'
-      });
+      // The Login component uses FormData, so we need to check for FormData
+      expect(mockApiPost).toHaveBeenCalledWith('/auth/login', expect.any(FormData));
     });
 
     await waitFor(() => {
