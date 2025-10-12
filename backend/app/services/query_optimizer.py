@@ -4,7 +4,7 @@
 import time
 import asyncio
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Callable
 from sqlalchemy import text, func, and_, or_, desc, asc
 from sqlalchemy.orm import Session, joinedload, selectinload, subqueryload
 from sqlalchemy.exc import SQLAlchemyError

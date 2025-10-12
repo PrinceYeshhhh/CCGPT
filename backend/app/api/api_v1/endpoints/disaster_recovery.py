@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 from app.core.database import get_db
-from app.api.deps import get_current_user
+from app.api.api_v1.dependencies import get_current_user
 from app.models.user import User
 from app.services.disaster_recovery import (
     disaster_recovery_service, 

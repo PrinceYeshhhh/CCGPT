@@ -68,8 +68,7 @@ async def connection_monitor():
             logger.error("Connection monitoring task failed", error=str(e))
             await asyncio.sleep(60)  # Wait 1 minute before retrying
 
-# Start connection monitoring task
-asyncio.create_task(connection_monitor())
+# Connection monitoring will be started in the startup event
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -293,6 +292,10 @@ async def startup_event():
         from app.services.performance_service import performance_service
         performance_service.start()
         logger.info("Performance service initialization completed")
+        
+        # Start connection monitoring task
+        asyncio.create_task(connection_monitor())
+        logger.info("Connection monitoring started")
         
         logger.info("System startup completed successfully")
         

@@ -111,6 +111,13 @@ async def upload_profile_picture(
             message="Profile picture uploaded successfully",
             data={"profile_picture_url": profile_picture_url}
         )
+    
+    except Exception as e:
+        logger.error("Failed to upload profile picture", error=str(e), user_id=current_user.id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload profile picture"
+        )
 
 
 @router.put("/change-password", response_model=BaseResponse)
