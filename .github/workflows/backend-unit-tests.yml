@@ -70,7 +70,7 @@ jobs:
     - name: Set up test environment
       working-directory: ./backend
       run: |
-        cp .env.example .env.test
+        cp ../env.example .env.test
         echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" >> .env.test
         echo "REDIS_URL=redis://localhost:6379" >> .env.test
         echo "ENVIRONMENT=testing" >> .env.test
@@ -83,6 +83,9 @@ jobs:
         alembic upgrade head
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+        ENVIRONMENT: testing
+        SECRET_KEY: test-secret-key
+        JWT_SECRET: test-jwt-secret
 
     - name: Run all backend unit tests
       working-directory: ./backend
@@ -93,10 +96,17 @@ jobs:
           --cov-report=html \
           --cov-report=term-missing \
           --junitxml=test-results.xml \
-          --maxfail=10
+          --maxfail=10 \
+          --tb=short
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
+        ENVIRONMENT: testing
+        SECRET_KEY: test-secret-key
+        JWT_SECRET: test-jwt-secret
+        GEMINI_API_KEY: test-gemini-key
+        STRIPE_API_KEY: test-stripe-key
+        TESTING: true
 
     - name: Upload test results
       uses: actions/upload-artifact@v4

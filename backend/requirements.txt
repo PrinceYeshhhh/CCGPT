@@ -14,21 +14,21 @@ redis==5.0.1
 aioredis==2.0.1
 
 # Vector Database
-chromadb==0.4.15
-sentence-transformers==3.0.1
-huggingface_hub>=0.16.0
+chromadb>=0.4.0,<0.5.0
+sentence-transformers>=2.2.0,<4.0.0
+huggingface_hub>=0.16.0,<1.0.0
 
 # Google Gemini
 google-generativeai==0.3.2
 
 # File Processing
-PyPDF2==3.0.1
-pymupdf==1.23.8  # Enhanced PDF processing
-python-docx==1.1.0
-pandas==2.1.3
-openpyxl==3.1.2
-aiofiles==23.2.1
-python-magic==0.4.27  # File type detection
+PyPDF2>=3.0.0,<4.0.0
+pymupdf>=1.20.0,<2.0.0  # Enhanced PDF processing
+python-docx>=1.0.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+openpyxl>=3.0.0,<4.0.0
+aiofiles>=23.0.0,<24.0.0
+python-magic>=0.4.0,<1.0.0  # File type detection
 
 # Background Jobs
 rq==1.15.1
@@ -49,10 +49,10 @@ qrcode[pil]==7.4.2  # For QR code generation
 # Text Processing
 nltk==3.8.1
 scikit-learn==1.3.2  # For clustering and advanced ML
-transformers==4.56.2  # Align with environment and sentence-transformers
-tokenizers==0.22.0  # Satisfies transformers (>=0.22,<=0.23) and chromadb (>=0.13.2)
-torch==2.2.2  # For transformers; provides torch.utils._pytree.register_pytree_node
-torchvision==0.17.2  # Compatible with torch 2.2.x
+transformers>=4.30.0,<5.0.0  # Compatible with sentence-transformers
+tokenizers>=0.13.0,<0.20.0  # Compatible with transformers and chromadb
+torch>=2.0.0,<3.0.0  # Compatible with transformers
+torchvision>=0.15.0,<1.0.0  # Compatible with torch
 rank-bm25==0.2.2  # For BM25 hybrid search
 beautifulsoup4==4.12.2  # For HTML processing
 markdown==3.5.1  # For markdown processing
@@ -68,13 +68,13 @@ passlib[bcrypt]==1.7.4
 stripe==5.4.0
 
 # Utilities
-pydantic==2.5.0
-pydantic-settings==2.1.0
-python-dotenv==1.0.0
+pydantic>=2.0.0,<3.0.0
+pydantic-settings>=2.0.0,<3.0.0
+python-dotenv>=1.0.0,<2.0.0
 # Pin httpx to a version compatible with starlette testclient (BaseTransport)
-httpx==0.24.1
-email-validator==2.1.0.post1
-aiohttp==3.9.5
+httpx>=0.24.0,<0.25.0
+email-validator>=2.0.0,<3.0.0
+aiohttp>=3.8.0,<4.0.0
 
 # Monitoring & Logging
 structlog==23.2.0
@@ -85,7 +85,4 @@ psutil==5.9.6
 # Backup & Disaster Recovery
 schedule==1.2.0
 
-# Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-pytest-cov==4.0.0
+# Testing (moved to requirements-dev.txt)
