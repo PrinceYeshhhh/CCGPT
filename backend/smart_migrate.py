@@ -43,8 +43,9 @@ def detect_database_state():
                 version_table_exists = result.fetchone() is not None
             
             if not version_table_exists:
-                print("❌ Alembic version table does not exist")
-                return None
+                print("📊 Alembic version table does not exist - this is a fresh database")
+                # For fresh databases, we need to create the version table and start from the beginning
+                return "fresh"
             
             # Get current version from table
             result = connection.execute(text("SELECT version_num FROM alembic_version;"))
@@ -107,10 +108,23 @@ def set_correct_version(target_version):
             trans = connection.begin()
             
             try:
-                connection.execute(text("UPDATE alembic_version SET version_num = :version"), 
-                                 {"version": target_version})
+                if target_version == "fresh":
+                    # Create the version table for fresh databases
+                    connection.execute(text("""
+                        CREATE TABLE alembic_version (
+                            version_num VARCHAR(32) NOT NULL,
+                            CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+                        );
+                    """))
+                    connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('001');"))
+                    print("✅ Created version table and set to 001")
+                else:
+                    # Update existing version table
+                    connection.execute(text("UPDATE alembic_version SET version_num = :version"), 
+                                     {"version": target_version})
+                    print(f"✅ Version set to {target_version}")
+                
                 trans.commit()
-                print(f"✅ Version set to {target_version}")
                 return True
             except Exception as e:
                 trans.rollback()
