@@ -9,7 +9,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
-from app.models import Base
+from app.core.database import Base
+
+# Import all models to ensure they are registered with Base
+from app.models import *  # This ensures all models are loaded
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -75,12 +78,22 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        # Use batch mode for SQLite
+        if "sqlite" in get_url():
+            context.configure(
+                connection=connection, 
+                target_metadata=target_metadata,
+                render_as_batch=True
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+        else:
+            context.configure(
+                connection=connection, target_metadata=target_metadata
+            )
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
 
 
 if context.is_offline_mode():

@@ -17,22 +17,29 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Drop existing tables
-    op.drop_table('document_chunks')
-    op.drop_table('documents')
+    # Drop existing tables if they exist
+    try:
+        op.drop_table('document_chunks')
+    except Exception:
+        pass  # Table doesn't exist, continue
+    
+    try:
+        op.drop_table('documents')
+    except Exception:
+        pass  # Table doesn't exist, continue
     
     # Create new documents table
     op.create_table('documents',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('workspace_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('id', sa.String(36), nullable=False),
+        sa.Column('workspace_id', sa.String(36), nullable=False),
         sa.Column('filename', sa.Text(), nullable=False),
         sa.Column('content_type', sa.Text(), nullable=False),
         sa.Column('size', sa.BigInteger(), nullable=False),
         sa.Column('path', sa.Text(), nullable=False),
-        sa.Column('uploaded_by', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('uploaded_by', sa.String(36), nullable=False),
         sa.Column('status', sa.String(length=20), nullable=False),
         sa.Column('error', sa.Text(), nullable=True),
-        sa.Column('uploaded_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('uploaded_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.CheckConstraint("status IN ('uploaded','processing','done','failed','deleted')", name='documents_status_check'),
         sa.PrimaryKeyConstraint('id')
     )
@@ -41,13 +48,13 @@ def upgrade() -> None:
     
     # Create new document_chunks table
     op.create_table('document_chunks',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('document_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('workspace_id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('id', sa.String(36), nullable=False),
+        sa.Column('document_id', sa.String(36), nullable=False),
+        sa.Column('workspace_id', sa.String(36), nullable=False),
         sa.Column('chunk_index', sa.BigInteger(), nullable=False),
         sa.Column('text', sa.Text(), nullable=False),
-        sa.Column('metadata', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('metadata', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.ForeignKeyConstraint(['document_id'], ['documents.id'], ),
         sa.PrimaryKeyConstraint('id')
     )
@@ -74,8 +81,8 @@ def downgrade() -> None:
         sa.Column('processing_error', sa.Text(), nullable=True),
         sa.Column('title', sa.String(length=255), nullable=True),
         sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('tags', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('tags', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('processed_at', sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint('id')
@@ -93,7 +100,7 @@ def downgrade() -> None:
         sa.Column('page_number', sa.Integer(), nullable=True),
         sa.Column('section_title', sa.String(length=255), nullable=True),
         sa.Column('word_count', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_document_chunks_id'), 'document_chunks', ['id'], unique=False)

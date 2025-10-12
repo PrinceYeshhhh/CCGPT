@@ -18,201 +18,406 @@ depends_on = None
 
 def upgrade():
     # Create workspaces table
-    op.create_table('workspaces',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('name', sa.String(length=255), nullable=False),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('logo_url', sa.String(length=500), nullable=True),
-        sa.Column('website_url', sa.String(length=500), nullable=True),
-        sa.Column('support_email', sa.String(length=255), nullable=True),
-        sa.Column('custom_domain', sa.String(length=255), nullable=True),
-        sa.Column('widget_domain', sa.String(length=255), nullable=True),
-        sa.Column('timezone', sa.String(length=50), nullable=True),
-        sa.Column('plan', sa.String(length=50), nullable=True),
-        sa.Column('is_active', sa.Boolean(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_workspaces_id'), 'workspaces', ['id'], unique=False)
-    op.create_index('idx_workspaces_plan', 'workspaces', ['plan'])
-    op.create_index('idx_workspaces_is_active', 'workspaces', ['is_active'])
+    try:
+        op.create_table('workspaces',
+            sa.Column('id', sa.String(36), nullable=False),
+            sa.Column('name', sa.String(length=255), nullable=False),
+            sa.Column('description', sa.Text(), nullable=True),
+            sa.Column('logo_url', sa.String(length=500), nullable=True),
+            sa.Column('website_url', sa.String(length=500), nullable=True),
+            sa.Column('support_email', sa.String(length=255), nullable=True),
+            sa.Column('custom_domain', sa.String(length=255), nullable=True),
+            sa.Column('widget_domain', sa.String(length=255), nullable=True),
+            sa.Column('timezone', sa.String(length=50), nullable=True),
+            sa.Column('plan', sa.String(length=50), nullable=True),
+            sa.Column('is_active', sa.Boolean(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.PrimaryKeyConstraint('id')
+        )
+    except Exception:
+        pass  # Table already exists, continue
+    
+    try:
+        op.create_index(op.f('ix_workspaces_id'), 'workspaces', ['id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_workspaces_plan', 'workspaces', ['plan'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_workspaces_is_active', 'workspaces', ['is_active'])
+    except Exception:
+        pass
 
     # Create chat_sessions table
-    op.create_table('chat_sessions',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('workspace_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('session_id', sa.String(length=255), nullable=False),
-        sa.Column('user_label', sa.String(length=255), nullable=True),
-        sa.Column('visitor_ip', sa.String(length=45), nullable=True),
-        sa.Column('user_agent', sa.Text(), nullable=True),
-        sa.Column('referrer', sa.String(length=500), nullable=True),
-        sa.Column('is_active', sa.Boolean(), nullable=True),
-        sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('last_activity_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-        sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('session_id')
-    )
-    op.create_index(op.f('ix_chat_sessions_id'), 'chat_sessions', ['id'], unique=False)
-    op.create_index(op.f('ix_chat_sessions_session_id'), 'chat_sessions', ['session_id'], unique=False)
-    op.create_index(op.f('ix_chat_sessions_workspace_id'), 'chat_sessions', ['workspace_id'], unique=False)
-    op.create_index('idx_chat_sessions_user_id', 'chat_sessions', ['user_id'])
-    op.create_index('idx_chat_sessions_is_active', 'chat_sessions', ['is_active'])
-    op.create_index('idx_chat_sessions_created_at', 'chat_sessions', ['created_at'])
+    try:
+        op.create_table('chat_sessions',
+            sa.Column('id', sa.String(36), nullable=False),
+            sa.Column('workspace_id', sa.String(36), nullable=False),
+            sa.Column('user_id', sa.Integer(), nullable=False),
+            sa.Column('session_id', sa.String(length=255), nullable=False),
+            sa.Column('user_label', sa.String(length=255), nullable=True),
+            sa.Column('visitor_ip', sa.String(length=45), nullable=True),
+            sa.Column('user_agent', sa.Text(), nullable=True),
+            sa.Column('referrer', sa.String(length=500), nullable=True),
+            sa.Column('is_active', sa.Boolean(), nullable=True),
+            sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('last_activity_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+            sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('session_id')
+        )
+    except Exception:
+        pass  # Table already exists, continue
+    
+    try:
+        op.create_index(op.f('ix_chat_sessions_id'), 'chat_sessions', ['id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index(op.f('ix_chat_sessions_session_id'), 'chat_sessions', ['session_id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index(op.f('ix_chat_sessions_workspace_id'), 'chat_sessions', ['workspace_id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_chat_sessions_user_id', 'chat_sessions', ['user_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_chat_sessions_is_active', 'chat_sessions', ['is_active'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_chat_sessions_created_at', 'chat_sessions', ['created_at'])
+    except Exception:
+        pass
 
     # Create chat_messages table
-    op.create_table('chat_messages',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('session_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('role', sa.String(length=20), nullable=False),
-        sa.Column('content', sa.Text(), nullable=False),
-        sa.Column('model_used', sa.String(length=100), nullable=True),
-        sa.Column('response_time_ms', sa.Integer(), nullable=True),
-        sa.Column('tokens_used', sa.Integer(), nullable=True),
-        sa.Column('sources_used', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('confidence_score', sa.String(length=10), nullable=True),
-        sa.Column('is_flagged', sa.Boolean(), nullable=True),
-        sa.Column('flag_reason', sa.String(length=255), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['session_id'], ['chat_sessions.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_chat_messages_id'), 'chat_messages', ['id'], unique=False)
-    op.create_index('idx_chat_messages_session_id', 'chat_messages', ['session_id'])
-    op.create_index('idx_chat_messages_role', 'chat_messages', ['role'])
-    op.create_index('idx_chat_messages_created_at', 'chat_messages', ['created_at'])
-    op.create_index('idx_chat_messages_is_flagged', 'chat_messages', ['is_flagged'])
+    try:
+        op.create_table('chat_messages',
+            sa.Column('id', sa.String(36), nullable=False),
+            sa.Column('session_id', sa.String(36), nullable=False),
+            sa.Column('role', sa.String(length=20), nullable=False),
+            sa.Column('content', sa.Text(), nullable=False),
+            sa.Column('model_used', sa.String(length=100), nullable=True),
+            sa.Column('response_time_ms', sa.Integer(), nullable=True),
+            sa.Column('tokens_used', sa.Integer(), nullable=True),
+            sa.Column('sources_used', sa.Text(), nullable=True),
+            sa.Column('confidence_score', sa.String(length=10), nullable=True),
+            sa.Column('is_flagged', sa.Boolean(), nullable=True),
+            sa.Column('flag_reason', sa.String(length=255), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.ForeignKeyConstraint(['session_id'], ['chat_sessions.id'], ),
+            sa.PrimaryKeyConstraint('id')
+        )
+    except Exception:
+        pass  # Table already exists, continue
+    
+    try:
+        op.create_index(op.f('ix_chat_messages_id'), 'chat_messages', ['id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_chat_messages_session_id', 'chat_messages', ['session_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_chat_messages_role', 'chat_messages', ['role'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_chat_messages_created_at', 'chat_messages', ['created_at'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_chat_messages_is_flagged', 'chat_messages', ['is_flagged'])
+    except Exception:
+        pass
 
     # Create embed_codes table
-    op.create_table('embed_codes',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('workspace_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('name', sa.String(length=255), nullable=False),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('client_api_key', sa.String(length=255), nullable=False),
-        sa.Column('default_config', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('custom_config', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('embed_script', sa.Text(), nullable=True),
-        sa.Column('embed_html', sa.Text(), nullable=True),
-        sa.Column('is_active', sa.Boolean(), nullable=True),
-        sa.Column('usage_count', sa.Integer(), nullable=True),
-        sa.Column('last_used', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('client_api_key')
-    )
-    op.create_index(op.f('ix_embed_codes_id'), 'embed_codes', ['id'], unique=False)
-    op.create_index(op.f('ix_embed_codes_workspace_id'), 'embed_codes', ['workspace_id'], unique=False)
-    op.create_index('idx_embed_codes_client_api_key', 'embed_codes', ['client_api_key'])
-    op.create_index('idx_embed_codes_is_active', 'embed_codes', ['is_active'])
+    try:
+        op.create_table('embed_codes',
+            sa.Column('id', sa.String(36), nullable=False),
+            sa.Column('workspace_id', sa.String(36), nullable=False),
+            sa.Column('name', sa.String(length=255), nullable=False),
+            sa.Column('description', sa.Text(), nullable=True),
+            sa.Column('client_api_key', sa.String(length=255), nullable=False),
+            sa.Column('default_config', sa.Text(), nullable=True),
+            sa.Column('custom_config', sa.Text(), nullable=True),
+            sa.Column('embed_script', sa.Text(), nullable=True),
+            sa.Column('embed_html', sa.Text(), nullable=True),
+            sa.Column('is_active', sa.Boolean(), nullable=True),
+            sa.Column('usage_count', sa.Integer(), nullable=True),
+            sa.Column('last_used', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('client_api_key')
+        )
+    except Exception:
+        pass  # Table already exists, continue
+    
+    try:
+        op.create_index(op.f('ix_embed_codes_id'), 'embed_codes', ['id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index(op.f('ix_embed_codes_workspace_id'), 'embed_codes', ['workspace_id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_embed_codes_client_api_key', 'embed_codes', ['client_api_key'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_embed_codes_is_active', 'embed_codes', ['is_active'])
+    except Exception:
+        pass
 
     # Create subscriptions table
-    op.create_table('subscriptions',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('workspace_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('stripe_customer_id', sa.String(length=255), nullable=True),
-        sa.Column('stripe_subscription_id', sa.String(length=255), nullable=True),
-        sa.Column('plan', sa.String(length=50), nullable=False),
-        sa.Column('status', sa.String(length=20), nullable=False),
-        sa.Column('current_period_start', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('current_period_end', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('cancel_at_period_end', sa.Boolean(), nullable=True),
-        sa.Column('canceled_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('trial_start', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('trial_end', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('workspace_id')
-    )
-    op.create_index(op.f('ix_subscriptions_id'), 'subscriptions', ['id'], unique=False)
-    op.create_index(op.f('ix_subscriptions_workspace_id'), 'subscriptions', ['workspace_id'], unique=False)
-    op.create_index('idx_subscriptions_plan', 'subscriptions', ['plan'])
-    op.create_index('idx_subscriptions_status', 'subscriptions', ['status'])
-    op.create_index('idx_subscriptions_stripe_customer_id', 'subscriptions', ['stripe_customer_id'])
+    try:
+        op.create_table('subscriptions',
+            sa.Column('id', sa.String(36), nullable=False),
+            sa.Column('workspace_id', sa.String(36), nullable=False),
+            sa.Column('stripe_customer_id', sa.String(length=255), nullable=True),
+            sa.Column('stripe_subscription_id', sa.String(length=255), nullable=True),
+            sa.Column('plan', sa.String(length=50), nullable=False),
+            sa.Column('status', sa.String(length=20), nullable=False),
+            sa.Column('current_period_start', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('current_period_end', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('cancel_at_period_end', sa.Boolean(), nullable=True),
+            sa.Column('canceled_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('trial_start', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('trial_end', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('workspace_id')
+        )
+    except Exception:
+        pass  # Table already exists, continue
+    
+    try:
+        op.create_index(op.f('ix_subscriptions_id'), 'subscriptions', ['id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index(op.f('ix_subscriptions_workspace_id'), 'subscriptions', ['workspace_id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_subscriptions_plan', 'subscriptions', ['plan'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_subscriptions_status', 'subscriptions', ['status'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_subscriptions_stripe_customer_id', 'subscriptions', ['stripe_customer_id'])
+    except Exception:
+        pass
 
     # Create team_members table
-    op.create_table('team_members',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('workspace_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
-        sa.Column('role', sa.String(length=50), nullable=False),
-        sa.Column('permissions', postgresql.JSON(astext_type=sa.Text()), nullable=True),
-        sa.Column('invited_by', sa.Integer(), nullable=True),
-        sa.Column('invited_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('joined_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('is_active', sa.Boolean(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['invited_by'], ['users.id'], ),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-        sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_team_members_id'), 'team_members', ['id'], unique=False)
-    op.create_index(op.f('ix_team_members_workspace_id'), 'team_members', ['workspace_id'], unique=False)
-    op.create_index('idx_team_members_user_id', 'team_members', ['user_id'])
-    op.create_index('idx_team_members_role', 'team_members', ['role'])
-    op.create_index('idx_team_members_is_active', 'team_members', ['is_active'])
+    try:
+        op.create_table('team_members',
+            sa.Column('id', sa.String(36), nullable=False),
+            sa.Column('workspace_id', sa.String(36), nullable=False),
+            sa.Column('user_id', sa.Integer(), nullable=False),
+            sa.Column('role', sa.String(length=50), nullable=False),
+            sa.Column('permissions', sa.Text(), nullable=True),
+            sa.Column('invited_by', sa.Integer(), nullable=True),
+            sa.Column('invited_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('joined_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('is_active', sa.Boolean(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.ForeignKeyConstraint(['invited_by'], ['users.id'], ),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+            sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
+            sa.PrimaryKeyConstraint('id')
+        )
+    except Exception:
+        pass  # Table already exists, continue
+    
+    try:
+        op.create_index(op.f('ix_team_members_id'), 'team_members', ['id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index(op.f('ix_team_members_workspace_id'), 'team_members', ['workspace_id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_team_members_user_id', 'team_members', ['user_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_team_members_role', 'team_members', ['role'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_team_members_is_active', 'team_members', ['is_active'])
+    except Exception:
+        pass
 
     # Update users table to add workspace_id and other missing fields
-    op.add_column('users', sa.Column('workspace_id', postgresql.UUID(as_uuid=True), nullable=True))
-    op.add_column('users', sa.Column('mobile_phone', sa.String(length=20), nullable=True))
-    op.add_column('users', sa.Column('username', sa.String(length=100), nullable=True))
-    op.add_column('users', sa.Column('two_factor_secret', sa.String(length=32), nullable=True))
-    op.add_column('users', sa.Column('two_factor_enabled', sa.Boolean(), nullable=True))
-    op.add_column('users', sa.Column('email_verified', sa.Boolean(), nullable=True))
-    op.add_column('users', sa.Column('email_verification_token', sa.String(length=255), nullable=True))
-    op.add_column('users', sa.Column('email_verification_sent_at', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('users', sa.Column('phone_verified', sa.Boolean(), nullable=True))
-    op.add_column('users', sa.Column('phone_verification_token', sa.String(length=10), nullable=True))
-    op.add_column('users', sa.Column('phone_verification_sent_at', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('users', sa.Column('password_reset_token', sa.String(length=255), nullable=True))
-    op.add_column('users', sa.Column('password_reset_sent_at', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('users', sa.Column('last_login_at', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('users', sa.Column('login_attempts', sa.Integer(), nullable=True))
-    op.add_column('users', sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True))
-    op.add_column('users', sa.Column('preferences', postgresql.JSON(astext_type=sa.Text()), nullable=True))
-    op.add_column('users', sa.Column('theme', sa.String(length=20), nullable=True))
-    op.add_column('users', sa.Column('language', sa.String(length=10), nullable=True))
-    op.add_column('users', sa.Column('timezone', sa.String(length=50), nullable=True))
-    op.add_column('users', sa.Column('notification_settings', postgresql.JSON(astext_type=sa.Text()), nullable=True))
+    try:
+        op.add_column('users', sa.Column('workspace_id', sa.String(36), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('mobile_phone', sa.String(length=20), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('username', sa.String(length=100), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('two_factor_secret', sa.String(length=32), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('two_factor_enabled', sa.Boolean(), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('email_verified', sa.Boolean(), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('email_verification_token', sa.String(length=255), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('email_verification_sent_at', sa.DateTime(timezone=True), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('phone_verified', sa.Boolean(), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('phone_verification_token', sa.String(length=10), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('phone_verification_sent_at', sa.DateTime(timezone=True), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('password_reset_token', sa.String(length=255), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('password_reset_sent_at', sa.DateTime(timezone=True), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('last_login_at', sa.DateTime(timezone=True), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('login_attempts', sa.Integer(), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('locked_until', sa.DateTime(timezone=True), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('preferences', sa.Text(), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('theme', sa.String(length=20), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('language', sa.String(length=10), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('timezone', sa.String(length=50), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
+    try:
+        op.add_column('users', sa.Column('notification_settings', sa.Text(), nullable=True))
+    except Exception:
+        pass  # Column already exists, continue
 
     # Create indexes for users table
-    op.create_index('idx_users_workspace_id', 'users', ['workspace_id'])
-    op.create_index('idx_users_mobile_phone', 'users', ['mobile_phone'])
-    op.create_index('idx_users_username', 'users', ['username'])
-    op.create_index('idx_users_email_verified', 'users', ['email_verified'])
-    op.create_index('idx_users_phone_verified', 'users', ['phone_verified'])
-    op.create_index('idx_users_is_active', 'users', ['is_active'])
+    try:
+        op.create_index('idx_users_workspace_id', 'users', ['workspace_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_users_mobile_phone', 'users', ['mobile_phone'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_users_username', 'users', ['username'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_users_email_verified', 'users', ['email_verified'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_users_phone_verified', 'users', ['phone_verified'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_users_is_active', 'users', ['is_active'])
+    except Exception:
+        pass
 
     # Add foreign key constraint for users.workspace_id
-    op.create_foreign_key('fk_users_workspace_id', 'users', 'workspaces', ['workspace_id'], ['id'])
+    try:
+        op.create_foreign_key('fk_users_workspace_id', 'users', 'workspaces', ['workspace_id'], ['id'])
+    except Exception:
+        pass  # Foreign key already exists, continue
 
     # Create widget_assets table
-    op.create_table('widget_assets',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('embed_code_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('asset_type', sa.String(length=50), nullable=False),
-        sa.Column('asset_url', sa.String(length=500), nullable=False),
-        sa.Column('asset_data', sa.LargeBinary(), nullable=True),
-        sa.Column('mime_type', sa.String(length=100), nullable=True),
-        sa.Column('file_size', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['embed_code_id'], ['embed_codes.id'], ),
-        sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_widget_assets_id'), 'widget_assets', ['id'], unique=False)
-    op.create_index('idx_widget_assets_embed_code_id', 'widget_assets', ['embed_code_id'])
-    op.create_index('idx_widget_assets_asset_type', 'widget_assets', ['asset_type'])
+    try:
+        op.create_table('widget_assets',
+            sa.Column('id', sa.String(36), nullable=False),
+            sa.Column('embed_code_id', sa.String(36), nullable=False),
+            sa.Column('asset_type', sa.String(length=50), nullable=False),
+            sa.Column('asset_url', sa.String(length=500), nullable=False),
+            sa.Column('asset_data', sa.LargeBinary(), nullable=True),
+            sa.Column('mime_type', sa.String(length=100), nullable=True),
+            sa.Column('file_size', sa.Integer(), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.ForeignKeyConstraint(['embed_code_id'], ['embed_codes.id'], ),
+            sa.PrimaryKeyConstraint('id')
+        )
+    except Exception:
+        pass  # Table already exists, continue
+    
+    try:
+        op.create_index(op.f('ix_widget_assets_id'), 'widget_assets', ['id'], unique=False)
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_widget_assets_embed_code_id', 'widget_assets', ['embed_code_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('idx_widget_assets_asset_type', 'widget_assets', ['asset_type'])
+    except Exception:
+        pass
 
 
 def downgrade():
