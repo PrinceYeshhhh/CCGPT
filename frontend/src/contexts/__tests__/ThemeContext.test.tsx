@@ -63,11 +63,13 @@ describe('ThemeContext', () => {
   });
 
   it('should provide light theme by default', () => {
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
   });
@@ -75,11 +77,13 @@ describe('ThemeContext', () => {
   it('should use stored theme from localStorage', () => {
     localStorageMock.getItem.mockReturnValue('dark');
     
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
   });
@@ -91,21 +95,25 @@ describe('ThemeContext', () => {
       removeListener: vi.fn(),
     });
     
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
   });
 
   it('should toggle theme from light to dark', () => {
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
     
@@ -120,11 +128,13 @@ describe('ThemeContext', () => {
   it('should toggle theme from dark to light', () => {
     localStorageMock.getItem.mockReturnValue('dark');
     
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     expect(screen.getByTestId('theme')).toHaveTextContent('dark');
     
@@ -137,11 +147,13 @@ describe('ThemeContext', () => {
   });
 
   it('should save theme to localStorage', () => {
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     const toggleButton = screen.getByTestId('toggle-theme');
     act(() => {
@@ -161,11 +173,13 @@ describe('ThemeContext', () => {
       writable: true,
     });
 
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     expect(mockClassList.remove).toHaveBeenCalledWith('light', 'dark');
     expect(mockClassList.add).toHaveBeenCalledWith('light');
@@ -181,11 +195,13 @@ describe('ThemeContext', () => {
       writable: true,
     });
 
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     const toggleButton = screen.getByTestId('toggle-theme');
     act(() => {
@@ -205,11 +221,13 @@ describe('ThemeContext', () => {
       writable: true,
     });
 
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     const toggleButton = screen.getByTestId('toggle-theme');
     act(() => {
@@ -229,11 +247,13 @@ describe('ThemeContext', () => {
       writable: true,
     });
 
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     const toggleButton = screen.getByTestId('toggle-theme');
     act(() => {
@@ -262,11 +282,13 @@ describe('ThemeContext', () => {
 
   it('should handle SSR scenario', () => {
     // Simplified SSR test - just verify the component works normally
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
   });
@@ -282,11 +304,13 @@ describe('ThemeContext', () => {
   });
 
   it('should handle multiple theme toggles', () => {
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     const toggleButton = screen.getByTestId('toggle-theme');
     
@@ -308,11 +332,13 @@ describe('ThemeContext', () => {
   });
 
   it('should update localStorage on every theme change', () => {
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     const toggleButton = screen.getByTestId('toggle-theme');
     
@@ -330,11 +356,13 @@ describe('ThemeContext', () => {
   it('should handle invalid stored theme', () => {
     localStorageMock.getItem.mockReturnValue('invalid-theme');
     
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     // The component accepts any stored value as theme
     expect(screen.getByTestId('theme')).toHaveTextContent('invalid-theme');
@@ -343,11 +371,13 @@ describe('ThemeContext', () => {
   it('should handle empty stored theme', () => {
     localStorageMock.getItem.mockReturnValue('');
     
-    render(
-      <ThemeProvider>
-        <TestComponent />
-      </ThemeProvider>
-    );
+    act(() => {
+      render(
+        <ThemeProvider>
+          <TestComponent />
+        </ThemeProvider>
+      );
+    });
 
     // Empty string is falsy, so it should fall back to system preference
     expect(screen.getByTestId('theme')).toHaveTextContent('light');

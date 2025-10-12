@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from '../App';
 
@@ -155,12 +155,18 @@ describe('App', () => {
   });
 
   it('should render without crashing', () => {
-    render(<App />);
+    act(() => {
+      act(() => {
+      render(<App />);
+    });
+    });
     expect(screen.getAllByTestId('error-boundary')).toHaveLength(2); // Outer and inner ErrorBoundary
   });
 
   it('should render all providers in correct order', () => {
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
     
     expect(screen.getAllByTestId('error-boundary')).toHaveLength(2); // Outer and inner ErrorBoundary
     expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
@@ -170,7 +176,9 @@ describe('App', () => {
   });
 
   it('should render home page for root route', async () => {
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('home-page')).toBeInTheDocument();
@@ -190,7 +198,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('features-page')).toBeInTheDocument();
@@ -210,7 +220,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('pricing-page')).toBeInTheDocument();
@@ -230,7 +242,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('faq-page')).toBeInTheDocument();
@@ -250,7 +264,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('login-page')).toBeInTheDocument();
@@ -270,7 +286,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('register-page')).toBeInTheDocument();
@@ -290,7 +308,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('user-profile-page')).toBeInTheDocument();
@@ -310,7 +330,9 @@ describe('App', () => {
              writable: true,
            });
 
-           render(<App />);
+           act(() => {
+      render(<App />);
+    });
 
            await waitFor(() => {
              expect(screen.getByTestId('protected-route')).toBeInTheDocument();
@@ -332,7 +354,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId('not-found')).toBeInTheDocument();
@@ -340,7 +364,9 @@ describe('App', () => {
   });
 
          it('should render loading fallback during suspense', () => {
-           render(<App />);
+           act(() => {
+      render(<App />);
+    });
            
            // Since we're mocking all lazy components, the Suspense fallback won't be triggered
            // Instead, we can verify that the app renders without crashing
@@ -348,7 +374,9 @@ describe('App', () => {
          });
 
   it('should render toaster component', () => {
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
     expect(screen.getByTestId('toaster')).toBeInTheDocument();
   });
 
@@ -358,7 +386,9 @@ describe('App', () => {
       writable: true,
     });
 
-    render(<App />);
+    act(() => {
+      render(<App />);
+    });
     
     expect(screen.queryByTestId('performance-monitor')).not.toBeInTheDocument();
   });

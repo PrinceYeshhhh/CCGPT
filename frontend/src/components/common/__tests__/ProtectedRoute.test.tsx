@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { ProtectedRoute } from '../ProtectedRoute';
@@ -26,17 +26,19 @@ function renderWithAuth(isAuthenticated: boolean, demoMode: boolean, initialEntr
   vi.mocked(useAuth).mockReturnValue({ isAuthenticated, user: null, token: null, login: vi.fn(), logout: vi.fn() });
   Object.defineProperty(import.meta, 'env', { value: { ...originalEnv, VITE_DEMO_MODE: demoMode ? 'true' : 'false' }, writable: true });
 
-  return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route path="/login" element={<TestLoginPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<TestProtectedContent />} />
-          <Route path="/dashboard/settings" element={<TestProtectedContent />} />
-        </Route>
-      </Routes>
-    </MemoryRouter>
-  );
+  return act(() => {
+    return render(
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/login" element={<TestLoginPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/dashboard" element={<TestProtectedContent />} />
+            <Route path="/dashboard/settings" element={<TestProtectedContent />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+  });
 }
 
 describe('ProtectedRoute', () => {

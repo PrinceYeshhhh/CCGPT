@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Documents } from '../Documents';
 import { api } from '@/lib/api';
@@ -74,14 +74,18 @@ describe('Documents', () => {
   });
 
   it('should render loading state initially', () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     expect(screen.getByText('Document Manager')).toBeInTheDocument();
     expect(screen.getByText('Upload Documents')).toBeInTheDocument();
   });
 
   it('should load and display documents', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('document1.pdf')).toBeInTheDocument();
@@ -90,7 +94,9 @@ describe('Documents', () => {
   });
 
   it('should display document status', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Active')).toBeInTheDocument();
@@ -99,7 +105,9 @@ describe('Documents', () => {
   });
 
   it('should display document size', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText(/1000\.0 KB/)).toBeInTheDocument();
@@ -108,7 +116,9 @@ describe('Documents', () => {
   });
 
   it('should handle document selection', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('document1.pdf')).toBeInTheDocument();
@@ -121,7 +131,9 @@ describe('Documents', () => {
   });
 
   it('should handle document actions', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('document1.pdf')).toBeInTheDocument();
@@ -135,7 +147,9 @@ describe('Documents', () => {
   it('should handle document upload', async () => {
     mockApi.post.mockResolvedValue({ data: {} });
     
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     const fileInput = screen.getByRole('button', { name: /select files/i });
     fireEvent.click(fileInput);
@@ -145,7 +159,9 @@ describe('Documents', () => {
   });
 
   it('should display processing info section', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('How document processing works')).toBeInTheDocument();
@@ -157,7 +173,9 @@ describe('Documents', () => {
   });
 
   it('should display ask question section', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Ask about Selected Documents')).toBeInTheDocument();
@@ -173,7 +191,9 @@ describe('Documents', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('No documents uploaded yet. Upload your first document to get started.')).toBeInTheDocument();
@@ -183,7 +203,9 @@ describe('Documents', () => {
   it('should handle API errors', async () => {
     mockApi.get.mockRejectedValueOnce(new Error('API Error'));
     
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       // Should not crash and should show empty state
@@ -192,7 +214,9 @@ describe('Documents', () => {
   });
 
   it('should display document actions', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('document1.pdf')).toBeInTheDocument();
@@ -217,7 +241,9 @@ describe('Documents', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Processing...')).toBeInTheDocument();
@@ -225,7 +251,9 @@ describe('Documents', () => {
   });
 
   it('should display upload progress', async () => {
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     expect(screen.getByText('Drag & drop files here, or click to select')).toBeInTheDocument();
   });
@@ -245,7 +273,9 @@ describe('Documents', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Documents />);
+    act(() => {
+      render(<Documents />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('document1.pdf')).toBeInTheDocument();
