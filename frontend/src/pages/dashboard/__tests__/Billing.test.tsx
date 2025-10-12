@@ -1,4 +1,4 @@
-import { screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import { renderWithProviders as render } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Billing } from '../Billing';
@@ -17,6 +17,10 @@ vi.mock('react-hot-toast', () => ({
     error: vi.fn(),
     success: vi.fn(),
   },
+  default: {
+    error: vi.fn(),
+    success: vi.fn(),
+  },
 }));
 
 // Mock PaymentPopup component
@@ -29,6 +33,88 @@ vi.mock('@/components/common/PaymentPopup', () => ({
         <button onClick={() => onSuccess({ success: true })}>Pay</button>
       </div>
     ) : null,
+}));
+
+// Mock Progress component
+vi.mock('@/components/ui/progress', () => ({
+  Progress: ({ value, className }: { value: number; className?: string }) => (
+    <div data-testid="progress" className={className} style={{ width: `${value}%` }}>
+      {value}%
+    </div>
+  ),
+}));
+
+// Mock Badge component
+vi.mock('@/components/ui/badge', () => ({
+  Badge: ({ children, variant, className }: { children: React.ReactNode; variant?: string; className?: string }) => (
+    <span data-testid="badge" className={className}>
+      {children}
+    </span>
+  ),
+}));
+
+// Mock Card components
+vi.mock('@/components/ui/card', () => ({
+  Card: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="card" className={className}>
+      {children}
+    </div>
+  ),
+  CardHeader: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="card-header" className={className}>
+      {children}
+    </div>
+  ),
+  CardTitle: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <h3 data-testid="card-title" className={className}>
+      {children}
+    </h3>
+  ),
+  CardDescription: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <p data-testid="card-description" className={className}>
+      {children}
+    </p>
+  ),
+  CardContent: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="card-content" className={className}>
+      {children}
+    </div>
+  ),
+}));
+
+// Mock Button component
+vi.mock('@/components/ui/button', () => ({
+  Button: ({ children, onClick, disabled, className, size, variant }: { 
+    children: React.ReactNode; 
+    onClick?: () => void; 
+    disabled?: boolean; 
+    className?: string; 
+    size?: string; 
+    variant?: string; 
+  }) => (
+    <button 
+      data-testid="button" 
+      onClick={onClick} 
+      disabled={disabled} 
+      className={className}
+    >
+      {children}
+    </button>
+  ),
+}));
+
+// Mock Lucide React icons
+vi.mock('lucide-react', () => ({
+  CreditCard: () => <div data-testid="credit-card-icon" />,
+  Download: () => <div data-testid="download-icon" />,
+  Calendar: () => <div data-testid="calendar-icon" />,
+  AlertCircle: () => <div data-testid="alert-circle-icon" />,
+  CheckCircle: () => <div data-testid="check-circle-icon" />,
+  ArrowUpRight: () => <div data-testid="arrow-up-right-icon" />,
+  Receipt: () => <div data-testid="receipt-icon" />,
+  Zap: () => <div data-testid="zap-icon" />,
+  Loader2: () => <div data-testid="loader2-icon" />,
+  RefreshCw: () => <div data-testid="refresh-cw-icon" />,
 }));
 
 const mockApi = vi.mocked(api);
@@ -136,26 +222,33 @@ describe('Billing', () => {
   });
 
   it('should render loading state initially', () => {
-    render(<Billing />);
+    act(() => {
+      act(() => {
+      render(<Billing />);
+    });
+    });
     
     expect(screen.getByText('Loading billing information...')).toBeInTheDocument();
   });
 
   it('should load and display billing information', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Billing & Usage' })).toBeInTheDocument();
-      const currentPlanSection = screen.getAllByText('Current Plan')[0].closest('div');
-      expect(currentPlanSection).toBeTruthy();
+      expect(screen.getByText('Current Plan')).toBeInTheDocument();
       expect(screen.getByText('Pro')).toBeInTheDocument();
-      expect(screen.getAllByText('$50')[0]).toBeInTheDocument();
-      expect(screen.getAllByText('per month')[0]).toBeInTheDocument();
+      expect(screen.getByText('$50')).toBeInTheDocument();
+      expect(screen.getByText('per month')).toBeInTheDocument();
     });
   });
 
   it('should display usage information', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('750 used')).toBeInTheDocument();
@@ -168,7 +261,9 @@ describe('Billing', () => {
   });
 
   it('should display payment method information', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Payment Method')).toBeInTheDocument();
@@ -178,36 +273,41 @@ describe('Billing', () => {
   });
 
   it('should display billing history', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Billing History')).toBeInTheDocument();
-      const amountCells = screen.getAllByText('$50.00');
-      expect(amountCells.length).toBeGreaterThan(0);
+      expect(screen.getByText('$50.00')).toBeInTheDocument();
       expect(screen.getByText('Pro Plan - January 2024')).toBeInTheDocument();
       expect(screen.getByText('paid')).toBeInTheDocument();
     });
   });
 
   it('should display pricing plans', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Upgrade Your Plan')).toBeInTheDocument();
       expect(screen.getByText('Starter')).toBeInTheDocument();
       expect(screen.getByText('Pro')).toBeInTheDocument();
       expect(screen.getByText('Enterprise')).toBeInTheDocument();
-      expect(screen.getAllByText('$20.00')[0]).toBeInTheDocument();
-      expect(screen.getAllByText('$50.00')[0]).toBeInTheDocument();
-      expect(screen.getAllByText('$200.00')[0]).toBeInTheDocument();
+      expect(screen.getByText('$20.00')).toBeInTheDocument();
+      expect(screen.getByText('$50.00')).toBeInTheDocument();
+      expect(screen.getByText('$200.00')).toBeInTheDocument();
     });
   });
 
   it('should mark current plan correctly', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
-      expect(screen.getAllByText('Current Plan')[0]).toBeInTheDocument();
+      expect(screen.getByText('Current Plan')).toBeInTheDocument();
       // Current plan should show "Pro" and "active" status
       expect(screen.getByText('Pro')).toBeInTheDocument();
       expect(screen.getByText('active')).toBeInTheDocument();
@@ -219,10 +319,12 @@ describe('Billing', () => {
   });
 
   it('should handle plan upgrade', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
-      expect(screen.getAllByText('Upgrade')[0]).toBeInTheDocument();
+      expect(screen.getByText('Upgrade')).toBeInTheDocument();
     });
     const upgradeButtons = screen.getAllByText('Upgrade');
     fireEvent.click(upgradeButtons[0]); // Click first upgrade button
@@ -232,10 +334,12 @@ describe('Billing', () => {
   });
 
   it('should handle payment success', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
-      expect(screen.getAllByText('Upgrade')[0]).toBeInTheDocument();
+      expect(screen.getByText('Upgrade')).toBeInTheDocument();
     });
     
     const upgradeButtons = screen.getAllByText('Upgrade');
@@ -250,10 +354,12 @@ describe('Billing', () => {
   });
 
   it('should handle payment popup close', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
-      expect(screen.getAllByText('Upgrade')[0]).toBeInTheDocument();
+      expect(screen.getByText('Upgrade')).toBeInTheDocument();
     });
     
     const upgradeButtons = screen.getAllByText('Upgrade');
@@ -268,7 +374,9 @@ describe('Billing', () => {
   });
 
   it('should handle refresh button', async () => {
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Refresh')).toBeInTheDocument();
@@ -289,7 +397,9 @@ describe('Billing', () => {
       writable: true,
     });
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Billing History')).toBeInTheDocument();
@@ -383,7 +493,9 @@ describe('Billing', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Download All Invoices')).toBeInTheDocument();
@@ -430,7 +542,9 @@ describe('Billing', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('High Usage Alert')).toBeInTheDocument();
@@ -453,7 +567,9 @@ describe('Billing', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Trial')).toBeInTheDocument();
@@ -476,7 +592,9 @@ describe('Billing', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Free')).toBeInTheDocument();
@@ -488,7 +606,9 @@ describe('Billing', () => {
   it('should handle error state', async () => {
     mockApi.get.mockRejectedValueOnce(new Error('API Error'));
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Unable to load billing information')).toBeInTheDocument();
@@ -499,7 +619,9 @@ describe('Billing', () => {
   it('should handle retry after error', async () => {
     mockApi.get.mockRejectedValueOnce(new Error('API Error'));
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getByText('Try Again')).toBeInTheDocument();
@@ -532,7 +654,9 @@ describe('Billing', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getAllByText('No Payment Method')).toHaveLength(1);
@@ -561,7 +685,9 @@ describe('Billing', () => {
       return Promise.resolve({ data: {} });
     });
     
-    render(<Billing />);
+    act(() => {
+      render(<Billing />);
+    });
     
     await waitFor(() => {
       expect(screen.getAllByText('No Invoices')).toHaveLength(1);

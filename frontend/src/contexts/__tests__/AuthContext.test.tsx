@@ -52,11 +52,13 @@ describe('AuthContext', () => {
   it('should provide initial state with no token', () => {
     vi.mocked(api.getAuthToken).mockReturnValue(null);
     
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    act(() => {
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+    });
 
     expect(screen.getByTestId('user')).toHaveTextContent('null');
     expect(screen.getByTestId('token')).toHaveTextContent('');
@@ -66,11 +68,13 @@ describe('AuthContext', () => {
   it('should provide initial state with existing token', () => {
     vi.mocked(api.getAuthToken).mockReturnValue('existing-token');
     
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    act(() => {
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+    });
 
     expect(screen.getByTestId('token')).toHaveTextContent('existing-token');
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true');
@@ -79,11 +83,13 @@ describe('AuthContext', () => {
   it('should call setAuthToken when token changes', async () => {
     vi.mocked(api.getAuthToken).mockReturnValue(null);
     
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    act(() => {
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+    });
 
     await act(async () => {
       screen.getByTestId('login-btn').click();
@@ -95,11 +101,13 @@ describe('AuthContext', () => {
   it('should update state when login is called', async () => {
     vi.mocked(api.getAuthToken).mockReturnValue(null);
     
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    act(() => {
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+    });
 
     await act(async () => {
       screen.getByTestId('login-btn').click();
@@ -113,11 +121,13 @@ describe('AuthContext', () => {
   it('should update state when logout is called', async () => {
     vi.mocked(api.getAuthToken).mockReturnValue('existing-token');
     
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    act(() => {
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+    });
 
     await act(async () => {
       screen.getByTestId('logout-btn').click();
@@ -143,11 +153,13 @@ describe('AuthContext', () => {
     
     vi.mocked(api.getAuthToken).mockReturnValue('existing-token');
     
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    act(() => {
+      render(
+        <AuthProvider>
+          <TestComponent />
+        </AuthProvider>
+      );
+    });
 
     expect(screen.getByTestId('token')).toHaveTextContent('existing-token');
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true');
@@ -179,11 +191,13 @@ describe('AuthContext', () => {
       );
     }
     
-    render(
-      <AuthProvider>
-        <TestComponentNoUser />
-      </AuthProvider>
-    );
+    act(() => {
+      render(
+        <AuthProvider>
+          <TestComponentNoUser />
+        </AuthProvider>
+      );
+    });
 
     await act(async () => {
       screen.getByTestId('login-no-user-btn').click();

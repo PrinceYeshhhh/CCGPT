@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { ThemeToggle } from '../theme-toggle'
 
@@ -16,7 +16,9 @@ describe('ThemeToggle', () => {
     const spy = vi.fn()
     useTheme.mockReturnValue({ theme: 'light', toggleTheme: spy })
 
-    render(<ThemeToggle />)
+    act(() => {
+      render(<ThemeToggle />)
+    })
     const btn = screen.getByRole('button', { name: /switch to dark theme/i })
     fireEvent.click(btn)
     expect(spy).toHaveBeenCalled()

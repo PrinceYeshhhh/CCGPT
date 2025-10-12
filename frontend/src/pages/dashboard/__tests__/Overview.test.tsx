@@ -1,4 +1,4 @@
-import { renderWithProviders as render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import { renderWithProviders as render, screen, fireEvent, waitFor, act } from '@/test/test-utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import { Overview } from '../Overview';
@@ -123,7 +123,11 @@ describe('Overview', () => {
     });
   });
 
-  const renderOverview = () => render(<Overview />);
+  const renderOverview = () => {
+    act(() => {
+      render(<Overview />);
+    });
+  };
 
   it('should render loading state initially', () => {
     renderOverview();
