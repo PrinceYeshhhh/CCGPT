@@ -68,15 +68,30 @@ def upgrade():
             sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
             sa.PrimaryKeyConstraint('id')
         )
-        
-        # Add indexes
-        op.create_index('ix_subscriptions_workspace_id', 'subscriptions', ['workspace_id'])
-        op.create_index('ix_subscriptions_stripe_customer_id', 'subscriptions', ['stripe_customer_id'])
-        op.create_index('ix_subscriptions_stripe_subscription_id', 'subscriptions', ['stripe_subscription_id'])
-        op.create_index('ix_subscriptions_tier', 'subscriptions', ['tier'])
-        op.create_index('ix_subscriptions_status', 'subscriptions', ['status'])
     except Exception:
         pass  # Table already exists, continue
+    
+    # Add indexes
+    try:
+        op.create_index('ix_subscriptions_workspace_id', 'subscriptions', ['workspace_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('ix_subscriptions_stripe_customer_id', 'subscriptions', ['stripe_customer_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('ix_subscriptions_stripe_subscription_id', 'subscriptions', ['stripe_subscription_id'])
+    except Exception:
+        pass
+    try:
+        op.create_index('ix_subscriptions_tier', 'subscriptions', ['tier'])
+    except Exception:
+        pass
+    try:
+        op.create_index('ix_subscriptions_status', 'subscriptions', ['status'])
+    except Exception:
+        pass
 
 
 def downgrade():
