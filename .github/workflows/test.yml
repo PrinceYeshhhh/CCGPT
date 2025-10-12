@@ -85,7 +85,7 @@ jobs:
     - name: Run database migrations
       working-directory: ./backend
       run: |
-        alembic upgrade head
+        python migrate_with_retry.py
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
@@ -185,7 +185,7 @@ jobs:
     - name: Run database migrations
       working-directory: ./backend
       run: |
-        alembic upgrade head
+        python migrate_with_retry.py
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
