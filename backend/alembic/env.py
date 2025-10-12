@@ -1,6 +1,7 @@
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import text
 from alembic import context
 import os
 import sys
@@ -85,7 +86,7 @@ def run_migrations_online() -> None:
             try:
                 with connectable.connect() as connection:
                     # Force a clean connection by executing a simple query
-                    connection.execute("SELECT 1")
+                    connection.execute(text("SELECT 1"))
                     
                     context.configure(
                         connection=connection, target_metadata=target_metadata
