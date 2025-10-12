@@ -78,54 +78,29 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
 
-    # For PostgreSQL, we need to handle failed transactions more aggressively
-    if "postgresql" in get_url():
-        # Create a new connection for each attempt to ensure clean state
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                with connectable.connect() as connection:
-                    # Force a clean connection by executing a simple query
-                    connection.execute(text("SELECT 1"))
-                    
-                    context.configure(
-                        connection=connection, target_metadata=target_metadata
-                    )
+    with connectable.connect() as connection:
+        # Handle failed transactions by rolling back first
+        try:
+            connection.rollback()
+        except Exception:
+            pass  # Ignore rollback errors
+        
+        # Use batch mode for SQLite
+        if "sqlite" in get_url():
+            context.configure(
+                connection=connection, 
+                target_metadata=target_metadata,
+                render_as_batch=True
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+        else:
+            context.configure(
+                connection=connection, target_metadata=target_metadata
+            )
 
-                    with context.begin_transaction():
-                        context.run_migrations()
-                    break  # Success, exit retry loop
-            except Exception as e:
-                if attempt == max_retries - 1:
-                    raise e  # Re-raise on final attempt
-                # Wait a bit before retrying
-                import time
-                time.sleep(1)
-    else:
-        # For SQLite, use the original logic
-        with connectable.connect() as connection:
-            # Handle failed transactions by rolling back first
-            try:
-                connection.rollback()
-            except Exception:
-                pass  # Ignore rollback errors
-            
-            # Use batch mode for SQLite
-            if "sqlite" in get_url():
-                context.configure(
-                    connection=connection, 
-                    target_metadata=target_metadata,
-                    render_as_batch=True
-                )
-                with context.begin_transaction():
-                    context.run_migrations()
-            else:
-                context.configure(
-                    connection=connection, target_metadata=target_metadata
-                )
-
-                with context.begin_transaction():
-                    context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
 
 
 if context.is_offline_mode():

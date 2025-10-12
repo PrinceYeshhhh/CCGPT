@@ -86,7 +86,7 @@ jobs:
     - name: Run database migrations
       working-directory: ./backend
       run: |
-        python migrate_with_retry.py
+        python simple_migrate.py || python migrate_with_retry.py
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
