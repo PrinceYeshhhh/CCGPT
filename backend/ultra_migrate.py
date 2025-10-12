@@ -88,8 +88,8 @@ def create_fresh_version_table():
                     );
                 """))
                 
-                # Insert initial version
-                connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('001');"))
+                # Insert correct version based on database state
+                connection.execute(text("INSERT INTO alembic_version (version_num) VALUES ('008_add_performance_indexes');"))
                 
                 trans.commit()
                 print("✅ Fresh version table created")

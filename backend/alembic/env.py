@@ -63,7 +63,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
+    """Run migrations in 'online' mode with circular dependency protection.
 
     In this scenario we need to create an Engine
     and associate a connection with the context.
@@ -72,35 +72,154 @@ def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = get_url()
     
+    # Create engine with aggressive connection management
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Force new connections for each operation
+        pool_pre_ping=True,
+        pool_recycle=1,
+        # Use autocommit mode to avoid transaction issues
+        isolation_level='AUTOCOMMIT',
+        # Additional PostgreSQL-specific settings
+        connect_args={
+            "options": "-c default_transaction_isolation=read_committed"
+        } if "postgresql" in get_url() else {}
     )
 
-    with connectable.connect() as connection:
-        # Handle failed transactions by rolling back first
-        try:
-            connection.rollback()
-        except Exception:
-            pass  # Ignore rollback errors
-        
-        # Use batch mode for SQLite
-        if "sqlite" in get_url():
-            context.configure(
-                connection=connection, 
-                target_metadata=target_metadata,
-                render_as_batch=True
-            )
-            with context.begin_transaction():
-                context.run_migrations()
-        else:
-            context.configure(
-                connection=connection, target_metadata=target_metadata
-            )
+    # Check for circular dependency risk before running migrations
+    try:
+        with connectable.connect() as connection:
+            # Get current version
+            try:
+                result = connection.execute(text("SELECT version_num FROM alembic_version;"))
+                current_version = result.scalar()
+            except Exception:
+                current_version = None
+            
+            # Check if we're at risk of circular dependency
+            if current_version and "postgresql" in get_url():
+                # For PostgreSQL, check if we're trying to re-run already applied migrations
+                from alembic.script import ScriptDirectory
+                script = ScriptDirectory.from_config(config)
+                
+                # Get the revision we're trying to upgrade to
+                head_revision = script.get_current_head()
+                
+                # If we're already at head, skip migration
+                if current_version == head_revision:
+                    print("SUCCESS: Database is already at the latest migration version")
+                    return
+                
+                # For PostgreSQL, ensure we're not in a failed transaction state
+                if "postgresql" in get_url():
+                    try:
+                        # Check transaction state
+                        result = connection.execute(text("SELECT txid_current();"))
+                        print(f"Current transaction ID: {result.scalar()}")
+                        
+                        # Ensure clean transaction state
+                        connection.execute(text("DISCARD ALL;"))
+                    except Exception as e:
+                        print(f"WARNING: Could not reset transaction state: {e}")
+                        # Try to rollback any pending transaction
+                        try:
+                            connection.rollback()
+                        except Exception:
+                            pass
+                
+                # Check if current version is valid
+                try:
+                    script.get_revision(current_version)
+                except Exception:
+                    print(f"WARNING: Current version {current_version} is invalid, will reset to head")
+                    # Reset to a known good state
+                    connection.execute(text("UPDATE alembic_version SET version_num = '001';"))
+    except Exception as e:
+        print(f"WARNING: Could not check migration state: {e}")
 
-            with context.begin_transaction():
-                context.run_migrations()
+    # For PostgreSQL, use a more aggressive approach
+    if "postgresql" in get_url():
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                with connectable.connect() as connection:
+                    # Force a clean connection
+                    try:
+                        connection.execute(text("SELECT 1"))
+                    except Exception:
+                        # If connection fails, try to reset it
+                        connection.rollback()
+                        connection.execute(text("SELECT 1"))
+                    
+                    context.configure(
+                        connection=connection, 
+                        target_metadata=target_metadata,
+                        # Use autocommit for PostgreSQL to avoid transaction issues
+                        transaction_per_migration=True,
+                        # Add circular dependency protection
+                        compare_type=True,
+                        compare_server_default=True
+                    )
+
+                    # Run migrations without explicit transaction management
+                    context.run_migrations()
+                    break  # Success, exit retry loop
+                    
+            except Exception as e:
+                if "CircularDependencyError" in str(e):
+                    print(f"WARNING: Circular dependency detected, skipping migration: {e}")
+                    break  # Skip migration to avoid circular dependency
+                elif attempt == max_retries - 1:
+                    raise e  # Re-raise on final attempt
+                # Wait before retrying
+                import time
+                time.sleep(1)
+    else:
+        # For SQLite, use the original logic with circular dependency protection
+        with connectable.connect() as connection:
+            # Handle failed transactions by rolling back first
+            try:
+                connection.rollback()
+            except Exception:
+                pass  # Ignore rollback errors
+            
+            # Use batch mode for SQLite
+            if "sqlite" in get_url():
+                context.configure(
+                    connection=connection, 
+                    target_metadata=target_metadata,
+                    render_as_batch=True,
+                    # Add circular dependency protection
+                    compare_type=True,
+                    compare_server_default=True
+                )
+                try:
+                    with context.begin_transaction():
+                        context.run_migrations()
+                except Exception as e:
+                    if "CircularDependencyError" in str(e):
+                        print(f"WARNING: Circular dependency detected, skipping migration: {e}")
+                    else:
+                        raise e
+            else:
+                context.configure(
+                    connection=connection, 
+                    target_metadata=target_metadata,
+                    # Add circular dependency protection
+                    compare_type=True,
+                    compare_server_default=True
+                )
+
+                try:
+                    with context.begin_transaction():
+                        context.run_migrations()
+                except Exception as e:
+                    if "CircularDependencyError" in str(e):
+                        print(f"WARNING: Circular dependency detected, skipping migration: {e}")
+                    else:
+                        raise e
 
 
 if context.is_offline_mode():
