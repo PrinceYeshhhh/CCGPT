@@ -78,6 +78,20 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # Handle failed transactions by rolling back first
+        try:
+            connection.rollback()
+        except Exception:
+            pass  # Ignore rollback errors
+        
+        # For PostgreSQL, ensure we start with a clean transaction
+        if "postgresql" in get_url():
+            try:
+                # Reset the connection to clear any failed transaction state
+                connection.execute("ROLLBACK")
+            except Exception:
+                pass  # Ignore if no transaction to rollback
+        
         # Use batch mode for SQLite
         if "sqlite" in get_url():
             context.configure(
