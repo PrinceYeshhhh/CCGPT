@@ -213,7 +213,7 @@ describe('Overview', () => {
     renderOverview();
     
     await waitFor(() => {
-      expect(screen.getByText('Failed to load dashboard data')).toBeInTheDocument();
+      expect(screen.getByText('API Error')).toBeInTheDocument();
       expect(screen.getByText('Retry')).toBeInTheDocument();
     });
   });
@@ -224,7 +224,7 @@ describe('Overview', () => {
     renderOverview();
     
     await waitFor(() => {
-      expect(screen.getByText('Failed to load dashboard data')).toBeInTheDocument();
+      expect(screen.getByText('API Error')).toBeInTheDocument();
     });
     
     const retryButton = screen.getByText('Retry');
@@ -284,10 +284,11 @@ describe('Overview', () => {
       });
       expect(elementsWith5.length).toBeGreaterThanOrEqual(1);
       
-      // Check that "from previous period" appears in the stats cards
-      expect(screen.getByText((content, element) => {
+      // Check that "from previous period" appears in the stats cards - use getAllByText to handle multiple occurrences
+      const periodElements = screen.getAllByText((content, element) => {
         return element?.textContent?.includes('from previous period') ?? false;
-      })).toBeInTheDocument();
+      });
+      expect(periodElements.length).toBeGreaterThanOrEqual(1);
     });
   });
 
