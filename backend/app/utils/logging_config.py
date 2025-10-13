@@ -4,7 +4,9 @@ Comprehensive logging configuration for CustomerCareGPT
 
 import logging
 import logging.config
+import os
 import sys
+from pathlib import Path
 from typing import Any, Dict, Optional
 import structlog
 from app.core.config import settings

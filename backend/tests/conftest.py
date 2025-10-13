@@ -27,6 +27,35 @@ os.environ["STRIPE_API_KEY"] = "test-stripe-key"
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"  # Longer expiration for tests
 
+# Mock Redis to prevent connection issues in tests
+import redis
+from unittest.mock import MagicMock
+
+# Create a mock Redis client
+mock_redis = MagicMock()
+mock_redis.ping.return_value = True
+mock_redis.get.return_value = None
+mock_redis.set.return_value = True
+mock_redis.delete.return_value = 1
+mock_redis.exists.return_value = False
+mock_redis.expire.return_value = True
+mock_redis.hget.return_value = None
+mock_redis.hset.return_value = 1
+mock_redis.hdel.return_value = 1
+mock_redis.hgetall.return_value = {}
+mock_redis.lpush.return_value = 1
+mock_redis.lpop.return_value = None
+mock_redis.llen.return_value = 0
+mock_redis.lrange.return_value = []
+mock_redis.sadd.return_value = 1
+mock_redis.srem.return_value = 1
+mock_redis.smembers.return_value = set()
+mock_redis.scard.return_value = 0
+mock_redis.zadd.return_value = 1
+mock_redis.zrange.return_value = []
+mock_redis.zrem.return_value = 1
+mock_redis.zcard.return_value = 0
+
 from app.main import app
 from app.core.database import get_db, Base
 # Import all models to ensure relationships are resolved
@@ -39,6 +68,7 @@ engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
+    echo=False,  # Disable SQL logging in tests
 )
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -53,11 +83,56 @@ def event_loop():
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
     """Create database tables once per session."""
-    # Ensure all models are imported before creating tables
-    from app.models import User, Workspace, Document, DocumentChunk, ChatSession, ChatMessage, EmbedCode, Subscription
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
+    try:
+        # Ensure all models are imported before creating tables
+        from app.models import User, Workspace, Document, DocumentChunk, ChatSession, ChatMessage, EmbedCode, Subscription
+        Base.metadata.create_all(bind=engine)
+        yield
+    finally:
+        try:
+            Base.metadata.drop_all(bind=engine)
+        except Exception:
+            pass  # Ignore cleanup errors
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_redis_connections():
+    """Mock Redis connections to prevent hanging in tests."""
+    with patch('redis.Redis', return_value=mock_redis):
+        with patch('redis.from_url', return_value=mock_redis):
+            yield
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_chromadb():
+    """Mock ChromaDB to prevent model loading delays in tests."""
+    mock_chroma_client = MagicMock()
+    mock_collection = MagicMock()
+    mock_collection.add.return_value = None
+    mock_collection.query.return_value = {"documents": [], "metadatas": [], "distances": []}
+    mock_collection.delete.return_value = None
+    mock_collection.count.return_value = 0
+    mock_chroma_client.get_collection.return_value = mock_collection
+    mock_chroma_client.create_collection.return_value = mock_collection
+    mock_chroma_client.list_collections.return_value = []
+    
+    with patch('chromadb.Client', return_value=mock_chroma_client):
+        with patch('chromadb.PersistentClient', return_value=mock_chroma_client):
+            yield
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_sentence_transformer():
+    """Mock SentenceTransformer to prevent model loading delays in tests."""
+    mock_model = MagicMock()
+    mock_model.encode.return_value = [[0.1] * 384]  # Return fake embeddings
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+    
+    with patch('sentence_transformers.SentenceTransformer', return_value=mock_model):
+        yield
+
+@pytest.fixture(scope="function", autouse=True)
+def mock_chromadb_telemetry():
+    """Mock ChromaDB telemetry to prevent errors in tests."""
+    with patch('chromadb.telemetry.product.posthog.Posthog.capture', return_value=None):
+        yield
 
 @pytest.fixture(scope="function")
 def db_session() -> Generator:
