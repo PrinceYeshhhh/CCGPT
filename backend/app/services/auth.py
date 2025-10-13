@@ -514,6 +514,9 @@ class AuthService:
     def send_email_verification(self, email: str, token: str) -> bool:
         """Send a real verification email using SES or SendGrid if configured."""
         try:
+            # Skip external email sending in testing to avoid network hangs
+            if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
+                return True
             verify_url = f"{settings.PUBLIC_BASE_URL}/api/v1/auth/verify-email?token={token}"
             subject = "Verify your email"
             body_text = f"Please verify your email by clicking: {verify_url}"

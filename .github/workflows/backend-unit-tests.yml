@@ -74,10 +74,11 @@ jobs:
         print("requirements encodings OK")
         PY
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y postgresql-client
+    # Unit tests don't require system Postgres tools; skip to reduce CI overhead
+    # - name: Install system dependencies
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y postgresql-client
 
     - name: Install Python dependencies
       working-directory: ./backend
@@ -98,25 +99,26 @@ jobs:
         echo "SECRET_KEY=test-secret-key" >> .env.test
         echo "JWT_SECRET=test-jwt-secret" >> .env.test
 
-    - name: Fix PostgreSQL connection issues
-      working-directory: ./backend
-      run: |
-        python fix_postgresql_connection.py
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-        ENVIRONMENT: testing
-        SECRET_KEY: test-secret-key
-        JWT_SECRET: test-jwt-secret
+    # Skip database fix/migrations for unit tests (tests use SQLite + mocks)
+    # - name: Fix PostgreSQL connection issues
+    #   working-directory: ./backend
+    #   run: |
+    #     python fix_postgresql_connection.py
+    #   env:
+    #     DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+    #     ENVIRONMENT: testing
+    #     SECRET_KEY: test-secret-key
+    #     JWT_SECRET: test-jwt-secret
 
-    - name: Run database migrations
-      working-directory: ./backend
-      run: |
-        python run_migration_chain.py
-      env:
-        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-        ENVIRONMENT: testing
-        SECRET_KEY: test-secret-key
-        JWT_SECRET: test-jwt-secret
+    # - name: Run database migrations
+    #   working-directory: ./backend
+    #   run: |
+    #     python run_migration_chain.py
+    #   env:
+    #     DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+    #     ENVIRONMENT: testing
+    #     SECRET_KEY: test-secret-key
+    #     JWT_SECRET: test-jwt-secret
 
     - name: Run all backend unit tests
       working-directory: ./backend
@@ -130,12 +132,11 @@ jobs:
         export OMP_NUM_THREADS=1
         export MKL_NUM_THREADS=1
         export NUMEXPR_MAX_THREADS=1
+        export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 
         pytest tests/unit/ -v -p no:timeout \
           --cov=app \
           --cov-report=xml \
-          --cov-report=html \
-          --cov-report=term-missing \
           --junitxml=test-results.xml \
           --maxfail=10 \
           --tb=short
