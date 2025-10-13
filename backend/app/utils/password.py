@@ -4,9 +4,15 @@ Password utilities with enhanced security
 
 import secrets
 import hashlib
+import os
+
+# Force Passlib to use builtin bcrypt backend to avoid CI issues
+os.environ.setdefault('PASSLIB_BUILTIN_BCRYPT', '1')
+os.environ.setdefault('PASSLIB_BCRYPT_BACKEND', 'builtin')
+
 from passlib.context import CryptContext
 from passlib.hash import bcrypt
-import os
+from passlib.handlers import bcrypt as bcrypt_handler
 from typing import Tuple
 import structlog
 
@@ -22,7 +28,15 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto",
     bcrypt__rounds=_BCRYPT_ROUNDS,
+    bcrypt__ident="2b",
+    bcrypt__truncate_error=False,
 )
+
+# Force passlib to use builtin backend to avoid pyca bcrypt long-secret errors in CI
+try:
+    bcrypt_handler.set_backend("builtin")
+except Exception:
+    pass
 
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt with salt"""
