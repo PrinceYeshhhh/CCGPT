@@ -88,8 +88,8 @@ async def lifespan(app: FastAPI):
         
         # Initialize other services
         from app.core.queue import queue_manager
-from app.utils.circuit_breaker import circuit_breaker_manager
-import os
+        from app.utils.circuit_breaker import circuit_breaker_manager
+        import os
         
         is_testing = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
 
