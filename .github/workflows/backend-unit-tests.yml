@@ -19,6 +19,7 @@ jobs:
   backend-unit-tests:
     name: Backend Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     
     services:
       postgres:
@@ -132,8 +133,7 @@ jobs:
         export OMP_NUM_THREADS=1
         export MKL_NUM_THREADS=1
         export NUMEXPR_MAX_THREADS=1
-
-        pytest tests/unit/ -vv -s -p no:timeout \
+        pytest tests/unit/ -vv -s \
           --cov=app \
           --cov-report=xml \
           --junitxml=test-results.xml \
@@ -148,6 +148,8 @@ jobs:
         GEMINI_API_KEY: test-gemini-key
         STRIPE_API_KEY: test-stripe-key
         TESTING: true
+        PYTHONFAULTHANDLER: 1
+        PYTHONUNBUFFERED: 1
 
     - name: Upload test results
       uses: actions/upload-artifact@v4

@@ -411,3 +411,68 @@ def mock_heavy_services():
                             mock_ab.return_value = mock_ab_instance
                             
                             yield
+
+# CI/test hardening: block external network and enforce short HTTP client timeouts
+import socket
+import httpx
+import functools
+
+_LOCALHOST = {"127.0.0.1", "::1", "localhost"}
+
+@pytest.fixture(scope="session", autouse=True)
+def ci_sandbox():
+    """Harden CI/test runs to avoid external stalls and enforce strict timeouts.
+    - Sets stable testing env vars
+    - Blocks outbound network except localhost
+    - Forces httpx clients to use short default timeouts
+    """
+    # Env hardening
+    os.environ.setdefault("TESTING", "true")
+    os.environ.setdefault("ENVIRONMENT", "testing")
+    os.environ.setdefault("PYTHONFAULTHANDLER", "1")
+    os.environ.setdefault("PYTHONUNBUFFERED", "1")
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
+    os.environ.setdefault("MKL_NUM_THREADS", "1")
+    os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+
+    # Block external network (allow localhost only)
+    real_connect = socket.socket.connect
+    def guarded_connect(self, address):
+        try:
+            host = address[0]
+        except Exception:
+            host = None
+        if host not in _LOCALHOST:
+            raise RuntimeError(f"Network blocked in CI tests: {host}")
+        return real_connect(self, address)
+
+    # Force short httpx timeouts by default
+    orig_client_init = httpx.Client.__init__
+    orig_async_init = httpx.AsyncClient.__init__
+
+    @functools.wraps(orig_client_init)
+    def client_init(self, *args, timeout=None, **kwargs):
+        if timeout is None:
+            timeout = 2.0
+        return orig_client_init(self, *args, timeout=timeout, **kwargs)
+
+    @functools.wraps(orig_async_init)
+    def async_init(self, *args, timeout=None, **kwargs):
+        if timeout is None:
+            timeout = 2.0
+        return orig_async_init(self, *args, timeout=timeout, **kwargs)
+
+    # Apply patches
+    socket.socket.connect = guarded_connect  # type: ignore[assignment]
+    httpx.Client.__init__ = client_init  # type: ignore[assignment]
+    httpx.AsyncClient.__init__ = async_init  # type: ignore[assignment]
+
+    try:
+        yield
+    finally:
+        # Restore originals
+        socket.socket.connect = real_connect  # type: ignore[assignment]
+        httpx.Client.__init__ = orig_client_init  # type: ignore[assignment]
+        httpx.AsyncClient.__init__ = orig_async_init  # type: ignore[assignment]

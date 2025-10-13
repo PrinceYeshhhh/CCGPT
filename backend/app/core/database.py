@@ -114,6 +114,15 @@ class MockRedisClient:
         def expire(self, key, seconds):
             self.commands.append(("expire", key, seconds))
             return self
+        def zremrangebyscore(self, key, min_score, max_score):
+            self.commands.append(("zremrangebyscore", key, min_score, max_score))
+            return self
+        def zcard(self, key):
+            self.commands.append(("zcard", key))
+            return self
+        def zadd(self, key, mapping):
+            self.commands.append(("zadd", key, mapping))
+            return self
         def execute(self):
             # Return mock results matching redis-py behavior
             results = []
@@ -125,6 +134,8 @@ class MockRedisClient:
                 elif cmd[0] == "zadd":
                     results.append(1)
                 elif cmd[0] == "zremrangebyscore":
+                    results.append(0)
+                elif cmd[0] == "zcard":
                     results.append(0)
             self.commands.clear()
             return results

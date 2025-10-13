@@ -25,6 +25,7 @@ jobs:
   backend-tests:
     name: Backend Tests & Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     
     services:
       postgres:
@@ -150,6 +151,10 @@ jobs:
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
+        TESTING: true
+        ENVIRONMENT: testing
+        PYTHONFAULTHANDLER: 1
+        PYTHONUNBUFFERED: 1
 
     - name: Run integration tests
       working-directory: ./backend
@@ -158,6 +163,10 @@ jobs:
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
+        TESTING: true
+        ENVIRONMENT: testing
+        PYTHONFAULTHANDLER: 1
+        PYTHONUNBUFFERED: 1
 
     - name: Run performance tests
       working-directory: ./backend
@@ -166,6 +175,10 @@ jobs:
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
+        TESTING: true
+        ENVIRONMENT: testing
+        PYTHONFAULTHANDLER: 1
+        PYTHONUNBUFFERED: 1
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
