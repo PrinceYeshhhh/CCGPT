@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
 """
 Production-grade vector search service with advanced capabilities
 """

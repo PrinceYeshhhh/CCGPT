@@ -5,7 +5,7 @@ File parsing utilities for extracting text from various file formats
 import os
 import re
 from typing import List, Tuple, Dict, Any
-import PyPDF2
+import pypdf
 import pandas as pd
 from docx import Document as DocxDocument
 import structlog

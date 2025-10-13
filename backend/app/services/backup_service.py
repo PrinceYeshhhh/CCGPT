@@ -133,7 +133,7 @@ class BackupService:
             components=components
         )
         
-        business_logger.info(
+        logger.info(
             "Starting backup operation",
             backup_id=backup_id,
             backup_type=backup_type.value,
@@ -167,7 +167,7 @@ class BackupService:
             metadata.status = BackupStatus.COMPLETED
             metadata.completed_at = datetime.now()
             
-            business_logger.info(
+            logger.info(
                 "Backup completed successfully",
                 backup_id=backup_id,
                 size_bytes=metadata.size_bytes,
@@ -178,7 +178,7 @@ class BackupService:
             metadata.status = BackupStatus.FAILED
             metadata.error_message = str(e)
             
-            business_logger.error(
+            logger.error(
                 "Backup failed",
                 backup_id=backup_id,
                 error=str(e),
@@ -259,7 +259,7 @@ class BackupService:
         
         metadata.size_bytes += sum(f.stat().st_size for f in db_path.glob("*.sql"))
         
-        business_logger.info(
+        logger.info(
             "Database backup completed",
             backup_id=metadata.backup_id,
             dump_size=sum(f.stat().st_size for f in db_path.glob("*.sql"))
@@ -309,7 +309,7 @@ class BackupService:
         
         metadata.size_bytes += json_file.stat().st_size
         
-        business_logger.info(
+        logger.info(
             "Redis backup completed",
             backup_id=metadata.backup_id,
             keys_backed_up=len(redis_data)
@@ -332,7 +332,7 @@ class BackupService:
             
             metadata.size_bytes += tar_file.stat().st_size
             
-            business_logger.info(
+            logger.info(
                 "ChromaDB backup completed",
                 backup_id=metadata.backup_id,
                 archive_size=tar_file.stat().st_size
@@ -357,7 +357,7 @@ class BackupService:
             
             metadata.size_bytes += tar_file.stat().st_size
             
-            business_logger.info(
+            logger.info(
                 "Uploads backup completed",
                 backup_id=metadata.backup_id,
                 archive_size=tar_file.stat().st_size
@@ -403,7 +403,7 @@ class BackupService:
         
         metadata.size_bytes += env_file.stat().st_size + app_config_file.stat().st_size
         
-        business_logger.info(
+        logger.info(
             "Configuration backup completed",
             backup_id=metadata.backup_id
         )
@@ -443,7 +443,7 @@ class BackupService:
         # Remove uncompressed directory
         shutil.rmtree(backup_path)
         
-        business_logger.info(
+        logger.info(
             "Backup compressed",
             backup_id=metadata.backup_id,
             compressed_size=metadata.size_bytes
@@ -475,7 +475,7 @@ class BackupService:
                 }
             )
             
-            business_logger.info(
+            logger.info(
                 "Backup uploaded to S3",
                 backup_id=metadata.backup_id,
                 s3_bucket=self.s3_bucket,
@@ -542,7 +542,7 @@ class BackupService:
         if components is None:
             components = list(self.components.keys())
         
-        business_logger.info(
+        logger.info(
             "Starting backup restore",
             backup_id=backup_id,
             components=components
@@ -575,7 +575,7 @@ class BackupService:
             # Cleanup
             shutil.rmtree(extract_path)
             
-            business_logger.info(
+            logger.info(
                 "Backup restore completed",
                 backup_id=backup_id,
                 components=components
@@ -584,7 +584,7 @@ class BackupService:
             return True
             
         except Exception as e:
-            business_logger.error(
+            logger.error(
                 "Backup restore failed",
                 backup_id=backup_id,
                 error=str(e),
@@ -714,7 +714,7 @@ class BackupService:
                 except ClientError as e:
                     logger.warning(f"Failed to delete backup from S3: {e}")
             
-            business_logger.info("Backup deleted", backup_id=backup_id)
+            logger.info("Backup deleted", backup_id=backup_id)
             return True
             
         except Exception as e:

@@ -2,7 +2,7 @@
 Input validation schemas for security and data integrity
 """
 
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, field_validator, Field
 from typing import Optional, List, Dict, Any
 import re
 from datetime import datetime
@@ -29,8 +29,9 @@ class EmailValidation(BaseModel):
     """Email validation with security checks"""
     email: str = Field(..., min_length=5, max_length=255)
     
-    @validator('email')
-    def validate_email(cls, v):
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v, info=None):
         if not v:
             raise ValueError('Email is required')
         
@@ -60,8 +61,9 @@ class PasswordValidation(BaseModel):
     """Password validation with security requirements"""
     password: str = Field(..., min_length=8, max_length=128)
     
-    @validator('password')
-    def validate_password(cls, v):
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v, info=None):
         if not v:
             raise ValueError('Password is required')
         
@@ -104,8 +106,9 @@ class QueryValidation(BaseModel):
     """Query validation for RAG endpoints"""
     query: SanitizedString = Field(..., min_length=1, max_length=1000)
     
-    @validator('query')
-    def validate_query(cls, v):
+    @field_validator('query')
+    @classmethod
+    def validate_query(cls, v, info=None):
         if not v or not v.strip():
             raise ValueError('Query cannot be empty')
         
@@ -147,8 +150,9 @@ class FileUploadValidation(BaseModel):
     file_size: int = Field(..., gt=0, le=10485760)  # Max 10MB
     file_type: str = Field(..., min_length=1, max_length=100)
     
-    @validator('filename')
-    def validate_filename(cls, v):
+    @field_validator('filename')
+    @classmethod
+    def validate_filename(cls, v, info=None):
         if not v:
             raise ValueError('Filename is required')
         
@@ -162,8 +166,9 @@ class FileUploadValidation(BaseModel):
         
         return v
     
-    @validator('file_type')
-    def validate_file_type(cls, v):
+    @field_validator('file_type')
+    @classmethod
+    def validate_file_type(cls, v, info=None):
         allowed_types = [
             'application/pdf',
             'text/plain',
@@ -183,8 +188,9 @@ class WorkspaceValidation(BaseModel):
     name: SanitizedString = Field(..., min_length=1, max_length=100)
     domain: Optional[str] = Field(None, max_length=255)
     
-    @validator('name')
-    def validate_name(cls, v):
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v, info=None):
         if not v or not v.strip():
             raise ValueError('Workspace name is required')
         
@@ -194,8 +200,9 @@ class WorkspaceValidation(BaseModel):
         
         return v.strip()
     
-    @validator('domain')
-    def validate_domain(cls, v):
+    @field_validator('domain')
+    @classmethod
+    def validate_domain(cls, v, info=None):
         if v is None:
             return v
         
@@ -211,8 +218,9 @@ class ChatMessageValidation(BaseModel):
     content: SanitizedString = Field(..., min_length=1, max_length=5000)
     role: str = Field(..., pattern='^(user|assistant)$')
     
-    @validator('content')
-    def validate_content(cls, v):
+    @field_validator('content')
+    @classmethod
+    def validate_content(cls, v, info=None):
         if not v or not v.strip():
             raise ValueError('Message content cannot be empty')
         
@@ -245,8 +253,9 @@ class EmbedConfigValidation(BaseModel):
     welcome_message: Optional[SanitizedString] = Field(None, max_length=500)
     avatar_url: Optional[str] = Field(None, max_length=500)
     
-    @validator('welcome_message')
-    def validate_welcome_message(cls, v):
+    @field_validator('welcome_message')
+    @classmethod
+    def validate_welcome_message(cls, v, info=None):
         if v is None:
             return v
         
@@ -256,8 +265,9 @@ class EmbedConfigValidation(BaseModel):
         
         return v.strip()
     
-    @validator('avatar_url')
-    def validate_avatar_url(cls, v):
+    @field_validator('avatar_url')
+    @classmethod
+    def validate_avatar_url(cls, v, info=None):
         if v is None:
             return v
         
@@ -274,8 +284,9 @@ class BillingValidation(BaseModel):
     success_url: Optional[str] = Field(None, max_length=500)
     cancel_url: Optional[str] = Field(None, max_length=500)
     
-    @validator('success_url', 'cancel_url')
-    def validate_url(cls, v):
+    @field_validator('success_url', 'cancel_url')
+    @classmethod
+    def validate_url(cls, v, info=None):
         if v is None:
             return v
         
@@ -291,14 +302,16 @@ class PaginationValidation(BaseModel):
     page: int = Field(1, ge=1, le=1000)
     page_size: int = Field(20, ge=1, le=100)
     
-    @validator('page')
-    def validate_page(cls, v):
+    @field_validator('page')
+    @classmethod
+    def validate_page(cls, v, info=None):
         if v < 1:
             raise ValueError('Page must be greater than 0')
         return v
     
-    @validator('page_size')
-    def validate_page_size(cls, v):
+    @field_validator('page_size')
+    @classmethod
+    def validate_page_size(cls, v, info=None):
         if v < 1 or v > 100:
             raise ValueError('Page size must be between 1 and 100')
         return v
@@ -310,8 +323,9 @@ class SearchValidation(BaseModel):
     sort_by: Optional[str] = Field(None, max_length=50)
     sort_order: Optional[str] = Field(None, pattern='^(asc|desc)$')
     
-    @validator('query')
-    def validate_query(cls, v):
+    @field_validator('query')
+    @classmethod
+    def validate_query(cls, v, info=None):
         if not v or not v.strip():
             raise ValueError('Search query cannot be empty')
         
@@ -339,8 +353,9 @@ class SearchValidation(BaseModel):
         
         return v.strip()
     
-    @validator('sort_by')
-    def validate_sort_by(cls, v):
+    @field_validator('sort_by')
+    @classmethod
+    def validate_sort_by(cls, v, info=None):
         if v is None:
             return v
         

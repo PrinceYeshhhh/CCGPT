@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
 """
 Embeddings service for generating and managing text embeddings using sentence-transformers
 """

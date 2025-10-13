@@ -322,7 +322,7 @@ async def detailed_top_questions(
 
 @router.get("/detailed-export")
 async def detailed_export(
-    format: str = Query("json", regex="^(json|csv|xlsx)$"),
+    format: str = Query(pattern="^(json|csv|xlsx)$"),
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

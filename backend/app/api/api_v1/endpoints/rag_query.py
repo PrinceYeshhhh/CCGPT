@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
 """
 RAG Query endpoints for enhanced retrieval-augmented generation
 """

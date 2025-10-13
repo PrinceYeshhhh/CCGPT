@@ -2,7 +2,7 @@
 Document Pydantic schemas
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -31,8 +31,7 @@ class DocumentResponse(BaseModel):
     error: Optional[str] = None
     uploaded_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentChunkResponse(BaseModel):
@@ -45,8 +44,7 @@ class DocumentChunkResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DocumentWithChunks(DocumentResponse):

@@ -103,7 +103,7 @@ async def get_recovery_plans(
         ]
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get recovery plans",
             error=str(e),
             user_id=str(current_user.id),
@@ -155,7 +155,7 @@ async def get_recovery_plan(
     except HTTPException:
         raise
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get recovery plan",
             plan_id=plan_id,
             error=str(e),
@@ -198,7 +198,7 @@ async def initiate_recovery(
             force=request.force
         )
         
-        business_logger.info(
+        logger.info(
             "Disaster recovery initiated",
             operation_id=operation.operation_id,
             plan_id=request.plan_id,
@@ -223,7 +223,7 @@ async def initiate_recovery(
             detail=str(e)
         )
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to initiate recovery",
             plan_id=request.plan_id,
             error=str(e),
@@ -268,7 +268,7 @@ async def get_recovery_operations(
         ]
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get recovery operations",
             error=str(e),
             user_id=str(current_user.id),
@@ -318,7 +318,7 @@ async def get_recovery_operation(
     except HTTPException:
         raise
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get recovery operation",
             operation_id=operation_id,
             error=str(e),
@@ -369,7 +369,7 @@ async def get_recovery_status(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get recovery status",
             error=str(e),
             user_id=str(current_user.id),
@@ -402,7 +402,7 @@ async def cleanup_old_operations(
     try:
         await disaster_recovery_service.cleanup_old_operations()
         
-        business_logger.info(
+        logger.info(
             "Recovery operations cleanup completed",
             user_id=str(current_user.id)
         )
@@ -415,7 +415,7 @@ async def cleanup_old_operations(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Recovery operations cleanup failed",
             error=str(e),
             user_id=str(current_user.id),
@@ -457,7 +457,7 @@ async def test_recovery_plan(
             result = await disaster_recovery_service._run_validation_check(check)
             validation_results[check] = result
         
-        business_logger.info(
+        logger.info(
             "Recovery plan test completed",
             plan_id=plan_id,
             validation_results=validation_results,
@@ -477,7 +477,7 @@ async def test_recovery_plan(
     except HTTPException:
         raise
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Recovery plan test failed",
             plan_id=plan_id,
             error=str(e),

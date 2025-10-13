@@ -23,7 +23,6 @@ from app.services.vector_service import VectorService
 from app.utils.chunker import chunk_text
 from app.utils.error_handling import ValidationError, DatabaseError
 
-client = TestClient(app)
 
 
 class TestDocumentUpload:

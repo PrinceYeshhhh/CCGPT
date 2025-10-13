@@ -5,7 +5,7 @@ Input validation utilities for dashboard endpoints
 import re
 from typing import Any, Dict, List, Optional
 from datetime import datetime, date
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 import structlog
 
 logger = structlog.get_logger()
@@ -20,28 +20,32 @@ class DashboardQueryValidator(BaseModel):
     limit: int = 100
     offset: int = 0
     
-    @validator('days')
-    def validate_days(cls, v):
+    @field_validator('days')
+    @classmethod
+    def validate_days(cls, v, info=None):
         if not 1 <= v <= 365:
             raise ValueError('Days must be between 1 and 365')
         return v
     
-    @validator('limit')
-    def validate_limit(cls, v):
+    @field_validator('limit')
+    @classmethod
+    def validate_limit(cls, v, info=None):
         if not 1 <= v <= 1000:
             raise ValueError('Limit must be between 1 and 1000')
         return v
     
-    @validator('offset')
-    def validate_offset(cls, v):
+    @field_validator('offset')
+    @classmethod
+    def validate_offset(cls, v, info=None):
         if v < 0:
             raise ValueError('Offset must be non-negative')
         return v
     
-    @validator('end_date')
-    def validate_date_range(cls, v, values):
-        if v and 'start_date' in values and values['start_date']:
-            if v < values['start_date']:
+    @field_validator('end_date')
+    @classmethod
+    def validate_date_range(cls, v, info=None):
+        if v and hasattr(info, 'data') and 'start_date' in info.data and info.data['start_date'] if hasattr(info, "data") and info.data else None:
+            if v < info.data['start_date'] if hasattr(info, "data") and info.data else None:
                 raise ValueError('End date must be after start date')
         return v
 
@@ -54,29 +58,33 @@ class AnalyticsFilterValidator(BaseModel):
     user_type: str = 'all'
     satisfaction: str = 'all'
     
-    @validator('date_range')
-    def validate_date_range(cls, v):
+    @field_validator('date_range')
+    @classmethod
+    def validate_date_range(cls, v, info=None):
         allowed_ranges = ['7d', '30d', '90d', '1y']
         if v not in allowed_ranges:
             raise ValueError(f'Date range must be one of: {", ".join(allowed_ranges)}')
         return v
     
-    @validator('query_type')
-    def validate_query_type(cls, v):
+    @field_validator('query_type')
+    @classmethod
+    def validate_query_type(cls, v, info=None):
         allowed_types = ['all', 'general', 'support', 'sales']
         if v not in allowed_types:
             raise ValueError(f'Query type must be one of: {", ".join(allowed_types)}')
         return v
     
-    @validator('user_type')
-    def validate_user_type(cls, v):
+    @field_validator('user_type')
+    @classmethod
+    def validate_user_type(cls, v, info=None):
         allowed_types = ['all', 'new', 'returning']
         if v not in allowed_types:
             raise ValueError(f'User type must be one of: {", ".join(allowed_types)}')
         return v
     
-    @validator('satisfaction')
-    def validate_satisfaction(cls, v):
+    @field_validator('satisfaction')
+    @classmethod
+    def validate_satisfaction(cls, v, info=None):
         allowed_values = ['all', 'satisfied', 'neutral', 'unsatisfied']
         if v not in allowed_values:
             raise ValueError(f'Satisfaction must be one of: {", ".join(allowed_values)}')
@@ -95,8 +103,9 @@ class PerformanceMetricsValidator(BaseModel):
     api_response_time: Optional[float] = None
     memory_usage: Optional[float] = None
     
-    @validator('lcp', 'fid', 'cls', 'fcp', 'ttfb', 'page_load_time', 'api_response_time', 'memory_usage')
-    def validate_positive_numbers(cls, v):
+    @field_validator('lcp', 'fid', 'cls', 'fcp', 'ttfb', 'page_load_time', 'api_response_time', 'memory_usage')
+    @classmethod
+    def validate_positive_numbers(cls, v, info=None):
         if v is not None and v < 0:
             raise ValueError('Performance metrics must be non-negative')
         return v

@@ -15,12 +15,10 @@ from app.models import User
 from app.services.auth import AuthService
 from app.core.database import get_db
 
-client = TestClient(app)
-
 class TestAuthService:
     """Test cases for AuthService"""
     
-    def setup_method(self):
+    def setup_method(self, client):
         """Setup for each test method"""
         self.auth_service = AuthService()
     
@@ -104,7 +102,7 @@ class TestAuthService:
 class TestAuthEndpoints:
     """Test cases for authentication endpoints"""
     
-    def test_register_user_success(self):
+    def test_register_user_success(self, client):
         """Test successful user registration"""
         user_data = {
             "email": "test@example.com",
@@ -120,7 +118,7 @@ class TestAuthEndpoints:
             assert response.status_code == 201
             assert "user" in response.json()
     
-    def test_register_user_invalid_email(self):
+    def test_register_user_invalid_email(self, client):
         """Test user registration with invalid email"""
         user_data = {
             "email": "invalid-email",
@@ -133,7 +131,7 @@ class TestAuthEndpoints:
         assert response.status_code == 422
         assert "email" in response.json()["detail"][0]["loc"]
     
-    def test_register_user_weak_password(self):
+    def test_register_user_weak_password(self, client):
         """Test user registration with weak password"""
         user_data = {
             "email": "test@example.com",
@@ -146,7 +144,7 @@ class TestAuthEndpoints:
         assert response.status_code == 422
         assert "password" in response.json()["detail"][0]["loc"]
     
-    def test_login_success(self):
+    def test_login_success(self, client):
         """Test successful user login"""
         login_data = {
             "email": "test@example.com",
@@ -162,7 +160,7 @@ class TestAuthEndpoints:
             assert "access_token" in response.json()
             assert "token_type" in response.json()
     
-    def test_login_invalid_credentials(self):
+    def test_login_invalid_credentials(self, client):
         """Test login with invalid credentials"""
         login_data = {
             "email": "test@example.com",
@@ -177,7 +175,7 @@ class TestAuthEndpoints:
             assert response.status_code == 401
             assert "Invalid credentials" in response.json()["detail"]
     
-    def test_get_current_user_success(self):
+    def test_get_current_user_success(self, client):
         """Test getting current user with valid token"""
         user_id = "test_user_123"
         token = AuthService().create_access_token(user_id)
@@ -193,7 +191,7 @@ class TestAuthEndpoints:
             assert response.status_code == 200
             assert response.json()["id"] == user_id
     
-    def test_get_current_user_invalid_token(self):
+    def test_get_current_user_invalid_token(self, client):
         """Test getting current user with invalid token"""
         response = client.get(
             "/api/v1/auth/me",
@@ -203,7 +201,7 @@ class TestAuthEndpoints:
         assert response.status_code == 401
         assert "Invalid token" in response.json()["detail"]
     
-    def test_refresh_token_success(self):
+    def test_refresh_token_success(self, client):
         """Test successful token refresh"""
         user_id = "test_user_123"
         refresh_token = AuthService().create_refresh_token(user_id)
@@ -219,7 +217,7 @@ class TestAuthEndpoints:
             assert response.status_code == 200
             assert "access_token" in response.json()
     
-    def test_logout_success(self):
+    def test_logout_success(self, client):
         """Test successful user logout"""
         user_id = "test_user_123"
         token = AuthService().create_access_token(user_id)

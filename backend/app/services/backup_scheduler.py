@@ -100,7 +100,7 @@ class BackupScheduler:
         self.scheduler_thread = Thread(target=self._run_scheduler, daemon=True)
         self.scheduler_thread.start()
         
-        business_logger.info("Backup scheduler started")
+        logger.info("Backup scheduler started")
     
     def stop(self):
         """Stop the backup scheduler"""
@@ -108,7 +108,7 @@ class BackupScheduler:
         if self.scheduler_thread:
             self.scheduler_thread.join(timeout=5)
         
-        business_logger.info("Backup scheduler stopped")
+        logger.info("Backup scheduler stopped")
     
     def _run_scheduler(self):
         """Main scheduler loop"""
@@ -146,7 +146,7 @@ class BackupScheduler:
                     self._check_monthly_backup, schedule_config
                 )
         
-        business_logger.info(f"Setup {len(schedule.jobs)} scheduled backup jobs")
+        logger.info(f"Setup {len(schedule.jobs)} scheduled backup jobs")
     
     def _get_weekday_name(self, day_of_week: int) -> str:
         """Convert day of week number to schedule name"""
@@ -165,7 +165,7 @@ class BackupScheduler:
     def _execute_backup(self, schedule_config: BackupSchedule):
         """Execute a scheduled backup"""
         try:
-            business_logger.info(
+            logger.info(
                 "Executing scheduled backup",
                 schedule_id=schedule_config.schedule_id,
                 backup_type=schedule_config.backup_type.value
@@ -195,7 +195,7 @@ class BackupScheduler:
                 retention_days=schedule_config.retention_days
             )
             
-            business_logger.info(
+            logger.info(
                 "Scheduled backup completed",
                 schedule_id=schedule_config.schedule_id,
                 backup_id=metadata.backup_id,
@@ -255,7 +255,7 @@ class BackupScheduler:
         if self.running:
             self._setup_scheduled_jobs()
         
-        business_logger.info(
+        logger.info(
             "Backup schedule added",
             schedule_id=schedule_config.schedule_id,
             schedule_type=schedule_config.schedule_type.value
@@ -269,7 +269,7 @@ class BackupScheduler:
             if self.running:
                 self._setup_scheduled_jobs()
             
-            business_logger.info("Backup schedule removed", schedule_id=schedule_id)
+            logger.info("Backup schedule removed", schedule_id=schedule_id)
     
     def update_schedule(self, schedule_id: str, **updates):
         """Update a backup schedule"""
@@ -283,7 +283,7 @@ class BackupScheduler:
             if self.running:
                 self._setup_scheduled_jobs()
             
-            business_logger.info("Backup schedule updated", schedule_id=schedule_id)
+            logger.info("Backup schedule updated", schedule_id=schedule_id)
     
     def get_schedules(self) -> List[BackupSchedule]:
         """Get all backup schedules"""
@@ -301,7 +301,7 @@ class BackupScheduler:
             if self.running:
                 self._setup_scheduled_jobs()
             
-            business_logger.info("Backup schedule enabled", schedule_id=schedule_id)
+            logger.info("Backup schedule enabled", schedule_id=schedule_id)
     
     def disable_schedule(self, schedule_id: str):
         """Disable a backup schedule"""
@@ -311,7 +311,7 @@ class BackupScheduler:
             if self.running:
                 self._setup_scheduled_jobs()
             
-            business_logger.info("Backup schedule disabled", schedule_id=schedule_id)
+            logger.info("Backup schedule disabled", schedule_id=schedule_id)
     
     def get_next_backup_time(self) -> Optional[datetime]:
         """Get the next scheduled backup time"""

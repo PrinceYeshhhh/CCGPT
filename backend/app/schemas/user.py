@@ -2,7 +2,7 @@
 User Pydantic schemas
 """
 
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 import re
@@ -16,7 +16,8 @@ class UserBase(BaseModel):
     business_name: Optional[str] = None
     business_domain: Optional[str] = None
 
-    @validator('mobile_phone')
+    @field_validator('mobile_phone')
+    @classmethod
     def validate_mobile_phone(cls, v):
         """Validate mobile phone number format"""
         if not v:
@@ -36,7 +37,8 @@ class UserCreate(UserBase):
     """User creation schema"""
     password: str
 
-    @validator('password')
+    @field_validator('password')
+    @classmethod
     def validate_password(cls, v):
         """Validate password strength with enhanced security requirements"""
         from app.core.config import settings
@@ -77,17 +79,20 @@ class UserLogin(BaseModel):
     email: Optional[str] = None       # Backward compatibility for clients sending 'email'
     password: str
 
-    @validator('identifier', pre=True, always=True)
-    def coerce_identifier(cls, v, values):
+    @field_validator('identifier', mode='before')
+    @classmethod
+    def coerce_identifier(cls, v, info):
         """Allow 'email' field as an alias for identifier if identifier missing"""
         if v and isinstance(v, str) and v.strip():
             return v
-        email = values.get('email')
-        if email and isinstance(email, str) and email.strip():
-            return email
+        if hasattr(info, 'data') and 'email' in info.data:
+            email = info.data['email']
+            if email and isinstance(email, str) and email.strip():
+                return email
         raise ValueError('Email or mobile phone number is required')
 
-    @validator('identifier')
+    @field_validator('identifier')
+    @classmethod
     def validate_identifier(cls, v):
         """Validate that identifier is either email or mobile"""
         if not v:
@@ -124,8 +129,7 @@ class UserRead(UserBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserResponse(UserRead):

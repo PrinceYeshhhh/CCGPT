@@ -87,7 +87,7 @@ async def get_performance_dashboard(
     try:
         dashboard_data = await performance_service.get_performance_dashboard()
         
-        business_logger.info(
+        logger.info(
             "Performance dashboard accessed",
             user_id=str(current_user.id)
         )
@@ -95,7 +95,7 @@ async def get_performance_dashboard(
         return PerformanceDashboardResponse(**dashboard_data)
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get performance dashboard",
             error=str(e),
             user_id=str(current_user.id),
@@ -129,7 +129,7 @@ async def get_current_metrics(
         return PerformanceMetricsResponse(**current_metrics.__dict__)
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get current metrics",
             error=str(e),
             user_id=str(current_user.id),
@@ -161,7 +161,7 @@ async def get_metrics_history(
         return [PerformanceMetricsResponse(**metrics.__dict__) for metrics in history]
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get metrics history",
             error=str(e),
             user_id=str(current_user.id),
@@ -205,7 +205,7 @@ async def get_optimization_recommendations(
         ]
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get optimization recommendations",
             error=str(e),
             user_id=str(current_user.id),
@@ -246,7 +246,7 @@ async def get_performance_alerts(
         ]
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get performance alerts",
             error=str(e),
             user_id=str(current_user.id),
@@ -279,7 +279,7 @@ async def clear_performance_alerts(
     try:
         await performance_service.clear_alerts()
         
-        business_logger.info(
+        logger.info(
             "Performance alerts cleared",
             user_id=str(current_user.id)
         )
@@ -290,7 +290,7 @@ async def clear_performance_alerts(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to clear performance alerts",
             error=str(e),
             user_id=str(current_user.id),
@@ -331,7 +331,7 @@ async def apply_optimization(
                 detail="Failed to apply optimization"
             )
         
-        business_logger.info(
+        logger.info(
             "Optimization applied",
             recommendation_id=recommendation_id,
             user_id=str(current_user.id)
@@ -348,7 +348,7 @@ async def apply_optimization(
     except HTTPException:
         raise
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to apply optimization",
             recommendation_id=recommendation_id,
             error=str(e),
@@ -380,7 +380,7 @@ async def get_query_performance(
         return query_analysis
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get query performance analysis",
             error=str(e),
             user_id=str(current_user.id),
@@ -411,7 +411,7 @@ async def get_database_stats(
         return db_stats
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get database stats",
             error=str(e),
             user_id=str(current_user.id),
@@ -442,7 +442,7 @@ async def get_cache_stats(
         return cache_stats
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get cache stats",
             error=str(e),
             user_id=str(current_user.id),
@@ -482,7 +482,7 @@ async def clear_cache(
             success = await cache_service.clear()
             message = "Cache cleared successfully" if success else "Failed to clear cache"
         
-        business_logger.info(
+        logger.info(
             "Cache cleared",
             namespace=namespace,
             user_id=str(current_user.id)
@@ -494,7 +494,7 @@ async def clear_cache(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to clear cache",
             error=str(e),
             user_id=str(current_user.id),
@@ -525,7 +525,7 @@ async def get_connection_pool_stats(
         return pool_analysis
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get connection pool stats",
             error=str(e),
             user_id=str(current_user.id),
@@ -557,7 +557,7 @@ async def suggest_database_indexes(
         return {"suggestions": suggestions}
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get index suggestions",
             error=str(e),
             user_id=str(current_user.id),

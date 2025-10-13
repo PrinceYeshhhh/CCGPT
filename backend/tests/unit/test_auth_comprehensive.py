@@ -22,8 +22,6 @@ from app.services.auth import AuthService
 from app.utils.error_handling import AuthenticationError, ValidationError
 from app.utils.password import validate_password_requirements, check_password_strength
 
-client = TestClient(app)
-
 
 class TestPasswordSecurity:
     """Test password security features"""
@@ -175,7 +173,7 @@ class TestAuthenticationFlows:
         data = response.json()
         assert "already exists" in data["detail"].lower()
     
-    def test_user_registration_weak_password(self):
+    def test_user_registration_weak_password(self, client):
         """Test registration with weak password fails"""
         user_data = {
             "email": "test@example.com",

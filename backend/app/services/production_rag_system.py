@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
 """
 Production-grade RAG system with unified file processing, chunking, and retrieval
 """
@@ -20,7 +22,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 # File processing
-import PyPDF2
+import pypdf
 try:
     import fitz  # PyMuPDF canonical import
 except Exception:  # pragma: no cover

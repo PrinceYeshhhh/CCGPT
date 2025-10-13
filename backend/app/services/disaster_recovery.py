@@ -203,7 +203,7 @@ class DisasterRecoveryService:
         
         self.active_operations[operation_id] = operation
         
-        business_logger.info(
+        logger.info(
             "Disaster recovery initiated",
             operation_id=operation_id,
             plan_id=plan_id,
@@ -241,7 +241,7 @@ class DisasterRecoveryService:
             operation.status = RecoveryStatus.COMPLETED
             operation.completed_at = datetime.now()
             
-            business_logger.info(
+            logger.info(
                 "Disaster recovery completed",
                 operation_id=operation.operation_id,
                 duration_minutes=(operation.completed_at - operation.started_at).total_seconds() / 60
@@ -252,7 +252,7 @@ class DisasterRecoveryService:
             operation.error_message = str(e)
             operation.completed_at = datetime.now()
             
-            business_logger.error(
+            logger.error(
                 "Disaster recovery failed",
                 operation_id=operation.operation_id,
                 error=str(e),
@@ -280,7 +280,7 @@ class DisasterRecoveryService:
         # Check system resources
         await self._check_system_resources()
         
-        business_logger.info(
+        logger.info(
             "Pre-recovery validation completed",
             operation_id=operation.operation_id
         )
@@ -291,7 +291,7 @@ class DisasterRecoveryService:
         
         # This would typically involve stopping Docker containers or systemd services
         # For now, we'll log the action
-        business_logger.info(
+        logger.info(
             "Stopping services for recovery",
             operation_id=operation.operation_id
         )
@@ -317,7 +317,7 @@ class DisasterRecoveryService:
         if not success:
             raise Exception("Failed to restore components from backup")
         
-        business_logger.info(
+        logger.info(
             "Components restored from backup",
             operation_id=operation.operation_id,
             components=plan.components
@@ -328,7 +328,7 @@ class DisasterRecoveryService:
         operation.steps_completed.append("start_services")
         
         # This would typically involve starting Docker containers or systemd services
-        business_logger.info(
+        logger.info(
             "Starting services after recovery",
             operation_id=operation.operation_id
         )
@@ -352,13 +352,13 @@ class DisasterRecoveryService:
             operation.validation_results[check] = result
             
             if not result:
-                business_logger.warning(
+                logger.warning(
                     "Validation check failed",
                     operation_id=operation.operation_id,
                     check=check
                 )
         
-        business_logger.info(
+        logger.info(
             "Post-recovery validation completed",
             operation_id=operation.operation_id,
             validation_results=operation.validation_results
@@ -388,14 +388,14 @@ class DisasterRecoveryService:
         
         if failed_checks:
             operation.status = RecoveryStatus.PARTIAL
-            business_logger.warning(
+            logger.warning(
                 "Recovery completed with issues",
                 operation_id=operation.operation_id,
                 failed_checks=failed_checks
             )
         else:
             operation.status = RecoveryStatus.COMPLETED
-            business_logger.info(
+            logger.info(
                 "Recovery completed successfully",
                 operation_id=operation.operation_id
             )
@@ -591,14 +591,14 @@ class DisasterRecoveryService:
     
     async def _rollback_recovery(self, operation: RecoveryOperation):
         """Rollback a failed recovery operation"""
-        business_logger.warning(
+        logger.warning(
             "Rolling back failed recovery operation",
             operation_id=operation.operation_id
         )
         
         # This would implement the rollback plan
         # For now, we'll just log the action
-        business_logger.info(
+        logger.info(
             "Recovery rollback completed",
             operation_id=operation.operation_id
         )
@@ -632,7 +632,7 @@ class DisasterRecoveryService:
             del self.active_operations[op_id]
         
         if old_operations:
-            business_logger.info(
+            logger.info(
                 "Cleaned up old recovery operations",
                 count=len(old_operations)
             )

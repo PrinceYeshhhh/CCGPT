@@ -21,7 +21,6 @@ from app.services.vector_service import VectorService
 from app.services.gemini_service import GeminiService
 from app.utils.error_handling import ValidationError, ExternalAPIError
 
-client = TestClient(app)
 
 
 class TestRAGQueryFlow:

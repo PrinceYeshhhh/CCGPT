@@ -2,7 +2,7 @@
 Settings Pydantic schemas
 """
 
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import re
@@ -17,8 +17,9 @@ class ProfileUpdate(BaseModel):
     business_domain: Optional[str] = None
     profile_picture_url: Optional[str] = None
 
-    @validator('username')
-    def validate_username(cls, v):
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v, info=None):
         """Validate username format"""
         if not v:
             raise ValueError('Username is required')
@@ -36,8 +37,9 @@ class PasswordChange(BaseModel):
     new_password: str
     confirm_password: str
 
-    @validator('new_password')
-    def validate_new_password(cls, v):
+    @field_validator('new_password')
+    @classmethod
+    def validate_new_password(cls, v, info=None):
         """Validate new password strength"""
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')
@@ -49,10 +51,11 @@ class PasswordChange(BaseModel):
             raise ValueError('Password must contain at least one number')
         return v
 
-    @validator('confirm_password')
-    def passwords_match(cls, v, values):
+    @field_validator('confirm_password')
+    @classmethod
+    def passwords_match(cls, v, info=None):
         """Validate password confirmation"""
-        if 'new_password' in values and v != values['new_password']:
+        if hasattr(info, 'data') and 'new_password' in info.data and v != info.data['new_password'] if hasattr(info, "data") and info.data else None:
             raise ValueError('Passwords do not match')
         return v
 
@@ -68,8 +71,9 @@ class OrganizationUpdate(BaseModel):
     widget_domain: Optional[str] = None
     timezone: str = "UTC"
 
-    @validator('custom_domain', 'widget_domain')
-    def validate_domain(cls, v):
+    @field_validator('custom_domain', 'widget_domain')
+    @classmethod
+    def validate_domain(cls, v, info=None):
         """Validate domain format"""
         if v and not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$', v):
             raise ValueError('Please enter a valid domain')

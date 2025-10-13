@@ -6,7 +6,7 @@ import os
 import re
 import hashlib
 from typing import List, Dict, Any, Tuple, Optional
-import PyPDF2
+import pypdf
 import pandas as pd
 from docx import Document as DocxDocument
 import structlog

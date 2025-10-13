@@ -85,7 +85,7 @@ async def create_backup(
             retention_days=request.retention_days
         )
         
-        business_logger.info(
+        logger.info(
             "Backup creation initiated",
             backup_id=metadata.backup_id,
             backup_type=metadata.backup_type.value,
@@ -104,7 +104,7 @@ async def create_backup(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Backup creation failed",
             error=str(e),
             user_id=str(current_user.id),
@@ -167,7 +167,7 @@ async def list_backups(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to list backups",
             error=str(e),
             user_id=str(current_user.id),
@@ -217,7 +217,7 @@ async def get_backup(
     except HTTPException:
         raise
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to get backup details",
             backup_id=backup_id,
             error=str(e),
@@ -283,7 +283,7 @@ async def restore_backup(
                 detail="Backup restore failed"
             )
         
-        business_logger.info(
+        logger.info(
             "Backup restore completed",
             backup_id=backup_id,
             user_id=str(current_user.id)
@@ -301,7 +301,7 @@ async def restore_backup(
     except HTTPException:
         raise
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Backup restore failed",
             backup_id=backup_id,
             error=str(e),
@@ -343,7 +343,7 @@ async def delete_backup(
                 detail="Failed to delete backup"
             )
         
-        business_logger.info(
+        logger.info(
             "Backup deleted",
             backup_id=backup_id,
             user_id=str(current_user.id)
@@ -358,7 +358,7 @@ async def delete_backup(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Failed to delete backup",
             backup_id=backup_id,
             error=str(e),
@@ -392,7 +392,7 @@ async def cleanup_old_backups(
     try:
         await backup_service.cleanup_old_backups()
         
-        business_logger.info(
+        logger.info(
             "Backup cleanup completed",
             user_id=str(current_user.id)
         )
@@ -405,7 +405,7 @@ async def cleanup_old_backups(
         )
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Backup cleanup failed",
             error=str(e),
             user_id=str(current_user.id),
@@ -475,7 +475,7 @@ async def backup_health_check(
         return health_status
         
     except Exception as e:
-        business_logger.error(
+        logger.error(
             "Backup health check failed",
             error=str(e),
             user_id=str(current_user.id),

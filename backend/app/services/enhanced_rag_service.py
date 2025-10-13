@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore", message=".*clean_up_tokenization_spaces.*")
 """
 Enhanced RAG service with advanced retrieval, reranking, and generation capabilities
 """

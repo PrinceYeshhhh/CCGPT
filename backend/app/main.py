@@ -3,6 +3,7 @@ CustomerCareGPT - Main FastAPI Application
 """
 
 from fastapi import FastAPI, HTTPException, Request
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -71,12 +72,77 @@ async def connection_monitor():
 # Connection monitoring will be started in the startup event
 
 # Initialize FastAPI app
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan event handler for startup and shutdown"""
+    # Startup
+    """Initialize system on startup"""
+    logger.info("Starting CustomerCareGPT Scaled System")
+    
+    try:
+        # Initialize database with performance optimizations
+        from app.core.database import initialize_database
+        await initialize_database()
+        logger.info("Database initialization completed")
+        
+        # Initialize other services
+        from app.core.queue import queue_manager
+        from app.utils.circuit_breaker import circuit_breaker_manager
+        
+        # Initialize backup system
+        await initialize_backup_system()
+        logger.info("Backup system initialization completed")
+
+        # Initialize performance service
+        from app.services.performance_service import performance_service
+        performance_service.start()
+        logger.info("Performance service initialization completed")
+        
+        # Start connection monitoring task
+        asyncio.create_task(connection_monitor())
+        logger.info("Connection monitoring started")
+        
+        logger.info("System startup completed successfully")
+        
+    except Exception as e:
+        logger.error(f"System startup failed: {e}")
+        raise
+
+# Shutdown event
+    
+    yield
+    
+    # Shutdown
+    """Cleanup on shutdown"""
+    logger.info("Shutting down CustomerCareGPT Scaled System")
+    
+    try:
+        # Stop background workers
+        from app.worker.enhanced_worker import enhanced_worker
+        enhanced_worker.stop()
+        
+        # Shutdown backup system
+        await shutdown_backup_system()
+        logger.info("Backup system shutdown completed")
+
+        # Shutdown performance service
+        from app.services.performance_service import performance_service
+        performance_service.stop()
+        logger.info("Performance service shutdown completed")
+        
+        logger.info("System shutdown completed")
+        
+    except Exception as e:
+        logger.error(f"System shutdown error: {e}")
+
 app = FastAPI(
     title="CustomerCareGPT API",
     description="Intelligent customer support automation platform",
     version="1.0.0",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    lifespan=lifespan
 )
 
 # IMPORTANT: Install CORS first so preflight requests are handled before other middleware
@@ -269,65 +335,6 @@ async def metrics():
     )
 
 # Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Initialize system on startup"""
-    logger.info("Starting CustomerCareGPT Scaled System")
-    
-    try:
-        # Initialize database with performance optimizations
-        from app.core.database import initialize_database
-        await initialize_database()
-        logger.info("Database initialization completed")
-        
-        # Initialize other services
-        from app.core.queue import queue_manager
-        from app.utils.circuit_breaker import circuit_breaker_manager
-        
-        # Initialize backup system
-        await initialize_backup_system()
-        logger.info("Backup system initialization completed")
-
-        # Initialize performance service
-        from app.services.performance_service import performance_service
-        performance_service.start()
-        logger.info("Performance service initialization completed")
-        
-        # Start connection monitoring task
-        asyncio.create_task(connection_monitor())
-        logger.info("Connection monitoring started")
-        
-        logger.info("System startup completed successfully")
-        
-    except Exception as e:
-        logger.error(f"System startup failed: {e}")
-        raise
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    logger.info("Shutting down CustomerCareGPT Scaled System")
-    
-    try:
-        # Stop background workers
-        from app.worker.enhanced_worker import enhanced_worker
-        enhanced_worker.stop()
-        
-        # Shutdown backup system
-        await shutdown_backup_system()
-        logger.info("Backup system shutdown completed")
-
-        # Shutdown performance service
-        from app.services.performance_service import performance_service
-        performance_service.stop()
-        logger.info("Performance service shutdown completed")
-        
-        logger.info("System shutdown completed")
-        
-    except Exception as e:
-        logger.error(f"System shutdown error: {e}")
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
