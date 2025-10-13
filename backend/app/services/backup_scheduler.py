@@ -92,6 +92,10 @@ class BackupScheduler:
     
     def start(self):
         """Start the backup scheduler"""
+        import os
+        if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
+            logger.info("Skipping backup scheduler in testing mode")
+            return
         if self.running:
             logger.warning("Backup scheduler is already running")
             return

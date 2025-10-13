@@ -431,6 +431,10 @@ class PerformanceService:
     
     def start(self):
         """Start performance monitoring and optimization"""
+        import os
+        if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
+            logger.info("Skipping performance monitoring start in testing mode")
+            return
         self.monitor.start_monitoring()
         logger.info("Performance service started")
     

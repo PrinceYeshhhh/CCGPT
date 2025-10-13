@@ -88,20 +88,32 @@ async def lifespan(app: FastAPI):
         
         # Initialize other services
         from app.core.queue import queue_manager
-        from app.utils.circuit_breaker import circuit_breaker_manager
+from app.utils.circuit_breaker import circuit_breaker_manager
+import os
         
-        # Initialize backup system
-        await initialize_backup_system()
-        logger.info("Backup system initialization completed")
+        is_testing = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
 
-        # Initialize performance service
-        from app.services.performance_service import performance_service
-        performance_service.start()
-        logger.info("Performance service initialization completed")
+        # Initialize backup system (skip in tests)
+        if not is_testing:
+            await initialize_backup_system()
+            logger.info("Backup system initialization completed")
+        else:
+            logger.info("Skipping backup system initialization in testing mode")
+
+        # Initialize performance service (skip in tests)
+        if not is_testing:
+            from app.services.performance_service import performance_service
+            performance_service.start()
+            logger.info("Performance service initialization completed")
+        else:
+            logger.info("Skipping performance service in testing mode")
         
-        # Start connection monitoring task
-        asyncio.create_task(connection_monitor())
-        logger.info("Connection monitoring started")
+        # Start connection monitoring task (skip in tests)
+        if not is_testing:
+            asyncio.create_task(connection_monitor())
+            logger.info("Connection monitoring started")
+        else:
+            logger.info("Skipping connection monitor in testing mode")
         
         logger.info("System startup completed successfully")
         
