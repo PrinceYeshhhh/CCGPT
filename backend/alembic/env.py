@@ -81,11 +81,7 @@ def run_migrations_online() -> None:
         pool_pre_ping=True,
         pool_recycle=1,
         # Use autocommit mode to avoid transaction issues
-        isolation_level='AUTOCOMMIT',
-        # Additional PostgreSQL-specific settings
-        connect_args={
-            "options": "-c default_transaction_isolation='read committed'"
-        } if "postgresql" in get_url() else {}
+        isolation_level='AUTOCOMMIT'
     )
 
     # Check for circular dependency risk before running migrations

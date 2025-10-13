@@ -31,8 +31,8 @@ def upgrade():
             sa.Column('timezone', sa.String(length=50), nullable=True),
             sa.Column('plan', sa.String(length=50), nullable=True),
             sa.Column('is_active', sa.Boolean(), nullable=True),
-            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
             sa.PrimaryKeyConstraint('id')
         )
     except Exception:
@@ -64,8 +64,8 @@ def upgrade():
             sa.Column('referrer', sa.String(length=500), nullable=True),
             sa.Column('is_active', sa.Boolean(), nullable=True),
             sa.Column('ended_at', sa.DateTime(timezone=True), nullable=True),
-            sa.Column('last_activity_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('last_activity_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
             sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
             sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
             sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
@@ -114,7 +114,7 @@ def upgrade():
             sa.Column('confidence_score', sa.String(length=10), nullable=True),
             sa.Column('is_flagged', sa.Boolean(), nullable=True),
             sa.Column('flag_reason', sa.String(length=255), nullable=True),
-            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
             sa.ForeignKeyConstraint(['session_id'], ['chat_sessions.id'], ),
             sa.PrimaryKeyConstraint('id')
         )
@@ -157,8 +157,8 @@ def upgrade():
             sa.Column('is_active', sa.Boolean(), nullable=True),
             sa.Column('usage_count', sa.Integer(), nullable=True),
             sa.Column('last_used', sa.DateTime(timezone=True), nullable=True),
-            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
             sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
             sa.PrimaryKeyConstraint('id'),
             sa.UniqueConstraint('client_api_key')
@@ -198,8 +198,8 @@ def upgrade():
             sa.Column('canceled_at', sa.DateTime(timezone=True), nullable=True),
             sa.Column('trial_start', sa.DateTime(timezone=True), nullable=True),
             sa.Column('trial_end', sa.DateTime(timezone=True), nullable=True),
-            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
             sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
             sa.PrimaryKeyConstraint('id'),
             sa.UniqueConstraint('workspace_id')
@@ -240,8 +240,8 @@ def upgrade():
             sa.Column('invited_at', sa.DateTime(timezone=True), nullable=True),
             sa.Column('joined_at', sa.DateTime(timezone=True), nullable=True),
             sa.Column('is_active', sa.Boolean(), nullable=True),
-            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
             sa.ForeignKeyConstraint(['invited_by'], ['users.id'], ),
             sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
             sa.ForeignKeyConstraint(['workspace_id'], ['workspaces.id'], ),
@@ -399,7 +399,7 @@ def upgrade():
             sa.Column('asset_data', sa.LargeBinary(), nullable=True),
             sa.Column('mime_type', sa.String(length=100), nullable=True),
             sa.Column('file_size', sa.Integer(), nullable=True),
-            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
             sa.ForeignKeyConstraint(['embed_code_id'], ['embed_codes.id'], ),
             sa.PrimaryKeyConstraint('id')
         )

@@ -106,7 +106,7 @@ def create_fresh_version_table():
 
 def run_ultra_migration():
     """Run migration with ultra-aggressive reset strategies."""
-    print("🚀 Starting ultra migration...")
+    print("Starting ultra migration...")
     
     # Step 1: Force complete database reset
     if not force_database_reset():

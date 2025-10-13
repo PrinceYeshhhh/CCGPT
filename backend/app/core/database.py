@@ -36,15 +36,12 @@ def create_database_engine(url: str, is_read_replica: bool = False):
         'pool_recycle': 1800,  # 30 minutes
         'pool_pre_ping': True,
         'echo': settings.ENVIRONMENT == "development",
-        'connect_args': {
-            'options': '-c default_transaction_isolation=read_committed'
-        }
+        'connect_args': {}
     }
     
     if is_read_replica:
-        options = config['connect_args']['options']
-        if isinstance(options, str):
-            config['connect_args']['options'] = options + ' -c statement_timeout=30000'  # 30s timeout for reads
+        # Add statement timeout for read replicas
+        config['connect_args']['options'] = '-c statement_timeout=30000'  # 30s timeout for reads
     
     return create_engine(url, **config)
 

@@ -126,7 +126,7 @@ def reset_alembic_version_table():
 
 def run_aggressive_migration():
     """Run migration with aggressive transaction state clearing."""
-    print("🚀 Starting aggressive migration...")
+    print("Starting aggressive migration...")
     
     # Step 1: Force connection reset
     if not force_connection_reset():

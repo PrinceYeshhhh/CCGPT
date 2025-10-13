@@ -50,11 +50,11 @@ def run_migration_with_retry():
     max_retries = 3
     
     for attempt in range(max_retries):
-        print(f"\n🔄 Migration attempt {attempt + 1}/{max_retries}")
+        print(f"\nMigration attempt {attempt + 1}/{max_retries}")
         
         # Reset database connection before each attempt
         if not reset_database_connection():
-            print("❌ Failed to reset database connection")
+            print("ERROR: Failed to reset database connection")
             if attempt < max_retries - 1:
                 print("Retrying...")
                 time.sleep(2)
@@ -106,7 +106,7 @@ def run_migration_with_retry():
     return False
 
 if __name__ == "__main__":
-    print("🚀 Starting migration with retry logic...")
+    print("Starting migration with retry logic...")
     
     success = run_migration_with_retry()
     

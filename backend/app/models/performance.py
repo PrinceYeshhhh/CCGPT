@@ -3,7 +3,7 @@ Performance monitoring database models
 """
 
 from sqlalchemy import Column, String, Float, DateTime, Text, Index
-from sqlalchemy.dialects.postgresql import UUID
+from app.core.uuid_type import UUID
 from app.db.base import Base
 import uuid
 

@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 def run_simple_migration():
     """Run a simple migration without complex retry logic."""
-    print("🚀 Starting simple migration...")
+    print("Starting simple migration...")
     
     try:
         # Run the migration
@@ -26,29 +26,29 @@ def run_simple_migration():
         )
         
         if result.returncode == 0:
-            print("✅ Migration completed successfully")
+            print("SUCCESS: Migration completed successfully")
             print("Migration output:")
             print(result.stdout)
             return True
         else:
-            print(f"❌ Migration failed with return code {result.returncode}")
+            print(f"FAILED: Migration failed with return code {result.returncode}")
             print("Error output:")
             print(result.stderr)
             return False
             
     except subprocess.TimeoutExpired:
-        print("❌ Migration timed out")
+        print("TIMEOUT: Migration timed out")
         return False
     except Exception as e:
-        print(f"❌ Unexpected error during migration: {e}")
+        print(f"ERROR: Unexpected error during migration: {e}")
         return False
 
 if __name__ == "__main__":
     success = run_simple_migration()
     
     if success:
-        print("\n✅ Migration completed successfully!")
+        print("\nSUCCESS: Migration completed successfully!")
         sys.exit(0)
     else:
-        print("\n❌ Migration failed")
+        print("\nFAILED: Migration failed")
         sys.exit(1)

@@ -258,6 +258,62 @@ def create_all_tables(connection):
         );
     """))
     
+    # Create chat_sessions table
+    connection.execute(text("""
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            id VARCHAR(36) PRIMARY KEY,
+            session_id VARCHAR(36) UNIQUE NOT NULL,
+            workspace_id VARCHAR(36) NOT NULL,
+            user_id VARCHAR(36) NOT NULL,
+            title VARCHAR(255),
+            is_active BOOLEAN DEFAULT true,
+            last_activity_at TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    """))
+    
+    # Create chat_messages table
+    connection.execute(text("""
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id VARCHAR(36) PRIMARY KEY,
+            session_id VARCHAR(36) NOT NULL,
+            role VARCHAR(20) NOT NULL,
+            content TEXT NOT NULL,
+            metadata TEXT,
+            is_flagged BOOLEAN DEFAULT false,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    """))
+    
+    # Create embed_codes table
+    connection.execute(text("""
+        CREATE TABLE IF NOT EXISTS embed_codes (
+            id VARCHAR(36) PRIMARY KEY,
+            workspace_id VARCHAR(36) NOT NULL,
+            client_api_key VARCHAR(255) UNIQUE NOT NULL,
+            is_active BOOLEAN DEFAULT true,
+            last_used TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    """))
+    
+    # Create team_members table
+    connection.execute(text("""
+        CREATE TABLE IF NOT EXISTS team_members (
+            id INTEGER PRIMARY KEY,
+            workspace_id VARCHAR(36) NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            full_name VARCHAR(255),
+            role VARCHAR(50) DEFAULT 'member',
+            status VARCHAR(20) DEFAULT 'pending',
+            invitation_token VARCHAR(128),
+            invited_by INTEGER,
+            joined_at TIMESTAMP WITH TIME ZONE,
+            last_active TIMESTAMP WITH TIME ZONE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    """))
+    
     # Create indexes
     create_indexes(connection)
     
@@ -292,7 +348,16 @@ def create_indexes(connection):
         "CREATE INDEX IF NOT EXISTS idx_performance_configs_workspace_id ON performance_configs(workspace_id);",
         "CREATE INDEX IF NOT EXISTS idx_performance_reports_workspace_id ON performance_reports(workspace_id);",
         "CREATE INDEX IF NOT EXISTS idx_performance_reports_report_type ON performance_reports(report_type);",
-        "CREATE INDEX IF NOT EXISTS idx_performance_benchmarks_workspace_id ON performance_benchmarks(workspace_id);"
+        "CREATE INDEX IF NOT EXISTS idx_performance_benchmarks_workspace_id ON performance_benchmarks(workspace_id);",
+        "CREATE INDEX IF NOT EXISTS ix_chat_sessions_id ON chat_sessions(id);",
+        "CREATE INDEX IF NOT EXISTS ix_chat_sessions_session_id ON chat_sessions(session_id);",
+        "CREATE INDEX IF NOT EXISTS ix_chat_sessions_workspace_id ON chat_sessions(workspace_id);",
+        "CREATE INDEX IF NOT EXISTS ix_chat_messages_id ON chat_messages(id);",
+        "CREATE INDEX IF NOT EXISTS ix_chat_messages_session_id ON chat_messages(session_id);",
+        "CREATE INDEX IF NOT EXISTS ix_embed_codes_id ON embed_codes(id);",
+        "CREATE INDEX IF NOT EXISTS ix_embed_codes_workspace_id ON embed_codes(workspace_id);",
+        "CREATE INDEX IF NOT EXISTS ix_team_members_id ON team_members(id);",
+        "CREATE INDEX IF NOT EXISTS ix_team_members_workspace_id ON team_members(workspace_id);"
     ]
     
     # Advanced indexes that might not work on all databases

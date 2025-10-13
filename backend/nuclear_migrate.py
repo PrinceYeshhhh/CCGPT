@@ -20,7 +20,7 @@ def nuclear_database_reset():
     """Nuclear database reset - completely clear all transaction states."""
     database_url = settings.DATABASE_URL
     
-    print("💥 Nuclear database reset...")
+    print("Nuclear database reset...")
     
     try:
         # Create engine with maximum isolation
@@ -70,7 +70,7 @@ def create_nuclear_version_table():
     """Create version table with nuclear approach."""
     database_url = settings.DATABASE_URL
     
-    print("💥 Creating nuclear version table...")
+    print("Creating nuclear version table...")
     
     try:
         engine = create_engine(
@@ -107,7 +107,7 @@ def create_nuclear_version_table():
 
 def run_nuclear_migration():
     """Run migration with nuclear approach - bypass all transaction management."""
-    print("💥 Starting nuclear migration...")
+    print("Starting nuclear migration...")
     
     # Step 1: Nuclear database reset
     if not nuclear_database_reset():
@@ -124,7 +124,7 @@ def run_nuclear_migration():
     time.sleep(3)
     
     # Step 4: Run migration with nuclear approach
-    print("💥 Running nuclear migration...")
+    print("Running nuclear migration...")
     
     try:
         # Use environment variables to force autocommit mode
