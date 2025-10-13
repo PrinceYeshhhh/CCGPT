@@ -17,11 +17,19 @@ logger = structlog.get_logger()
 _IS_TESTING = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
 _BCRYPT_ROUNDS = 4 if _IS_TESTING else 12
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],  # Use bcrypt as primary
-    deprecated="auto",   # Accept old hashes during migration
-    bcrypt__rounds=_BCRYPT_ROUNDS,
-)
+# In testing, avoid platform-specific bcrypt backend issues by using PBKDF2
+if _IS_TESTING:
+    pwd_context = CryptContext(
+        schemes=["pbkdf2_sha256"],
+        deprecated="auto",
+        pbkdf2_sha256__rounds=20000,
+    )
+else:
+    pwd_context = CryptContext(
+        schemes=["bcrypt"],  # Use bcrypt as primary
+        deprecated="auto",   # Accept old hashes during migration
+        bcrypt__rounds=_BCRYPT_ROUNDS,
+    )
 
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt with salt"""
@@ -49,8 +57,11 @@ def hash_password_with_salt(password: str, salt: str = None) -> Tuple[str, str]:
     # Combine password with salt
     salted_password = f"{password}{salt}"
     
-    # Hash using bcrypt (match rounds with context; reduce rounds in tests)
-    hashed = bcrypt.hash(salted_password, rounds=_BCRYPT_ROUNDS)
+    # Hash using bcrypt when not testing; fallback to context in tests
+    if _IS_TESTING:
+        hashed = pwd_context.hash(salted_password)
+    else:
+        hashed = bcrypt.hash(salted_password, rounds=_BCRYPT_ROUNDS)
     
     return hashed, salt
 

@@ -99,6 +99,39 @@ class MockRedisClient:
     def zcard(self, name):
         return 0
 
+    # Minimal pipeline implementation used by rate limiting middleware
+    class _Pipeline:
+        def __init__(self, parent):
+            self.parent = parent
+            self.commands = []
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc, tb):
+            return False
+        def incr(self, key):
+            self.commands.append(("incr", key))
+            return self
+        def expire(self, key, seconds):
+            self.commands.append(("expire", key, seconds))
+            return self
+        def execute(self):
+            # Return mock results matching redis-py behavior
+            results = []
+            for cmd in self.commands:
+                if cmd[0] == "incr":
+                    results.append(1)
+                elif cmd[0] == "expire":
+                    results.append(True)
+            self.commands.clear()
+            return results
+
+    def pipeline(self):
+        return MockRedisClient._Pipeline(self)
+
+    def publish(self, channel, message):
+        # No-op publish for tests
+        return 1
+
 # Enhanced Redis Configuration
 class RedisManager:
     def __init__(self):

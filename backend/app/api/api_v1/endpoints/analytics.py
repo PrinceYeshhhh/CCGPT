@@ -88,6 +88,9 @@ async def analytics_usage_stats(
 ):
     """Return daily usage counts for the last N days suitable for charts."""
     try:
+        # Extra guard to ensure tests receive 400/422 semantics even if validation is bypassed
+        if days < 1:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'days' must be >= 1")
         workspace_id = str(current_user.workspace_id)
         end = datetime.utcnow()
         start = end - timedelta(days=days)
@@ -324,6 +327,9 @@ async def get_usage_stats(
 ):
     """Get usage statistics over time"""
     try:
+        # Extra guard to ensure tests receive 400/422 semantics even if validation is bypassed
+        if days < 1:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'days' must be >= 1")
         analytics_service = AnalyticsService(db)
         stats = analytics_service.get_usage_stats(
             user_id=current_user.id,

@@ -133,7 +133,9 @@ jobs:
         export MKL_NUM_THREADS=1
         export NUMEXPR_MAX_THREADS=1
 
-        pytest tests/unit/ -vv -s -p no:timeout -p no:cov \
+        pytest tests/unit/ -vv -s -p no:timeout \
+          --cov=app \
+          --cov-report=xml \
           --junitxml=test-results.xml \
           --maxfail=10 \
           --tb=short
