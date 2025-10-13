@@ -110,7 +110,7 @@ class TestAuthEndpoints:
             "full_name": "Test User"
         }
         
-        with patch('app.services.auth_service.AuthService.create_user') as mock_create:
+        with patch('app.services.user_service.UserService.create_user') as mock_create:
             mock_create.return_value = User(id="123", email="test@example.com")
             
             response = client.post("/api/v1/auth/register", json=user_data)
@@ -177,8 +177,8 @@ class TestAuthEndpoints:
     
     def test_get_current_user_success(self, client):
         """Test getting current user with valid token"""
-        user_id = "test_user_123"
-        token = AuthService().create_access_token(user_id)
+        user_id = 1  # Use integer ID to match test_user fixture
+        token = AuthService().create_access_token(str(user_id))
         
         with patch('app.services.auth_service.AuthService.get_user_by_id') as mock_get_user:
             mock_get_user.return_value = User(id=user_id, email="test@example.com")
@@ -203,8 +203,8 @@ class TestAuthEndpoints:
     
     def test_refresh_token_success(self, client):
         """Test successful token refresh"""
-        user_id = "test_user_123"
-        refresh_token = AuthService().create_refresh_token(user_id)
+        user_id = 1  # Use integer ID to match test_user fixture
+        refresh_token = AuthService().create_refresh_token(str(user_id))
         
         with patch('app.services.auth_service.AuthService.get_user_by_id') as mock_get_user:
             mock_get_user.return_value = User(id=user_id, email="test@example.com")
@@ -219,8 +219,8 @@ class TestAuthEndpoints:
     
     def test_logout_success(self, client):
         """Test successful user logout"""
-        user_id = "test_user_123"
-        token = AuthService().create_access_token(user_id)
+        user_id = 1  # Use integer ID to match test_user fixture
+        token = AuthService().create_access_token(str(user_id))
         
         with patch('app.services.auth_service.AuthService.revoke_token') as mock_revoke:
             mock_revoke.return_value = True

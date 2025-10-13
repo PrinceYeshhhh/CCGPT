@@ -65,7 +65,7 @@ async def register(
         db.commit()
         auth_service.send_email_verification(user.email, token)
         logger.info("User registered successfully", user_id=user.id, email=user.email)
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
     except HTTPException:
         raise
     except Exception as e:
@@ -297,7 +297,7 @@ async def get_me(
     if getattr(current_user, 'created_at', None) is None:
         from datetime import datetime
         current_user.created_at = datetime.utcnow()
-    return UserResponse.from_orm(current_user)
+    return UserResponse.model_validate(current_user)
 
 
 @router.get("/csrf-token")

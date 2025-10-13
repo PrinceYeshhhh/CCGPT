@@ -251,10 +251,11 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     ADMIN_EMAIL: str = "admin@customercaregpt.com"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": True,
+        "extra": "ignore"
+    }
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

@@ -374,6 +374,7 @@ class AuthService:
                     token,
                     settings.JWT_SECRET,
                     algorithms=[settings.ALGORITHM],
+                    options={"verify_aud": False, "verify_iss": False, "verify_signature": True}
                 )
             else:
                 payload = jwt.decode(

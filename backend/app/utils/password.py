@@ -9,6 +9,7 @@ import os
 # Force Passlib to use builtin bcrypt backend to avoid CI issues
 os.environ.setdefault('PASSLIB_BUILTIN_BCRYPT', '1')
 os.environ.setdefault('PASSLIB_BCRYPT_BACKEND', 'builtin')
+os.environ.setdefault('PASSLIB_BCRYPT_DISABLE_WARNINGS', '1')
 
 from passlib.context import CryptContext
 from passlib.hash import bcrypt
@@ -41,15 +42,17 @@ except Exception:
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt with salt"""
     # Truncate password to 72 bytes to avoid bcrypt limitation
-    if len(password.encode('utf-8')) > 72:
-        password = password[:72]
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        password = password_bytes[:72].decode('utf-8', 'ignore')
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
     # Truncate password to 72 bytes to avoid bcrypt limitation
-    if len(plain_password.encode('utf-8')) > 72:
-        plain_password = plain_password[:72]
+    password_bytes = plain_password.encode('utf-8')
+    if len(password_bytes) > 72:
+        plain_password = password_bytes[:72].decode('utf-8', 'ignore')
     return pwd_context.verify(plain_password, hashed_password)
 
 def generate_salt() -> str:
