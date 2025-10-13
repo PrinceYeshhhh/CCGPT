@@ -147,7 +147,9 @@ jobs:
     - name: Run unit tests
       working-directory: ./backend
       run: |
-        pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=html --junitxml=test-results.xml
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/ -v \
+          -p pytest_timeout -p pytest_cov -p pytest_asyncio \
+          --cov=app --cov-report=xml --cov-report=html --junitxml=test-results.xml
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379
@@ -159,7 +161,9 @@ jobs:
     - name: Run integration tests
       working-directory: ./backend
       run: |
-        pytest tests/integration/ -v --cov=app --cov-append --cov-report=xml --cov-report=html --junitxml=integration-results.xml
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/integration/ -v \
+          -p pytest_timeout -p pytest_cov -p pytest_asyncio \
+          --cov=app --cov-append --cov-report=xml --cov-report=html --junitxml=integration-results.xml
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379

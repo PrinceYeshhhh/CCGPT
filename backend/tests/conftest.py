@@ -26,6 +26,12 @@ os.environ["GEMINI_API_KEY"] = "test-gemini-key"
 os.environ["STRIPE_API_KEY"] = "test-stripe-key"
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "60"  # Longer expiration for tests
+os.environ["ENABLE_RATE_LIMITING"] = "false"
+os.environ["ENABLE_INPUT_VALIDATION"] = "false"
+os.environ["ENABLE_REQUEST_LOGGING"] = "false"
+os.environ["PROMETHEUS_ENABLED"] = "false"
+os.environ["METRICS_ENABLED"] = "false"
+os.environ["HEALTH_CHECK_ENABLED"] = "false"
 
 # Mock Redis to prevent connection issues in tests
 import redis
