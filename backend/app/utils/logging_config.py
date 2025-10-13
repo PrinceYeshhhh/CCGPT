@@ -16,6 +16,17 @@ def configure_logging() -> None:
     # Determine log level based on environment
     log_level = "DEBUG" if settings.DEBUG else settings.LOG_LEVEL.upper()
     
+    # Check if we're in a CI/testing environment
+    is_ci = os.getenv('CI') or os.getenv('GITHUB_ACTIONS') or settings.ENVIRONMENT == 'testing'
+    
+    # Create logs directory if it doesn't exist (only if we have permission)
+    if not is_ci:
+        logs_dir = Path("logs")
+        try:
+            logs_dir.mkdir(exist_ok=True)
+        except PermissionError:
+            is_ci = True  # Fall back to CI mode
+    
     # Configure standard library logging
     logging_config = {
         "version": 1,
@@ -39,51 +50,27 @@ def configure_logging() -> None:
                 "level": log_level,
                 "formatter": "json" if settings.ENVIRONMENT == "production" else "detailed",
                 "stream": sys.stdout
-            },
-            "file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "level": "INFO",
-                "formatter": "json",
-                "filename": "logs/app.log",
-                "maxBytes": 10485760,  # 10MB
-                "backupCount": 5
-            },
-            "error_file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "level": "ERROR",
-                "formatter": "json",
-                "filename": "logs/error.log",
-                "maxBytes": 10485760,  # 10MB
-                "backupCount": 5
-            },
-            "security_file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "level": "INFO",
-                "formatter": "json",
-                "filename": "logs/security.log",
-                "maxBytes": 10485760,  # 10MB
-                "backupCount": 10
             }
         },
         "loggers": {
             "app": {
                 "level": log_level,
-                "handlers": ["console", "file"],
+                "handlers": ["console"],
                 "propagate": False
             },
             "app.security": {
                 "level": "INFO",
-                "handlers": ["console", "security_file"],
+                "handlers": ["console"],
                 "propagate": False
             },
             "app.auth": {
                 "level": "INFO",
-                "handlers": ["console", "security_file"],
+                "handlers": ["console"],
                 "propagate": False
             },
             "app.rate_limit": {
                 "level": "INFO",
-                "handlers": ["console", "security_file"],
+                "handlers": ["console"],
                 "propagate": False
             },
             "uvicorn": {
@@ -119,7 +106,7 @@ def configure_logging() -> None:
         },
         "root": {
             "level": "WARNING",
-            "handlers": ["console", "error_file"]
+            "handlers": ["console"]
         }
     }
     
