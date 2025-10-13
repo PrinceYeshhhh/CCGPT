@@ -122,6 +122,10 @@ class MockRedisClient:
                     results.append(1)
                 elif cmd[0] == "expire":
                     results.append(True)
+                elif cmd[0] == "zadd":
+                    results.append(1)
+                elif cmd[0] == "zremrangebyscore":
+                    results.append(0)
             self.commands.clear()
             return results
 
@@ -131,6 +135,13 @@ class MockRedisClient:
     def publish(self, channel, message):
         # No-op publish for tests
         return 1
+
+    # Convenience passthroughs for code that expects pipeline methods directly on client
+    def zadd(self, name, mapping):
+        return 1
+
+    def zremrangebyscore(self, name, min_score, max_score):
+        return 0
 
 # Enhanced Redis Configuration
 class RedisManager:

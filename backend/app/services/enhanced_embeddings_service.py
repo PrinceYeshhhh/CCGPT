@@ -74,6 +74,11 @@ class EnhancedEmbeddingsService:
     def _initialize_model(self):
         """Initialize the embedding model"""
         try:
+            # In testing, short-circuit to a lightweight fake model to avoid downloads
+            if settings.ENVIRONMENT.lower() in ("testing", "test") or (str(getattr(settings, "DEBUG", False)).lower() == "true" and getattr(settings, "TESTING", False)):
+                self._initialize_fallback_model()
+                logger.info("Using fake sentence transformer model in TESTING mode", dimension=self.embedding_dimension)
+                return
             if self.model_name.startswith("text-embedding-ada-002"):
                 self._initialize_openai_model()
             elif self.model_name.startswith("sentence-transformers/"):
