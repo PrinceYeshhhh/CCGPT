@@ -6,6 +6,7 @@ import asyncio
 import time
 import random
 from typing import List, Dict, Any, Optional
+import os
 from enum import Enum
 import structlog
 import httpx
@@ -89,6 +90,9 @@ class LoadBalancer:
         self._lock = asyncio.Lock()
         self._health_check_interval = 30  # seconds
         self._health_check_task = None
+        # Skip background health checks in testing to avoid hanging event loops
+        if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
+            return
         self._start_health_checks()
     
     def add_node(self, url: str, weight: int = 1, health_check_url: Optional[str] = None):
