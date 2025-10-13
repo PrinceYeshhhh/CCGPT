@@ -85,7 +85,8 @@ jobs:
     - name: Run database migrations
       working-directory: ./backend
       run: |
-        python smart_migrate.py || python simple_migrate.py || python migrate_with_retry.py || python ultra_migrate.py
+        python fix_postgresql_connection.py
+        python run_migration_chain.py
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 
@@ -185,7 +186,8 @@ jobs:
     - name: Run database migrations
       working-directory: ./backend
       run: |
-        python smart_migrate.py || python simple_migrate.py || python migrate_with_retry.py || python ultra_migrate.py
+        python fix_postgresql_connection.py
+        python run_migration_chain.py
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
 

@@ -63,7 +63,8 @@ class BackupService:
     
     def __init__(self):
         self.backup_dir = Path(settings.BACKUP_DIR or "/app/backups")
-        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        # Don't create directory during import - create it lazily when needed
+        self._backup_dir_created = False
         
         # S3 configuration for remote backups
         self.s3_client = None
@@ -75,6 +76,23 @@ class BackupService:
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
                 region_name=settings.AWS_REGION
             )
+        
+        # Backup retention policies
+        self.retention_days = settings.BACKUP_RETENTION_DAYS or 30
+        self.max_backups = 10  # Default value
+        
+    def _ensure_backup_dir(self):
+        """Ensure backup directory exists, create it if needed."""
+        if not self._backup_dir_created:
+            try:
+                self.backup_dir.mkdir(parents=True, exist_ok=True)
+                self._backup_dir_created = True
+            except PermissionError:
+                # In CI/testing environments, use a temp directory instead
+                import tempfile
+                self.backup_dir = Path(tempfile.gettempdir()) / "backups"
+                self.backup_dir.mkdir(parents=True, exist_ok=True)
+                self._backup_dir_created = True
         
         # Backup retention policies
         self.retention_policies = {
@@ -123,6 +141,9 @@ class BackupService:
         )
         
         try:
+            # Ensure backup directory exists
+            self._ensure_backup_dir()
+            
             # Create backup directory
             backup_path = self.backup_dir / backup_id
             backup_path.mkdir(parents=True, exist_ok=True)
@@ -410,6 +431,7 @@ class BackupService:
     
     async def _compress_backup(self, backup_path: Path, metadata: BackupMetadata):
         """Compress backup directory"""
+        self._ensure_backup_dir()
         compressed_file = self.backup_dir / f"{metadata.backup_id}.tar.gz"
         
         with tarfile.open(compressed_file, "w:gz") as tar:
@@ -432,6 +454,7 @@ class BackupService:
         if not self.s3_client or not self.s3_bucket:
             return
         
+        self._ensure_backup_dir()
         compressed_file = self.backup_dir / f"{metadata.backup_id}.tar.gz"
         
         try:
@@ -465,6 +488,7 @@ class BackupService:
     
     async def _save_metadata(self, metadata: BackupMetadata):
         """Save backup metadata"""
+        self._ensure_backup_dir()
         metadata_file = self.backup_dir / f"{metadata.backup_id}_metadata.json"
         
         metadata_dict = {
@@ -485,6 +509,7 @@ class BackupService:
     
     async def list_backups(self) -> List[BackupMetadata]:
         """List all available backups"""
+        self._ensure_backup_dir()
         backups = []
         
         for metadata_file in self.backup_dir.glob("*_metadata.json"):
