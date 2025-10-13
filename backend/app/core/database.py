@@ -99,6 +99,14 @@ class MockRedisClient:
     def zcard(self, name):
         return 0
 
+    # Set operations used by token revocation service
+    def sadd(self, name, *values):
+        return 1
+    def srem(self, name, *values):
+        return 1
+    def smembers(self, name):
+        return set()
+
     # Minimal pipeline implementation used by rate limiting middleware
     class _Pipeline:
         def __init__(self, parent):

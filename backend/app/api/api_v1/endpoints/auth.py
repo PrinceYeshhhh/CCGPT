@@ -74,6 +74,7 @@ async def register(
 @router.post("/login", response_model=Token)
 async def login(
     user_data: UserLogin,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Login user and return access and refresh tokens"""

@@ -17,19 +17,12 @@ logger = structlog.get_logger()
 _IS_TESTING = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
 _BCRYPT_ROUNDS = 4 if _IS_TESTING else 12
 
-# In testing, avoid platform-specific bcrypt backend issues by using PBKDF2
-if _IS_TESTING:
-    pwd_context = CryptContext(
-        schemes=["pbkdf2_sha256"],
-        deprecated="auto",
-        pbkdf2_sha256__rounds=20000,
-    )
-else:
-    pwd_context = CryptContext(
-        schemes=["bcrypt"],  # Use bcrypt as primary
-        deprecated="auto",   # Accept old hashes during migration
-        bcrypt__rounds=_BCRYPT_ROUNDS,
-    )
+# Always use bcrypt to satisfy tests expecting $2b$ prefix; reduce rounds in testing
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=_BCRYPT_ROUNDS,
+)
 
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt with salt"""
@@ -57,11 +50,8 @@ def hash_password_with_salt(password: str, salt: str = None) -> Tuple[str, str]:
     # Combine password with salt
     salted_password = f"{password}{salt}"
     
-    # Hash using bcrypt when not testing; fallback to context in tests
-    if _IS_TESTING:
-        hashed = pwd_context.hash(salted_password)
-    else:
-        hashed = bcrypt.hash(salted_password, rounds=_BCRYPT_ROUNDS)
+    # Hash using bcrypt consistently
+    hashed = bcrypt.hash(salted_password, rounds=_BCRYPT_ROUNDS)
     
     return hashed, salt
 
@@ -182,4 +172,13 @@ def validate_password_requirements(password: str, min_length: int = 12) -> dict:
         "requirements_failed": requirements_failed,
         "strength_analysis": strength_check
     }
+
+
+# Test-friendly shim expected by some tests
+class PasswordValidator:
+    """Shim providing validate() returning the same dict as validate_password_requirements."""
+    def __init__(self, min_length: int = 12):
+        self.min_length = min_length
+    def validate(self, password: str) -> dict:
+        return validate_password_requirements(password, self.min_length)
 

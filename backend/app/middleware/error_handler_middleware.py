@@ -194,10 +194,10 @@ class ErrorMetricsMiddleware(BaseHTTPMiddleware):
             # Record error metrics
             duration = (time.time() - start_time) * 1000
             from app.utils.metrics import metrics_collector
+            # metrics API expects (error_type, endpoint)
             metrics_collector.record_error(
                 error_type=type(e).__name__,
-                path=request.url.path,
-                duration=duration
+                endpoint=request.url.path
             )
             
             # Re-raise to be handled by error handler
