@@ -5,6 +5,7 @@ pytest>=7.4,<9.0
 pytest-cov>=4.1,<6.0
 pytest-asyncio>=0.21,<0.25
 pytest-mock>=3.11,<4.0
+pytest-timeout>=2.3,<3.0
 
 # Linting & Formatting
 flake8>=6.1,<8.0

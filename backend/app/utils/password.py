@@ -6,16 +6,21 @@ import secrets
 import hashlib
 from passlib.context import CryptContext
 from passlib.hash import bcrypt
+import os
 from typing import Tuple
 import structlog
 
 logger = structlog.get_logger()
 
 # Enhanced password hashing context with bcrypt as primary
+# Use fewer rounds when running tests to avoid long runtimes/hangs in CI
+_IS_TESTING = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
+_BCRYPT_ROUNDS = 4 if _IS_TESTING else 12
+
 pwd_context = CryptContext(
     schemes=["bcrypt"],  # Use bcrypt as primary
     deprecated="auto",   # Accept old hashes during migration
-    bcrypt__rounds=12,   # Increased rounds for better security
+    bcrypt__rounds=_BCRYPT_ROUNDS,
 )
 
 def get_password_hash(password: str) -> str:
@@ -44,8 +49,8 @@ def hash_password_with_salt(password: str, salt: str = None) -> Tuple[str, str]:
     # Combine password with salt
     salted_password = f"{password}{salt}"
     
-    # Hash using bcrypt
-    hashed = bcrypt.hash(salted_password, rounds=12)
+    # Hash using bcrypt (match rounds with context; reduce rounds in tests)
+    hashed = bcrypt.hash(salted_password, rounds=_BCRYPT_ROUNDS)
     
     return hashed, salt
 

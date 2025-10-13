@@ -121,11 +121,23 @@ jobs:
     - name: Run all backend unit tests
       working-directory: ./backend
       run: |
+        # Ensure CPU-only behavior and offline mode for ML libs to prevent stalls
+        export HF_HUB_DISABLE_TELEMETRY=1
+        export HF_HUB_OFFLINE=1
+        export TRANSFORMERS_OFFLINE=1
+        export SENTENCE_TRANSFORMERS_HOME="$PWD/.cache/sentencetransformers"
+        export TORCH_HOME="$PWD/.cache/torch"
+        export OMP_NUM_THREADS=1
+        export MKL_NUM_THREADS=1
+        export NUMEXPR_MAX_THREADS=1
+
         pytest tests/unit/ -v \
           --cov=app \
           --cov-report=xml \
           --cov-report=html \
           --cov-report=term-missing \
+          --timeout=120 \
+          --durations=20 \
           --junitxml=test-results.xml \
           --maxfail=10 \
           --tb=short
