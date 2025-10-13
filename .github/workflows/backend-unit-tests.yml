@@ -132,7 +132,6 @@ jobs:
         export OMP_NUM_THREADS=1
         export MKL_NUM_THREADS=1
         export NUMEXPR_MAX_THREADS=1
-        export PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 
         pytest tests/unit/ -v -p no:timeout \
           --cov=app \
