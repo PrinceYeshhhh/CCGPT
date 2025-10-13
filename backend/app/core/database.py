@@ -12,6 +12,7 @@ from typing import Generator, List, Optional
 from contextlib import asynccontextmanager
 import structlog
 from app.core.config import settings
+import os
 
 logger = structlog.get_logger()
 
@@ -104,6 +105,13 @@ class RedisManager:
         self.redis_client = None
         self.redis_available = False
         
+        # In testing, avoid real Redis connections and use mock client
+        if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
+            self.redis_client = MockRedisClient()
+            self.redis_available = False
+            logger.info("Redis manager initialized in testing mode (mock client)")
+            return
+
         try:
             self.redis_url = settings.REDIS_URL
             if settings.REDIS_PASSWORD:
