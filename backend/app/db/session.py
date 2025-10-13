@@ -4,8 +4,8 @@ Database session management
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import redis
 from app.core.config import settings
+from app.core.database import redis_manager
 
 # PostgreSQL Database
 engine = create_engine(
@@ -17,8 +17,8 @@ engine = create_engine(
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Redis Cache
-redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+# Redis Cache (use unified RedisManager which returns a mock in testing)
+redis_client = redis_manager.get_client()
 
 def get_db():
     """Database dependency"""
