@@ -170,6 +170,14 @@ def client(db_session) -> Generator:
     
     app.dependency_overrides.clear()
 
+# Expose a global client variable for tests that import it directly
+try:
+    _global_app = app
+    if _global_app is not None:
+        client = TestClient(_global_app)  # type: ignore
+except Exception:
+    client = None  # type: ignore
+
 import pytest
 from fastapi.testclient import TestClient
 

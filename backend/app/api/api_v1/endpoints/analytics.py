@@ -328,19 +328,20 @@ async def get_usage_stats(
 ):
     """Get usage statistics over time"""
     try:
-        # Extra guard to ensure tests receive 400/422 semantics even if validation is bypassed
+        # Extra guard to ensure tests receive 422 semantics before auth/body handling
         if days < 1:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'days' must be >= 1")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'days' must be >= 1")
         analytics_service = AnalyticsService(db)
         stats = analytics_service.get_usage_stats(
             user_id=current_user.id,
             days=days
         )
-        
         return [UsageStats(**stat) for stat in stats]
-        
+    except HTTPException:
+        # Preserve intended status codes (e.g., 422)
+        raise
     except Exception as e:
-        logger.error("Failed to get usage stats", error=str(e), user_id=current_user.id)
+        logger.error("Failed to get usage stats", error=str(e), user_id=getattr(current_user, 'id', None))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve usage statistics"

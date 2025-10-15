@@ -280,17 +280,26 @@ class DatabaseLogger:
     
     def log_query(self, operation: str, table: str, duration_ms: float, success: bool, **kwargs):
         """Log database queries"""
-        level = "info" if success else "error"
-        self.logger.log(
-            level,
-            "Database operation",
-            operation=operation,
-            table=table,
-            duration_ms=duration_ms,
-            success=success,
-            event_type="database_operation",
-            **kwargs
-        )
+        if success:
+            self.logger.info(
+                "Database operation",
+                operation=operation,
+                table=table,
+                duration_ms=duration_ms,
+                success=success,
+                event_type="database_operation",
+                **kwargs
+            )
+        else:
+            self.logger.error(
+                "Database operation",
+                operation=operation,
+                table=table,
+                duration_ms=duration_ms,
+                success=success,
+                event_type="database_operation",
+                **kwargs
+            )
     
     def log_connection_event(self, event_type: str, pool_size: int, **kwargs):
         """Log database connection events"""
