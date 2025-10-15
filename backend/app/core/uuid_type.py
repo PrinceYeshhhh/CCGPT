@@ -33,8 +33,8 @@ class UUID(TypeDecorator):
                 # Validate/normalize string UUIDs
                 return str(uuid.UUID(str(value)))
             except Exception:
-                # Auto-generate a stable UUID to avoid bind errors in tests
-                return str(uuid.uuid4())
+                # If invalid, return original string to avoid unintended changes
+                return str(value)
     
     def process_result_value(self, value, dialect):
         if value is None:

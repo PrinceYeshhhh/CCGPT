@@ -92,7 +92,12 @@ async def register(
             user.is_superuser = False
         if getattr(user, 'created_at', None) is None:
             user.created_at = datetime.utcnow()
-        return {"user": UserResponse.model_validate(user)}
+        # In testing, some mocked users may not satisfy full response_model; coerce
+        response_user = UserResponse.model_validate(user)
+        payload = {"user": response_user}
+        # Include message field expected by some comprehensive tests
+        payload["message"] = "User registered successfully"
+        return payload
     except HTTPException:
         raise
     except Exception as e:

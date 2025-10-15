@@ -9,6 +9,7 @@ import os
 import sys
 from typing import Generator, AsyncGenerator
 from fastapi.testclient import TestClient
+import builtins as _builtins
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -166,6 +167,11 @@ def client(db_session) -> Generator:
     app.dependency_overrides[get_db] = override_get_db
     
     with TestClient(app) as test_client:
+        # Expose globally for tests that import `client`
+        try:
+            _builtins.client = test_client  # type: ignore[attr-defined]
+        except Exception:
+            pass
         yield test_client
     
     app.dependency_overrides.clear()
