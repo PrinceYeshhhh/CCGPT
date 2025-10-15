@@ -85,6 +85,15 @@ async def lifespan(app: FastAPI):
         from app.core.database import initialize_database
         await initialize_database()
         logger.info("Database initialization completed")
+        # In testing, ensure all tables exist on the application's engine so endpoints work
+        import os as _os
+        if _os.getenv("TESTING") == "true" or _os.getenv("ENVIRONMENT") in {"testing", "test"}:
+            try:
+                from app.core.database import Base, engine
+                Base.metadata.create_all(bind=engine)
+                logger.info("Database tables created for testing mode")
+            except Exception as _e:
+                logger.error("Failed to create tables in testing mode", error=str(_e))
         
         # Initialize other services
         from app.core.queue import queue_manager

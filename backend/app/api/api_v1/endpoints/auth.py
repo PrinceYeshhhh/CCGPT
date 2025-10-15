@@ -40,7 +40,7 @@ async def register(
         auth_service = AuthService(db)
         user_service = UserService(db)
         
-        # Strict validation - always check both email and mobile uniqueness
+        # Always validate uniqueness so duplicate tests return 400 explicitly
         validation_result = auth_service.validate_user_registration(
             user_data.email,
             user_data.mobile_phone

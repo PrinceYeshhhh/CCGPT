@@ -89,6 +89,9 @@ class MockRedisClient:
     
     def expire(self, key, time):
         return True
+    # Add setex used by CSRF middleware
+    def setex(self, key, time, value):
+        return True
     
     def zadd(self, name, mapping):
         return 0
