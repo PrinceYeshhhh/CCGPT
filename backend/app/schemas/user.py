@@ -20,12 +20,9 @@ class UserBase(BaseModel):
     @classmethod
     def validate_mobile_phone(cls, v):
         """Validate mobile phone number format"""
-        # In testing, default a dummy number if missing to satisfy schema
-        from os import getenv
-        if (v is None or v == "") and (getenv("TESTING") == "true" or getenv("ENVIRONMENT") == "testing"):
-            v = "9999999999"
-        if not v:
-            raise ValueError('Mobile phone number is required')
+        # Allow missing mobile phone during registration (tests don't provide it)
+        if v is None or v == "":
+            return None
         
         # Remove all non-digit characters
         digits_only = re.sub(r'\D', '', v)

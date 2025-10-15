@@ -42,9 +42,13 @@ except Exception:
 
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt with salt"""
-    # In testing, use a simple hash to avoid bcrypt issues
+    # In testing, still use real bcrypt (with reduced rounds) to satisfy tests expecting 60-char hashes
     if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
-        return f"$2b$12${hashlib.sha256(password.encode()).hexdigest()[:22]}"
+        # Truncate to bcrypt's 72-byte input limit
+        password_bytes = password.encode('utf-8')
+        if len(password_bytes) > 72:
+            password = password_bytes[:72].decode('utf-8', 'ignore')
+        return pwd_context.hash(password)
     
     # Truncate password to 72 bytes to avoid bcrypt limitation
     password_bytes = password.encode('utf-8')
@@ -54,10 +58,13 @@ def get_password_hash(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
-    # In testing, use simple comparison to avoid bcrypt issues
+    # In testing, still use real bcrypt verify (with reduced rounds)
     if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
-        expected_hash = f"$2b$12${hashlib.sha256(plain_password.encode()).hexdigest()[:22]}"
-        return expected_hash == hashed_password
+        # Truncate to bcrypt's 72-byte input limit
+        password_bytes = plain_password.encode('utf-8')
+        if len(password_bytes) > 72:
+            plain_password = password_bytes[:72].decode('utf-8', 'ignore')
+        return pwd_context.verify(plain_password, hashed_password)
     
     # Truncate password to 72 bytes to avoid bcrypt limitation
     password_bytes = plain_password.encode('utf-8')
@@ -203,9 +210,37 @@ def validate_password_requirements(password: str, min_length: int = 12) -> dict:
 
 # Test-friendly shim expected by some tests
 class PasswordValidator:
-    """Shim providing validate() returning the same dict as validate_password_requirements."""
+    """Validator used by tests; also tracks password history in-memory for checks."""
     def __init__(self, min_length: int = 12):
         self.min_length = min_length
+        self._history: dict[str, list[str]] = {}
     def validate(self, password: str) -> dict:
         return validate_password_requirements(password, self.min_length)
+    # Methods expected by tests
+    def validate_password_strength(self, password: str) -> dict:
+        """Return dict including is_valid and error message when invalid."""
+        result = validate_password_requirements(password, self.min_length)
+        if result["is_valid"]:
+            return {"is_valid": True}
+        # Compose a concise error message
+        msg = "; ".join(result.get("requirements_failed", []) or ["Password does not meet requirements"])
+        return {"is_valid": False, "error": msg}
+    def record_password_in_history(self, user_id: str, password: str) -> None:
+        """Record a password hash for a user to prevent reuse."""
+        hashed = get_password_hash(password)
+        self._history.setdefault(user_id, []).append(hashed)
+        # keep only last 5 for tests
+        if len(self._history[user_id]) > 5:
+            self._history[user_id] = self._history[user_id][-5:]
+    def check_password_history(self, user_id: str, new_password: str) -> dict:
+        """Check if new_password was recently used for the user."""
+        prior = self._history.get(user_id, [])
+        for prior_hash in prior:
+            try:
+                if verify_password(new_password, prior_hash):
+                    return {"is_valid": False, "error": "Password was recently used"}
+            except Exception:
+                # If verification fails due to hash format, ignore that entry
+                continue
+        return {"is_valid": True}
 
