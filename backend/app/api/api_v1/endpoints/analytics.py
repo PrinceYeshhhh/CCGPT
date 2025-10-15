@@ -11,6 +11,7 @@ import structlog
 
 from app.core.database import get_db
 from app.core import dependencies as core_deps
+from fastapi import Request
 from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
 from app.models.document import Document
@@ -90,7 +91,8 @@ async def analytics_usage_stats(
     try:
         # Extra guard to ensure tests receive 400/422 semantics even if validation is bypassed
         if days < 1:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="'days' must be >= 1")
+            # Return 422 to match FastAPI validation style when using Query constraints
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="'days' must be >= 1")
         workspace_id = str(current_user.workspace_id)
         end = datetime.utcnow()
         start = end - timedelta(days=days)

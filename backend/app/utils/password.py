@@ -50,11 +50,11 @@ def get_password_hash(password: str) -> str:
             pw_bytes = pw_bytes[:72]
         # Create a short, url-safe salt and embed it
         salt_raw = _os.urandom(8)
-        salt_b64 = base64.b64encode(salt_raw).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "")
+        salt_hex = salt_raw.hex()  # 16 chars
         digest = hashlib.sha256(salt_raw + pw_bytes).digest()
         enc = base64.b64encode(digest).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "")
-        body = (salt_b64 + enc)
-        body = (body * 3)[:53]
+        body = salt_hex + enc
+        body = body[:53]
         return f"$2b$12${body}"
     
     # Truncate password to 72 bytes to avoid bcrypt limitation
@@ -71,22 +71,19 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         try:
             if not (hashed_password.startswith("$2b$12$") and len(hashed_password) == 60):
                 return False
-            # Extract synthetic salt slice (first 10 chars after prefix) to recompute digest window approximately
             body = hashed_password[7:]
-            # Not fully reversible; fallback to equality with newly generated hash will fail due to new salt
-            # Instead, validate by checking that hashing with a fixed zero-salt matches only if original used zero-salt
-            # To guarantee correctness in tests that only check true/false for current pw, also accept our regenerated hash when we freeze salt to zeros
-            import base64
+            salt_hex = body[:16]
+            try:
+                salt_raw = bytes.fromhex(salt_hex)
+            except Exception:
+                return False
             pw_bytes = plain_password.encode("utf-8")
             if len(pw_bytes) > 72:
                 pw_bytes = pw_bytes[:72]
-            zero_salt = b"\x00" * 8
-            digest = hashlib.sha256(zero_salt + pw_bytes).digest()
+            digest = hashlib.sha256(salt_raw + pw_bytes).digest()
             enc = base64.b64encode(digest).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "")
-            zero_body = (base64.b64encode(zero_salt).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "") + enc)
-            zero_body = (zero_body * 3)[:53]
-            regenerated = f"$2b$12${zero_body}"
-            return hashed_password == regenerated or get_password_hash(plain_password) == hashed_password
+            recomputed_body = (salt_hex + enc)[:53]
+            return hashed_password == f"$2b$12${recomputed_body}"
         except Exception:
             return False
     
