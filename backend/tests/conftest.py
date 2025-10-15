@@ -181,6 +181,8 @@ try:
     _global_app = app
     if _global_app is not None:
         client = TestClient(_global_app)  # type: ignore
+        # Also inject into builtins so bare name resolution works in tests
+        _builtins.client = client  # type: ignore[attr-defined]
 except Exception:
     client = None  # type: ignore
 
@@ -201,8 +203,9 @@ def client():
 @pytest.fixture
 def test_workspace(db_session) -> Workspace:
     """Create a test workspace."""
+    import uuid as _uuid
     workspace = Workspace(
-        id="test-workspace-id",
+        id=str(_uuid.uuid4()),
         name="Test Workspace",
         domain="test.example.com"
     )

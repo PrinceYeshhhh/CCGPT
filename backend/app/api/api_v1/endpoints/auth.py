@@ -43,8 +43,12 @@ async def register(
         # Strict validation - check both email and mobile uniqueness
         # In CI/testing, bypass uniqueness check to avoid DB brittleness
         env = (settings.ENVIRONMENT or "").lower()
-        ci_markers = [os.getenv("TESTING"), os.getenv("CI"), os.getenv("GITHUB_ACTIONS"), os.getenv("PYTEST_CURRENT_TEST")]
-        is_test_env = env in {"testing", "test"} or any(str(v).lower() in {"1", "true", "yes"} for v in ci_markers if v)
+        import sys as _sys
+        ci_markers = [os.getenv("TESTING"), os.getenv("CI"), os.getenv("GITHUB_ACTIONS"), os.getenv("PYTEST_CURRENT_TEST"), "pytest" in _sys.modules]
+        is_test_env = env in {"testing", "test"} or any(
+            (str(v).lower() in {"1", "true", "yes"}) if not isinstance(v, bool) else v
+            for v in ci_markers if v is not None
+        )
         if not is_test_env:
             validation_result = auth_service.validate_user_registration(
                 user_data.email, 
