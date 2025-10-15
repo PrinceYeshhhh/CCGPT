@@ -148,8 +148,15 @@ def db_session() -> Generator:
     session = TestingSessionLocal()
     
     try:
-        # Ensure tables exist for this test
+        # Ensure tables exist and clear data for isolation per test
         Base.metadata.create_all(bind=engine)
+        # Truncate all tables to avoid UNIQUE conflicts across tests (StaticPool keeps memory DB alive)
+        try:
+            for table in reversed(Base.metadata.sorted_tables):
+                session.execute(table.delete())
+            session.commit()
+        except Exception:
+            session.rollback()
         yield session
     finally:
         session.rollback()
@@ -222,7 +229,9 @@ def test_user(db_session, test_workspace) -> User:
         hashed_password="$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4J/HS.s.2",  # "password"
         full_name="Test User",
         workspace_id=test_workspace.id,
-        is_active=True
+        is_active=True,
+        mobile_phone="+1234567890",
+        phone_verified=True
     )
     db_session.add(user)
     db_session.commit()
