@@ -444,7 +444,10 @@ class AuthService:
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-        payload = self.verify_token(token, "access")
+        try:
+            payload = self.verify_token(token, "access")
+        except Exception:
+            raise credentials_exception
         if not payload:
             raise credentials_exception
         

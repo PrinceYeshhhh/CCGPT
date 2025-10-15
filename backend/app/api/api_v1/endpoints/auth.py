@@ -74,7 +74,7 @@ async def register(
             user.email_verified = False
         if getattr(user, 'created_at', None) is None:
             user.created_at = datetime.utcnow()
-        return UserResponse.model_validate(user)
+        return {"user": UserResponse.model_validate(user)}
     except HTTPException:
         raise
     except Exception as e:
@@ -307,6 +307,10 @@ async def get_me(
         current_user.phone_verified = False
     if current_user.email_verified is None:
         current_user.email_verified = False
+    if getattr(current_user, 'is_active', None) is None:
+        current_user.is_active = True
+    if getattr(current_user, 'is_superuser', None) is None:
+        current_user.is_superuser = False
     if getattr(current_user, 'created_at', None) is None:
         from datetime import datetime
         current_user.created_at = datetime.utcnow()
