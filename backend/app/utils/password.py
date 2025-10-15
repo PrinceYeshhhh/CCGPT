@@ -46,63 +46,21 @@ except Exception:
     pass
 
 def get_password_hash(password: str) -> str:
-    """Hash a password using bcrypt with salt"""
-    # In testing, use a deterministic 60-char $2b$-prefixed hash to avoid CI backend issues
-    if _IS_TESTING:
-        import base64, os as _os
-        pw_bytes = password.encode("utf-8")
-        if len(pw_bytes) > 72:
-            pw_bytes = pw_bytes[:72]
-        # Create a short, url-safe salt and embed it
-        salt_raw = _os.urandom(8)
-        salt_hex = salt_raw.hex()  # 16 chars
-        digest = hashlib.sha256(salt_raw + pw_bytes).digest()
-        enc = base64.b64encode(digest).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "")
-        # pad marker 'z' inserted after salt to aid verification in case of ambiguous base64 chars from caller env
-        body = salt_hex + "z" + enc
-        body = body[:53]
-        return f"$2b$12${body}"
-    
-    # Truncate password to 72 bytes to avoid bcrypt limitation
+    """Hash a password using bcrypt with salt (passlib builtin backend)."""
     password_bytes = password.encode('utf-8')
     if len(password_bytes) > 72:
         password = password_bytes[:72].decode('utf-8', 'ignore')
     return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
-    # In testing, verify against deterministic scheme used above
-    if _IS_TESTING:
-        # Regenerate deterministic form is not possible without salt; compare prefix + recompute window
-        try:
-            if not (hashed_password.startswith("$2b$12$") and len(hashed_password) == 60):
-                return False
-            body = hashed_password[7:]
-            salt_hex = body[:16]
-            # optional marker 'z'
-            if body[16:17] == "z":
-                enc_part = body[17:]
-            else:
-                enc_part = body[16:]
-            try:
-                salt_raw = bytes.fromhex(salt_hex)
-            except Exception:
-                return False
-            pw_bytes = plain_password.encode("utf-8")
-            if len(pw_bytes) > 72:
-                pw_bytes = pw_bytes[:72]
-            digest = hashlib.sha256(salt_raw + pw_bytes).digest()
-            enc = base64.b64encode(digest).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "")
-            recomputed_body = (salt_hex + "z" + enc)[:53]
-            return hashed_password == f"$2b$12${recomputed_body}"
-        except Exception:
-            return False
-    
-    # Truncate password to 72 bytes to avoid bcrypt limitation
+    """Verify a password against its hash (passlib builtin backend)."""
     password_bytes = plain_password.encode('utf-8')
     if len(password_bytes) > 72:
         plain_password = password_bytes[:72].decode('utf-8', 'ignore')
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        return False
 
 def generate_salt() -> str:
     """Generate a cryptographically secure salt"""

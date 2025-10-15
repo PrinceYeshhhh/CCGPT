@@ -206,7 +206,7 @@ from app.schemas.analytics import (
 )
 from app.services.auth import AuthService
 from app.services.analytics_service import AnalyticsService
-from app.api.api_v1.dependencies import get_current_user
+from app.core import dependencies as core_deps
 from app.utils.validators import DashboardQueryValidator, AnalyticsFilterValidator
 
 logger = structlog.get_logger()
@@ -325,7 +325,7 @@ async def get_message_analytics(
 async def get_usage_stats(
     days: int = Query(30, ge=1, le=365),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get usage statistics over time"""
     try:
@@ -351,7 +351,7 @@ async def get_usage_stats(
 @router.get("/embed-codes", response_model=List[EmbedCodeAnalytics])
 async def get_embed_code_analytics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get embed code analytics"""
     try:
@@ -372,7 +372,7 @@ async def get_embed_code_analytics(
 async def get_hourly_trends(
     days: int = Query(7, ge=1, le=90),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get aggregated hourly trends for sessions/messages for past N days"""
     try:
@@ -391,7 +391,7 @@ async def get_hourly_trends(
 async def get_satisfaction_stats(
     days: int = Query(30, ge=1, le=180),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get daily satisfaction stats for the past N days"""
     try:
@@ -410,7 +410,7 @@ async def get_satisfaction_stats(
 async def get_kpis(
     days: int = Query(30, ge=7, le=90),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get KPI metrics with deltas for the dashboard overview."""
     try:
@@ -431,7 +431,7 @@ async def export_analytics(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Export analytics data"""
     try:
@@ -459,7 +459,7 @@ async def export_analytics(
 @router.post("/performance", response_model=BaseResponse)
 async def track_performance_event(
     event_data: dict,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(core_deps.get_current_user),
     db: Session = Depends(get_db)
 ):
     """Track performance event"""

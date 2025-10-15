@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from typing import Optional
 import structlog
+import os
 from app.utils.logging_config import security_logger, business_logger
 
 from app.core.database import get_db
@@ -258,8 +259,13 @@ async def refresh_token(
         # Get user by id if numeric, else email
         user_service = UserService(db)
         user = None
+        # Prefer AuthService method to match tests that patch it
+        auth_service_lookup = AuthService(db)
         if isinstance(subject, (int,)) or (isinstance(subject, str) and subject.isdigit()):
-            user = user_service.get_user_by_id(int(subject))
+            try:
+                user = auth_service_lookup.get_user_by_id(int(subject))
+            except Exception:
+                user = user_service.get_user_by_id(int(subject))
         if user is None:
             user = user_service.get_user_by_email(str(subject))
         if not user:

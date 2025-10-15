@@ -482,3 +482,19 @@ def ci_sandbox():
         socket.socket.connect = real_connect  # type: ignore[assignment]
         httpx.Client.__init__ = orig_client_init  # type: ignore[assignment]
         httpx.AsyncClient.__init__ = orig_async_init  # type: ignore[assignment]
+
+import pytest
+
+try:
+    from tests.conftest import db_session as _db_session  # type: ignore
+except Exception:  # pragma: no cover
+    _db_session = None
+
+@pytest.fixture
+def test_db(db_session=None):  # type: ignore
+    if db_session is not None:
+        return db_session
+    if _db_session is not None:
+        return _db_session
+    # Fallback: return None and let tests skip or fail gracefully
+    return None
