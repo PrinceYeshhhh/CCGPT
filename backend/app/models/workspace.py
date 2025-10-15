@@ -39,3 +39,10 @@ class Workspace(Base):
     
     def __repr__(self):
         return f"<Workspace(id={self.id}, name='{self.name}', plan='{self.plan}')>"
+
+    # Accept 'domain' as an alias for custom_domain in test data creation
+    def __init__(self, *args, **kwargs):  # type: ignore[no-redef]
+        domain = kwargs.pop('domain', None)
+        if domain is not None and 'custom_domain' not in kwargs:
+            kwargs['custom_domain'] = domain
+        super().__init__(*args, **kwargs)

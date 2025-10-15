@@ -170,6 +170,20 @@ def client(db_session) -> Generator:
     
     app.dependency_overrides.clear()
 
+import pytest
+from fastapi.testclient import TestClient
+
+try:
+    from app.main import app  # type: ignore
+except Exception:
+    app = None
+
+@pytest.fixture
+def client():
+    if app is None:
+        raise RuntimeError("FastAPI app not available for TestClient")
+    return TestClient(app)
+
 @pytest.fixture
 def test_workspace(db_session) -> Workspace:
     """Create a test workspace."""
