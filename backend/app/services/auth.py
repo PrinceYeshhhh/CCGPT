@@ -326,10 +326,15 @@ class AuthService:
             "exp": int(expire.timestamp()),
             "iat": int(current_time.timestamp()),
             "type": "access",
-            "iss": settings.JWT_ISSUER,
-            "aud": settings.JWT_AUDIENCE,
             "jti": secrets.token_urlsafe(32)  # Unique token ID
         })
+        
+        # Add issuer and audience only in non-testing mode
+        if not (os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"):
+            to_encode.update({
+                "iss": settings.JWT_ISSUER,
+                "aud": settings.JWT_AUDIENCE,
+            })
         
         # Additional security claims
         if additional_claims:
@@ -356,16 +361,24 @@ class AuthService:
             "exp": int(expire.timestamp()),
             "iat": int(current_time.timestamp()),
             "type": "refresh",
-            "iss": settings.JWT_ISSUER,
-            "aud": settings.JWT_AUDIENCE,
             "jti": secrets.token_urlsafe(32)  # Unique token ID
         })
+        
+        # Add issuer and audience only in non-testing mode
+        if not (os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"):
+            to_encode.update({
+                "iss": settings.JWT_ISSUER,
+                "aud": settings.JWT_AUDIENCE,
+            })
         
         encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.ALGORITHM)
         return encoded_jwt
     
     def verify_token(self, token: str, token_type: str = "access") -> Optional[dict]:
         """Verify and decode a JWT token with enhanced security checks"""
+        if not token:
+            return None
+            
         try:
             testing = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
             if testing:

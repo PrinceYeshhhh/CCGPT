@@ -110,7 +110,7 @@ class TestAuthEndpoints:
             "full_name": "Test User"
         }
         
-        with patch('app.services.user_service.UserService.create_user') as mock_create:
+        with patch('app.services.user.UserService.create_user') as mock_create:
             mock_create.return_value = User(id="123", email="test@example.com")
             
             response = client.post("/api/v1/auth/register", json=user_data)
