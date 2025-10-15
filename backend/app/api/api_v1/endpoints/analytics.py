@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import structlog
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.core import dependencies as core_deps
 from app.models.user import User
 from app.models.chat import ChatSession, ChatMessage
 from app.models.document import Document
@@ -24,7 +24,7 @@ router = APIRouter()
 @router.get("/overview")
 async def analytics_overview(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Return top-line KPIs used by the dashboard Overview."""
     try:
@@ -84,7 +84,7 @@ async def analytics_overview(
 async def analytics_usage_stats(
     days: int = Query(30, ge=1, le=90),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Return daily usage counts for the last N days suitable for charts."""
     try:
@@ -117,7 +117,7 @@ async def analytics_usage_stats(
 async def analytics_kpis(
     days: int = Query(30, ge=7, le=90),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Return KPI deltas for the last period (simple comparisons)."""
     try:
@@ -215,7 +215,7 @@ router = APIRouter()
 async def get_analytics_overview(
     days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get analytics overview for the user"""
     try:
@@ -244,7 +244,7 @@ async def get_analytics_overview(
 @router.get("/documents", response_model=List[DocumentAnalytics])
 async def get_document_analytics(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get document analytics"""
     try:
@@ -268,7 +268,7 @@ async def get_session_analytics(
     start_date: Optional[date] = Query(None),
     end_date: Optional[date] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get session analytics"""
     try:
@@ -297,7 +297,7 @@ async def get_message_analytics(
     limit: int = Query(50, ge=1, le=200),
     flagged_only: bool = Query(False),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(core_deps.get_current_user)
 ):
     """Get message analytics"""
     try:

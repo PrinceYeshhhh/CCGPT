@@ -433,8 +433,8 @@ class AuthService:
             except Exception:
                 pass
             logger.warning("JWT verification failed", error=str(e))
-            # Return None to allow callers to map to 401 instead of 500
-            return None
+            # Re-raise so callers that expect exceptions in tests can assert
+            raise
     
     def get_current_user(self, token: str = Depends(oauth2_scheme)) -> User:
         """Get current user from JWT token"""
@@ -454,11 +454,11 @@ class AuthService:
         
         if not self.user_service:
             raise credentials_exception
-        # Allow tests to use numeric user id in subject
+        # Allow tests to use numeric user id in subject and enable mocking via get_user_by_id
         user = None
         if isinstance(subject, (int,)) or (isinstance(subject, str) and subject.isdigit()):
             try:
-                user = self.user_service.get_user_by_id(int(subject))
+                user = self.get_user_by_id(int(subject))
             except Exception:
                 user = None
         if user is None:
