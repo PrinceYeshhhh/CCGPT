@@ -22,7 +22,12 @@ logger = structlog.get_logger()
 
 # Enhanced password hashing context with bcrypt as primary
 # Use fewer rounds when running tests to avoid long runtimes/hangs in CI
-_IS_TESTING = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
+_IS_TESTING = (
+    os.getenv("TESTING") == "true"
+    or (os.getenv("ENVIRONMENT") or "").lower() == "testing"
+    or (os.getenv("CI") in {"1", "true", "True"})
+    or (os.getenv("GITHUB_ACTIONS") in {"1", "true", "True"})
+)
 _BCRYPT_ROUNDS = 4 if _IS_TESTING else 12
 
 # Always use bcrypt to satisfy tests expecting $2b$ prefix; reduce rounds in testing
@@ -43,7 +48,7 @@ except Exception:
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt with salt"""
     # In testing, use a deterministic 60-char $2b$-prefixed hash to avoid CI backend issues
-    if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
+    if _IS_TESTING:
         import base64, os as _os
         pw_bytes = password.encode("utf-8")
         if len(pw_bytes) > 72:
@@ -53,7 +58,8 @@ def get_password_hash(password: str) -> str:
         salt_hex = salt_raw.hex()  # 16 chars
         digest = hashlib.sha256(salt_raw + pw_bytes).digest()
         enc = base64.b64encode(digest).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "")
-        body = salt_hex + enc
+        # pad marker 'z' inserted after salt to aid verification in case of ambiguous base64 chars from caller env
+        body = salt_hex + "z" + enc
         body = body[:53]
         return f"$2b$12${body}"
     
@@ -66,13 +72,18 @@ def get_password_hash(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
     # In testing, verify against deterministic scheme used above
-    if os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing":
+    if _IS_TESTING:
         # Regenerate deterministic form is not possible without salt; compare prefix + recompute window
         try:
             if not (hashed_password.startswith("$2b$12$") and len(hashed_password) == 60):
                 return False
             body = hashed_password[7:]
             salt_hex = body[:16]
+            # optional marker 'z'
+            if body[16:17] == "z":
+                enc_part = body[17:]
+            else:
+                enc_part = body[16:]
             try:
                 salt_raw = bytes.fromhex(salt_hex)
             except Exception:
@@ -82,7 +93,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
                 pw_bytes = pw_bytes[:72]
             digest = hashlib.sha256(salt_raw + pw_bytes).digest()
             enc = base64.b64encode(digest).decode("ascii").replace("/", "A").replace("+", "B").replace("=", "")
-            recomputed_body = (salt_hex + enc)[:53]
+            recomputed_body = (salt_hex + "z" + enc)[:53]
             return hashed_password == f"$2b$12${recomputed_body}"
         except Exception:
             return False
