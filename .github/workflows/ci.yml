@@ -35,6 +35,11 @@ jobs:
       STRIPE_API_KEY: "test-stripe-ci"
       DATABASE_URL: "sqlite:///./test.db"
       REDIS_URL: "redis://localhost:6379/1"
+      CHROMA_URL: ""
+      USE_S3: "false"
+      USE_GCS: "false"
+      PYTEST_TIMEOUT: "300"
+      PYTEST_TIMEOUT_METHOD: "signal"
 
     steps:
       - name: Checkout
@@ -67,7 +72,7 @@ jobs:
         working-directory: backend
         run: |
           echo "Running pytest in CI (offline, TESTING mode)"
-          python -m pytest -v --maxfail=1 --timeout=300 --timeout-method=thread
+          python -m pytest -vv --durations=25 --maxfail=1 --timeout=${PYTEST_TIMEOUT} --timeout-method=${PYTEST_TIMEOUT_METHOD}
 
       - name: Upload coverage report
         if: always()
