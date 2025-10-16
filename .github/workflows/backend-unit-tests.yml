@@ -133,10 +133,19 @@ jobs:
         export OMP_NUM_THREADS=1
         export MKL_NUM_THREADS=1
         export NUMEXPR_MAX_THREADS=1
+        export TOKENIZERS_PARALLELISM=false
+        export CUDA_VISIBLE_DEVICES=""
+        export PYTEST_TIMEOUT=300
+        export PYTEST_TIMEOUT_METHOD=signal
+        export CHROMA_URL=""
+        export USE_S3=false
+        export USE_GCS=false
         PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/ -vv -s \
-          -p pytest_timeout -p pytest_cov -p asyncio \
+          -p faulthandler -p pytest_timeout -p pytest_cov -p asyncio \
+          --timeout=${PYTEST_TIMEOUT} --timeout-method=${PYTEST_TIMEOUT_METHOD} --maxfail=1 \
           --cov=app \
           --cov-report=xml \
+          --cov-report=term-missing \
           --junitxml=test-results.xml \
           --tb=short
       env:
@@ -159,7 +168,12 @@ jobs:
         path: |
           backend/test-results.xml
           backend/coverage.xml
-          backend/htmlcov/
+
+    - name: List lingering Python processes
+      if: always()
+      run: |
+        echo "Checking lingering Python processes"
+        ps aux | grep python || true
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

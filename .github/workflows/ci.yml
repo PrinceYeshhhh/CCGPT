@@ -72,7 +72,7 @@ jobs:
         working-directory: backend
         run: |
           echo "Running pytest in CI (offline, TESTING mode)"
-          python -m pytest -vv --durations=25 --maxfail=1 --timeout=${PYTEST_TIMEOUT} --timeout-method=${PYTEST_TIMEOUT_METHOD}
+          python -m pytest -vv --durations=25 --maxfail=1 --timeout=${PYTEST_TIMEOUT} --timeout-method=${PYTEST_TIMEOUT_METHOD} --no-cov
 
       - name: Upload coverage report
         if: always()
@@ -82,6 +82,12 @@ jobs:
           path: |
             backend/htmlcov/**
             backend/coverage.xml
+
+      - name: Ensure no lingering processes
+        if: always()
+        run: |
+          echo "Listing lingering Python processes (if any)"
+          ps aux | grep python || true
 
 # Continuous Integration Pipeline
 # Automated testing, linting, security scanning, and quality checks
