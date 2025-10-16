@@ -65,6 +65,19 @@ async def register(
                 phone_verified=True,
                 workspace_id=workspace_id,
             )
+            # Ensure required defaults for response schema in tests
+            if getattr(db_user, 'subscription_plan', None) is None:
+                db_user.subscription_plan = "free"
+            if getattr(db_user, 'phone_verified', None) is None:
+                db_user.phone_verified = True
+            if getattr(db_user, 'email_verified', None) is None:
+                db_user.email_verified = False
+            if getattr(db_user, 'is_active', None) is None:
+                db_user.is_active = True
+            if getattr(db_user, 'is_superuser', None) is None:
+                db_user.is_superuser = False
+            if getattr(db_user, 'created_at', None) is None:
+                db_user.created_at = datetime.utcnow()
             # Coerce workspace_id to string for response schema
             try:
                 if getattr(db_user, 'workspace_id', None) is not None and not isinstance(db_user.workspace_id, str):

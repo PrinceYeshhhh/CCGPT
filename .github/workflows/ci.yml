@@ -1,10 +1,12 @@
-name: Backend Unit Tests
+name: DISABLED - CI (Use backend-unit-tests.yml instead)
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  # Disabled automatic triggers to avoid duplicate runs
+  # push:
+  #   branches: [ main ]
+  # pull_request:
+  #   branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   tests:
