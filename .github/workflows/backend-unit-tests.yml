@@ -121,7 +121,7 @@ jobs:
     #     SECRET_KEY: test-secret-key
     #     JWT_SECRET: test-jwt-secret
 
-    - name: Run all backend unit tests
+    - name: Run backend unit tests (auth shard)
       working-directory: ./backend
       run: |
         # Ensure CPU-only behavior and offline mode for ML libs to prevent stalls
@@ -140,13 +140,45 @@ jobs:
         export CHROMA_URL=""
         export USE_S3=false
         export USE_GCS=false
-        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/ -vv -s \
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest \
+          tests/unit/test_auth.py \
+          tests/unit/test_auth_comprehensive.py \
+          tests/unit/test_auth_security.py \
+          -vv -s \
           -p faulthandler -p pytest_timeout -p pytest_cov -p asyncio \
           --timeout=${PYTEST_TIMEOUT} --timeout-method=${PYTEST_TIMEOUT_METHOD} --maxfail=50 \
           --cov=app \
           --cov-report=xml \
           --cov-report=term-missing \
-          --junitxml=test-results.xml \
+          --junitxml=test-results-auth.xml \
+          --tb=short
+
+    - name: Run backend unit tests (rest shard)
+      working-directory: ./backend
+      run: |
+        export HF_HUB_DISABLE_TELEMETRY=1
+        export HF_HUB_OFFLINE=1
+        export TRANSFORMERS_OFFLINE=1
+        export SENTENCE_TRANSFORMERS_HOME="$PWD/.cache/sentencetransformers"
+        export TORCH_HOME="$PWD/.cache/torch"
+        export OMP_NUM_THREADS=1
+        export MKL_NUM_THREADS=1
+        export NUMEXPR_MAX_THREADS=1
+        export TOKENIZERS_PARALLELISM=false
+        export CUDA_VISIBLE_DEVICES=""
+        export PYTEST_TIMEOUT=300
+        export PYTEST_TIMEOUT_METHOD=signal
+        export CHROMA_URL=""
+        export USE_S3=false
+        export USE_GCS=false
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/ -vv -s \
+          -k "not auth and not AuthenticationFlows" \
+          -p faulthandler -p pytest_timeout -p pytest_cov -p asyncio \
+          --timeout=${PYTEST_TIMEOUT} --timeout-method=${PYTEST_TIMEOUT_METHOD} --maxfail=50 \
+          --cov=app \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junitxml=test-results-rest.xml \
           --tb=short
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
@@ -166,7 +198,8 @@ jobs:
       with:
         name: backend-unit-test-results
         path: |
-          backend/test-results.xml
+          backend/test-results-auth.xml
+          backend/test-results-rest.xml
           backend/coverage.xml
 
     - name: List lingering Python processes
