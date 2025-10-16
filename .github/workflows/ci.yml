@@ -1,3 +1,83 @@
+name: Backend Unit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Force test-safe environment
+      TESTING: "true"
+      ENVIRONMENT: "testing"
+      PYTHONUNBUFFERED: "1"
+      # Make ML libraries fully offline and CPU-only to avoid stalls
+      TRANSFORMERS_OFFLINE: "1"
+      SENTENCE_TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_OFFLINE: "1"
+      HF_HOME: ${{ github.workspace }}/.hf_cache
+      CUDA_VISIBLE_DEVICES: ""
+      TOKENIZERS_PARALLELISM: "false"
+      # Disable external integrations
+      PROMETHEUS_ENABLED: "false"
+      METRICS_ENABLED: "false"
+      HEALTH_CHECK_ENABLED: "false"
+      ENABLE_RATE_LIMITING: "false"
+      ENABLE_REQUEST_LOGGING: "false"
+      # Provide required secrets placeholders to avoid import-time failures
+      SECRET_KEY: "test-secret-key-ci"
+      JWT_SECRET: "test-jwt-secret-ci"
+      GEMINI_API_KEY: "test-gemini-ci"
+      STRIPE_API_KEY: "test-stripe-ci"
+      DATABASE_URL: "sqlite:///./test.db"
+      REDIS_URL: "redis://localhost:6379/1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ${{ env.HF_HOME }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
+          # Ensure timeouts plugin present
+          pip install pytest-timeout
+
+      - name: Run backend unit tests
+        working-directory: backend
+        run: |
+          echo "Running pytest in CI (offline, TESTING mode)"
+          python -m pytest -v --maxfail=1 --timeout=300 --timeout-method=thread
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: |
+            backend/htmlcov/**
+            backend/coverage.xml
+
 # Continuous Integration Pipeline
 # Automated testing, linting, security scanning, and quality checks
 

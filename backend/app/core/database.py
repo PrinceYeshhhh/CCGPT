@@ -214,6 +214,14 @@ class MockRedisClient:
         self.data[key] = new_val
         return new_val
 
+    # Add keys pattern matching used by CSRF service cleanup
+    def keys(self, pattern: str):
+        try:
+            import fnmatch
+            return [k for k in list(self.data.keys()) if fnmatch.fnmatch(k, pattern)]
+        except Exception:
+            return []
+
 # Enhanced Redis Configuration
 class RedisManager:
     def __init__(self):
