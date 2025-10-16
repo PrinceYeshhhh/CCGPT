@@ -154,6 +154,7 @@ class UserUpdate(BaseModel):
 class UserRead(UserBase):
     """User read schema (public user info)"""
     id: int
+    workspace_id: str | None = None
     is_active: bool
     is_superuser: bool
     subscription_plan: str

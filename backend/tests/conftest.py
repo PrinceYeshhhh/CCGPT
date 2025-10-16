@@ -80,6 +80,9 @@ engine = create_engine(
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Shared session holder so global TestClient and fixtures use the same session
+_SHARED_TEST_SESSION = None
+
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for the test session."""
@@ -145,7 +148,9 @@ def mock_chromadb_telemetry():
 def db_session() -> Generator:
     """Create a fresh database session for each test."""
     # Create session
+    global _SHARED_TEST_SESSION
     session = TestingSessionLocal()
+    _SHARED_TEST_SESSION = session
     
     try:
         # Ensure tables exist and clear data for isolation per test
@@ -157,6 +162,19 @@ def db_session() -> Generator:
             session.commit()
         except Exception:
             session.rollback()
+        # Rebind global client to this test's DB session so requests share the same session
+        try:
+            from app.core.database import get_db as _get_db_dep
+            def _override_get_db_per_test():
+                try:
+                    yield session
+                finally:
+                    pass
+            app.dependency_overrides[_get_db_dep] = _override_get_db_per_test
+            # Recreate global client bound to this session
+            _builtins.client = TestClient(app)  # type: ignore[attr-defined]
+        except Exception:
+            pass
         yield session
     finally:
         session.rollback()
@@ -166,6 +184,7 @@ def db_session() -> Generator:
 def client(db_session) -> Generator:
     """Create a test client with database dependency override."""
     def override_get_db():
+        # Always yield the shared session for this test function
         try:
             yield db_session
         finally:
@@ -185,9 +204,31 @@ def client(db_session) -> Generator:
 
 # Expose a global client variable for tests that import it directly
 try:
-    _global_app = app
-    if _global_app is not None:
-        client = TestClient(_global_app)  # type: ignore
+    if app is not None:
+        # Ensure DB dependency override uses the shared session when available
+        def _override_get_db():
+            try:
+                if _SHARED_TEST_SESSION is not None:
+                    yield _SHARED_TEST_SESSION
+                else:
+                    # Fallback to a fresh session (should be rare)
+                    _fallback = TestingSessionLocal()
+                    try:
+                        yield _fallback
+                    finally:
+                        _fallback.close()
+            finally:
+                pass
+        try:
+            # Ensure tables exist before creating the global client
+            try:
+                Base.metadata.create_all(bind=engine)
+            except Exception:
+                pass
+            app.dependency_overrides[get_db] = _override_get_db
+        except Exception:
+            pass
+        client = TestClient(app)  # type: ignore
         # Also inject into builtins so bare name resolution works in tests
         _builtins.client = client  # type: ignore[attr-defined]
 except Exception:
@@ -531,10 +572,6 @@ except Exception:  # pragma: no cover
     _db_session = None
 
 @pytest.fixture
-def test_db(db_session=None):  # type: ignore
-    if db_session is not None:
-        return db_session
-    if _db_session is not None:
-        return _db_session
-    # Fallback: return None and let tests skip or fail gracefully
-    return None
+def test_db(db_session):  # type: ignore
+    """Provide a real SQLAlchemy session for tests that request test_db."""
+    return db_session

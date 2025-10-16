@@ -204,6 +204,16 @@ class MockRedisClient:
     def expire(self, name, time):
         return True
 
+    # Add missing decrement for tests using websocket cleanup
+    def decr(self, key):
+        try:
+            current = int(self.data.get(key, 0))
+        except Exception:
+            current = 0
+        new_val = max(0, current - 1)
+        self.data[key] = new_val
+        return new_val
+
 # Enhanced Redis Configuration
 class RedisManager:
     def __init__(self):

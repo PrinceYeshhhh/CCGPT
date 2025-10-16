@@ -161,6 +161,15 @@ class EmbeddingsService:
                 message="Failed to generate single embedding",
                 details={"text": text[:100], "error": str(e)}
             )
+
+    # --- Backwards-compatible helpers expected by some tests/mocks ---
+    async def embed_text(self, text: str) -> List[float]:
+        """Alias used by tests: returns a single embedding for the provided text."""
+        return await self.generate_single_embedding(text)
+
+    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Alias used by tests: returns embeddings for multiple texts."""
+        return await self.generate_embeddings(texts)
     
     def get_embedding_dimension(self) -> int:
         """Get the embedding dimension for this model"""

@@ -21,9 +21,16 @@ class TokenRevocationService:
         self.revoked_tokens_key = "revoked_tokens"
         self.user_tokens_key = "user_tokens"
     
-    def revoke_token(self, token_jti: str, user_id: int, expires_at: datetime) -> bool:
-        """Revoke a specific token by its JTI (JWT ID)"""
+    def revoke_token(self, token_jti: str, user_id: Optional[int] = None, expires_at: Optional[datetime] = None) -> bool:
+        """Revoke a specific token by its JTI (JWT ID).
+        Unit tests may call this with only the JTI; in that case we default
+        the user_id to 0 and the expiration to 24 hours from now.
+        """
         try:
+            if expires_at is None:
+                expires_at = datetime.utcnow() + timedelta(hours=24)
+            if user_id is None:
+                user_id = 0
             # Store revoked token with expiration
             token_data = {
                 "jti": token_jti,
