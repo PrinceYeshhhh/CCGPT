@@ -102,6 +102,23 @@ async def lifespan(app: FastAPI):
         
         is_testing = os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") == "testing"
 
+        # In testing, ensure security-related shared state starts clean for deterministic tests
+        if is_testing:
+            try:
+                # Reset AuthService shared login-attempts store
+                from app.services.auth import AuthService as _AuthService
+                _AuthService._shared_login_attempts.clear()
+            except Exception as _e:
+                logger.warning("Failed to reset AuthService shared state in testing mode", error=str(_e))
+            try:
+                # Reset MockRedis/Redis state when using mock client
+                from app.core.database import redis_manager as _redis_manager
+                _client = _redis_manager.get_client()
+                if hasattr(_client, "flushdb"):
+                    _client.flushdb()
+            except Exception as _e:
+                logger.warning("Failed to reset Redis state in testing mode", error=str(_e))
+
         # Initialize backup system (skip in tests)
         if not is_testing:
             await initialize_backup_system()

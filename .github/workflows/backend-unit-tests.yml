@@ -138,7 +138,6 @@ jobs:
           --cov=app \
           --cov-report=xml \
           --junitxml=test-results.xml \
-          --maxfail=10 \
           --tb=short
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db

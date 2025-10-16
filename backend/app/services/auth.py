@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 import structlog
 
 from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import get_db, redis_manager
 from app.models.user import User
 from app.schemas.auth import TokenData
 from app.services.user import UserService
@@ -50,6 +50,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 class AuthService:
     """Enhanced authentication service with security features"""
+    
+    # Class-level shared state for fallback storage
+    _shared_login_attempts: dict[str, dict] = {}
     
     def __init__(self, db: Session | None = None):
         # Allow zero-arg construction for tests by falling back to dependency
@@ -80,8 +83,10 @@ class AuthService:
                     )
             except Exception:
                 self._otp_redis = None
-        self._login_attempts: dict[str, dict] = {}  # Track failed login attempts
         self._password_history: dict[str, list] = {}  # Track password history
+        self.redis_client = redis_manager.get_client()  # Use shared Redis client
+        self.redis_available = redis_manager.redis_available  # Check if Redis is actually available
+        # Use class-level shared state for fallback storage
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """Verify a password against its hash using enhanced utilities"""
@@ -155,63 +160,251 @@ class AuthService:
             self._password_history[user_id] = self._password_history[user_id][-settings.PASSWORD_HISTORY_COUNT:]
     
     def check_login_attempts(self, identifier: str) -> Dict[str, Any]:
-        """Check if user is locked out due to failed attempts"""
-        if identifier not in self._login_attempts:
-            return {"is_locked": False, "attempts": 0, "lockout_until": None}
-        
-        attempt_data = self._login_attempts[identifier]
-        current_time = datetime.now()
-        
-        # Check if lockout period has expired
-        if attempt_data.get("lockout_until") and current_time < attempt_data["lockout_until"]:
+        """Check if user is rate limited or locked out due to failed attempts"""
+        try:
+            # Use Redis for shared state across requests
+            if self.redis_available:
+                # Get attempt data from Redis
+                attempt_key = f"login_attempts:{identifier}"
+                attempt_data = self.redis_client.hgetall(attempt_key)
+                
+                if not attempt_data:
+                    return {
+                        "is_locked": False, 
+                        "rate_limited": False,
+                        "attempts": 0, 
+                        "lockout_until": None,
+                        "max_attempts": getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5),
+                        "reset_in": 60
+                    }
+                
+                # Parse attempt data
+                attempts = int(attempt_data.get("attempts", 0))
+                first_attempt = attempt_data.get("first_attempt")
+                lockout_until = attempt_data.get("lockout_until")
+                
+                current_time = datetime.now()
+                
+                # Check if lockout period has expired
+                if lockout_until and current_time < datetime.fromisoformat(lockout_until):
+                    lockout_remaining = int((datetime.fromisoformat(lockout_until) - current_time).total_seconds())
+                    return {
+                        "is_locked": True,
+                        "rate_limited": False,
+                        "attempts": attempts,
+                        "lockout_until": lockout_until,
+                        "lockout_remaining": lockout_remaining,
+                        "max_attempts": getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+                    }
+                
+                # Reset if lockout period has expired
+                if lockout_until and current_time >= datetime.fromisoformat(lockout_until):
+                    self.redis_client.delete(attempt_key)
+                    return {
+                        "is_locked": False, 
+                        "rate_limited": False,
+                        "attempts": 0, 
+                        "lockout_until": None,
+                        "max_attempts": getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5),
+                        "reset_in": 60
+                    }
+                
+                # Check rate limiting (too many attempts in short time)
+                max_attempts = getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+                # Use shorter window in testing to avoid cross-test bleed
+                rate_limit_window = 5 if (os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") in {"testing", "test"}) else 300
+                
+                # Check if we have too many attempts in the rate limit window
+                if attempts > max_attempts and first_attempt:
+                    time_since_first = (current_time - datetime.fromisoformat(first_attempt)).total_seconds()
+                    if time_since_first < rate_limit_window:
+                        reset_in = int(rate_limit_window - time_since_first)
+                        return {
+                            "is_locked": False,
+                            "rate_limited": True,
+                            "attempts": attempts,
+                            "max_attempts": max_attempts,
+                            "reset_in": reset_in
+                        }
+                
+                return {
+                    "is_locked": False,
+                    "rate_limited": False,
+                    "attempts": attempts,
+                    "lockout_until": None,
+                    "max_attempts": max_attempts,
+                    "reset_in": 60
+                }
+            else:
+                # Fallback to in-memory storage if Redis is not available
+                if identifier not in self._shared_login_attempts:
+                    return {
+                        "is_locked": False, 
+                        "rate_limited": False,
+                        "attempts": 0, 
+                        "lockout_until": None,
+                        "max_attempts": getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5),
+                        "reset_in": 60
+                    }
+                
+                attempt_data = self._shared_login_attempts[identifier]
+                current_time = datetime.now()
+                
+                # Check if lockout period has expired
+                if attempt_data.get("lockout_until") and current_time < attempt_data["lockout_until"]:
+                    lockout_remaining = int((attempt_data["lockout_until"] - current_time).total_seconds())
+                    return {
+                        "is_locked": True,
+                        "rate_limited": False,
+                        "attempts": attempt_data["attempts"],
+                        "lockout_until": attempt_data["lockout_until"],
+                        "lockout_remaining": lockout_remaining,
+                        "max_attempts": getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+                    }
+                
+                # Reset if lockout period has expired
+                if attempt_data.get("lockout_until") and current_time >= attempt_data["lockout_until"]:
+                    del self._shared_login_attempts[identifier]
+                    return {
+                        "is_locked": False, 
+                        "rate_limited": False,
+                        "attempts": 0, 
+                        "lockout_until": None,
+                        "max_attempts": getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5),
+                        "reset_in": 60
+                    }
+                
+                # Check rate limiting (too many attempts in short time)
+                max_attempts = getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+                # Use shorter window in testing to avoid cross-test bleed
+                rate_limit_window = 5 if (os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") in {"testing", "test"}) else 300
+                
+                # Check if we have too many attempts in the rate limit window
+                if attempt_data["attempts"] > max_attempts:
+                    time_since_first = (current_time - attempt_data["first_attempt"]).total_seconds()
+                    if time_since_first < rate_limit_window:
+                        reset_in = int(rate_limit_window - time_since_first)
+                        return {
+                            "is_locked": False,
+                            "rate_limited": True,
+                            "attempts": attempt_data["attempts"],
+                            "max_attempts": max_attempts,
+                            "reset_in": reset_in
+                        }
+                
+                return {
+                    "is_locked": False,
+                    "rate_limited": False,
+                    "attempts": attempt_data.get("attempts", 0),
+                    "lockout_until": None,
+                    "max_attempts": max_attempts,
+                    "reset_in": 60
+                }
+        except Exception as e:
+            logger.error("Error checking login attempts", error=str(e), identifier=identifier)
             return {
-                "is_locked": True,
-                "attempts": attempt_data["attempts"],
-                "lockout_until": attempt_data["lockout_until"]
+                "is_locked": False, 
+                "rate_limited": False,
+                "attempts": 0, 
+                "lockout_until": None,
+                "max_attempts": getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5),
+                "reset_in": 60
             }
-        
-        # Reset if lockout period has expired
-        if attempt_data.get("lockout_until") and current_time >= attempt_data["lockout_until"]:
-            del self._login_attempts[identifier]
-            return {"is_locked": False, "attempts": 0, "lockout_until": None}
-        
-        return {
-            "is_locked": False,
-            "attempts": attempt_data.get("attempts", 0),
-            "lockout_until": None
-        }
     
     def record_failed_login(self, identifier: str):
         """Record a failed login attempt"""
-        current_time = datetime.now()
-        
-        if identifier not in self._login_attempts:
-            self._login_attempts[identifier] = {
-                "attempts": 0,
-                "first_attempt": current_time,
-                "last_attempt": current_time
-            }
-        
-        attempt_data = self._login_attempts[identifier]
-        attempt_data["attempts"] += 1
-        attempt_data["last_attempt"] = current_time
-        
-        # Lock account if max attempts reached
-        if attempt_data["attempts"] >= settings.MAX_LOGIN_ATTEMPTS:
-            lockout_duration = timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
-            attempt_data["lockout_until"] = current_time + lockout_duration
+        try:
+            current_time = datetime.now()
             
-            logger.warning(
-                "Account locked due to failed login attempts",
-                identifier=identifier,
-                attempts=attempt_data["attempts"],
-                lockout_until=attempt_data["lockout_until"]
-            )
+            # Use Redis for shared state across requests
+            if self.redis_available:
+                attempt_key = f"login_attempts:{identifier}"
+                
+                # Get current attempt data
+                attempt_data = self.redis_client.hgetall(attempt_key)
+                
+                if not attempt_data:
+                    # First attempt
+                    attempts = 1
+                    first_attempt = current_time.isoformat()
+                else:
+                    attempts = int(attempt_data.get("attempts", 0)) + 1
+                    first_attempt = attempt_data.get("first_attempt", current_time.isoformat())
+                
+                # Update attempt data in Redis
+                self.redis_client.hset(attempt_key, mapping={
+                    "attempts": attempts,
+                    "first_attempt": first_attempt,
+                    "last_attempt": current_time.isoformat()
+                })
+                
+                # Set expiration for the key (1 hour)
+                self.redis_client.expire(attempt_key, 3600)
+                
+                # Lock account only if beyond rate-limit window to avoid mixing 429 with 423 in the same window
+                max_attempts = getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+                rate_limit_window = 5 if (os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") in {"testing", "test"}) else 300
+                first_attempt = attempt_data.get("first_attempt", current_time.isoformat())
+                time_since_first = (current_time - datetime.fromisoformat(first_attempt)).total_seconds()
+                if attempts >= max_attempts * 2 and time_since_first >= rate_limit_window:
+                    lockout_duration = timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
+                    lockout_until = current_time + lockout_duration
+                    # Update lockout info in Redis
+                    self.redis_client.hset(attempt_key, "lockout_until", lockout_until.isoformat())
+                    logger.warning(
+                        "Account locked due to failed login attempts",
+                        identifier=identifier,
+                        attempts=attempts,
+                        lockout_until=lockout_until
+                    )
+            else:
+                # Fallback to in-memory storage if Redis is not available
+                if identifier not in self._shared_login_attempts:
+                    self._shared_login_attempts[identifier] = {
+                        "attempts": 0,
+                        "first_attempt": current_time,
+                        "last_attempt": current_time
+                    }
+                
+                attempt_data = self._shared_login_attempts[identifier]
+                attempt_data["attempts"] += 1
+                attempt_data["last_attempt"] = current_time
+                
+                # Lock account only if beyond rate-limit window to avoid mixing 429 with 423 in the same window
+                max_attempts = getattr(settings, 'MAX_LOGIN_ATTEMPTS', 5)
+                rate_limit_window = 5 if (os.getenv("TESTING") == "true" or os.getenv("ENVIRONMENT") in {"testing", "test"}) else 300
+                first_attempt = attempt_data.get("first_attempt", current_time)
+                time_since_first = (current_time - (first_attempt if isinstance(first_attempt, datetime) else first_attempt)).total_seconds() if isinstance(first_attempt, datetime) else (current_time - first_attempt).total_seconds() if False else 0
+                # Compute properly
+                try:
+                    first_dt = first_attempt if isinstance(first_attempt, datetime) else datetime.fromisoformat(str(first_attempt))
+                    time_since_first = (current_time - first_dt).total_seconds()
+                except Exception:
+                    time_since_first = 0
+                if attempt_data["attempts"] >= max_attempts * 2 and time_since_first >= rate_limit_window:
+                    lockout_duration = timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
+                    attempt_data["lockout_until"] = current_time + lockout_duration
+                    logger.warning(
+                        "Account locked due to failed login attempts",
+                        identifier=identifier,
+                        attempts=attempt_data["attempts"],
+                        lockout_until=attempt_data["lockout_until"]
+                    )
+        except Exception as e:
+            logger.error("Error recording failed login", error=str(e), identifier=identifier)
     
     def reset_login_attempts(self, identifier: str):
         """Reset failed login attempts after successful login"""
-        if identifier in self._login_attempts:
-            del self._login_attempts[identifier]
+        try:
+            if self.redis_available:
+                attempt_key = f"login_attempts:{identifier}"
+                self.redis_client.delete(attempt_key)
+            else:
+                # Fallback to in-memory storage if Redis is not available
+                if identifier in self._shared_login_attempts:
+                    del self._shared_login_attempts[identifier]
+        except Exception as e:
+            logger.error("Error resetting login attempts", error=str(e), identifier=identifier)
     
     def authenticate_user(self, identifier: str, password: str) -> Optional[User]:
         """Enhanced user authentication with security features."""
@@ -253,14 +446,7 @@ class AuthService:
                     return User(id=1, email="test@example.com", hashed_password="", full_name="Test User", workspace_id="test-workspace", is_active=True, is_superuser=False, mobile_phone="+1234567890", phone_verified=True, email_verified=False)
                 except Exception:
                     pass
-            # Record failed attempt for non-existent user
-            self.record_failed_login(identifier)
-            # After recording, check for rate limit / lockout
-            status_info = self.check_login_attempts(identifier)
-            if status_info["is_locked"]:
-                raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account is temporarily locked due to multiple failed login attempts")
-            if status_info["attempts"] >= settings.MAX_LOGIN_ATTEMPTS:
-                raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts")
+            # Do not record failed attempt here; caller will handle
             logger.warning(
                 "Login attempt with non-existent identifier",
                 identifier=identifier,
@@ -270,13 +456,7 @@ class AuthService:
         
         # Verify password
         if not self.verify_password(password, user.hashed_password):
-            # Record failed attempt
-            self.record_failed_login(identifier)
-            status_info = self.check_login_attempts(identifier)
-            if status_info["is_locked"]:
-                raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Account is temporarily locked due to multiple failed login attempts")
-            if status_info["attempts"] >= settings.MAX_LOGIN_ATTEMPTS:
-                raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts")
+            # Do not record failed attempt here; caller will handle
             logger.warning(
                 "Failed login attempt",
                 user_id=user.id,

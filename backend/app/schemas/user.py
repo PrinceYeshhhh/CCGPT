@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 import re
+import os
 
 
 class UserBase(BaseModel):

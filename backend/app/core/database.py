@@ -71,26 +71,38 @@ Base = declarative_base()
 
 # Mock Redis client for when Redis is not available
 class MockRedisClient:
-    """Mock Redis client that does nothing when Redis is not available"""
+    """Mock Redis client that stores data in memory for testing"""
+    
+    def __init__(self):
+        self.data = {}
+        self.hash_data = {}
+    
     def ping(self):
         return True
     
     def get(self, key):
-        return None
+        return self.data.get(key)
     
     def set(self, key, value, ex=None):
+        self.data[key] = value
         return True
     
     def delete(self, key):
-        return True
+        if key in self.data:
+            del self.data[key]
+        if key in self.hash_data:
+            del self.hash_data[key]
+        return 1
     
     def exists(self, key):
-        return False
+        return key in self.data or key in self.hash_data
     
     def expire(self, key, time):
         return True
+    
     # Add setex used by CSRF middleware
     def setex(self, key, time, value):
+        self.data[key] = value
         return True
     
     def zadd(self, name, mapping):
@@ -109,6 +121,21 @@ class MockRedisClient:
         return 1
     def smembers(self, name):
         return set()
+    
+    def hgetall(self, name):
+        return self.hash_data.get(name, {})
+    
+    def hset(self, name, mapping=None, **kwargs):
+        if name not in self.hash_data:
+            self.hash_data[name] = {}
+        
+        if mapping:
+            self.hash_data[name].update(mapping)
+        
+        if kwargs:
+            self.hash_data[name].update(kwargs)
+        
+        return len(self.hash_data[name])
 
     # Minimal pipeline implementation used by rate limiting middleware
     class _Pipeline:
@@ -164,6 +191,18 @@ class MockRedisClient:
 
     def zremrangebyscore(self, name, min_score, max_score):
         return 0
+    
+    def hgetall(self, name):
+        return {}
+    
+    def hset(self, name, mapping=None, **kwargs):
+        return 1
+    
+    def delete(self, *names):
+        return 1
+    
+    def expire(self, name, time):
+        return True
 
 # Enhanced Redis Configuration
 class RedisManager:
