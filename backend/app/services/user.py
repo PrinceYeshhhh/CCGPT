@@ -27,9 +27,29 @@ class UserService:
         """Get user by mobile phone number"""
         return self.db.query(User).filter(User.mobile_phone == mobile_phone).first()
     
-    def create_user(self, user_data: UserCreate, phone_verified: bool = False) -> User:
+    def create_user(self, user_data: UserCreate, phone_verified: bool = False, workspace_id: str = None) -> User:
         """Create a new user"""
         hashed_password = get_password_hash(user_data.password)
+        
+        # If workspace_id is provided via user_data (testing mode), use it
+        if hasattr(user_data, 'workspace_id') and user_data.workspace_id:
+            workspace_id = user_data.workspace_id
+        
+        # If no workspace_id provided, create a default one (for testing)
+        if not workspace_id:
+            from app.models.workspace import Workspace
+            import uuid
+            workspace = self.db.query(Workspace).first()
+            if not workspace:
+                workspace = Workspace(
+                    id=str(uuid.uuid4()),
+                    name="Default Workspace",
+                    domain="default.example.com"
+                )
+                self.db.add(workspace)
+                self.db.commit()
+                self.db.refresh(workspace)
+            workspace_id = workspace.id
         
         db_user = User(
             email=user_data.email,
@@ -38,7 +58,8 @@ class UserService:
             business_name=user_data.business_name,
             business_domain=user_data.business_domain,
             mobile_phone=user_data.mobile_phone,
-            phone_verified=phone_verified
+            phone_verified=phone_verified,
+            workspace_id=workspace_id
         )
         
         self.db.add(db_user)
