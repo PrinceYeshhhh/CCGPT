@@ -4,7 +4,7 @@
 name: CD Pipeline
 
 on:
-  # DISABLED - Use backend-unit-tests.yml instead
+  # DISABLED - Use websocket-realtime-tests.yml instead
   # push:
   #   branches: [ main ]
   #   tags: [ 'v*' ]

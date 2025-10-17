@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     
     # ChromaDB Configuration
     CHROMA_URL: str = ""  # Must be set via environment variable
-    CHROMA_PERSIST_DIRECTORY: str = "/chroma/chroma"
+    CHROMA_PERSIST_DIRECTORY: str = "/tmp/chroma_test" if os.getenv("TESTING") == "true" else "/chroma/chroma"
     CHROMA_AUTH_CREDENTIALS: str = ""
     
     # Stripe Configuration

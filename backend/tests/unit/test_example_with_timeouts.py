@@ -24,6 +24,7 @@ class TestExampleWithTimeouts:
             log_test_progress("Test completed successfully")
     
     # Avoid custom async timeout in unit scope
+    @pytest.mark.asyncio
     async def test_async_function_with_timeout(self):
         """Test an async function with timeout"""
         with debug_logging("test_async_function_with_timeout"):

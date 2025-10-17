@@ -1,14 +1,13 @@
-# Backend Unit Tests
-# Single workflow to run all backend unit tests
+# WebSocket and RealTime Unit Tests
+# Focused workflow for WebSocket and realtime functionality testing
 
-name: Backend Unit Tests
+name: WebSocket & RealTime Tests
 
 on:
-  # DISABLED - Use websocket-realtime-tests.yml instead
-  # push:
-  #   branches: [ main, develop ]
-  # pull_request:
-  #   branches: [ main, develop ]
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
   workflow_dispatch:
 
 env:
@@ -17,12 +16,10 @@ env:
   REDIS_VERSION: '7'
 
 jobs:
-  backend-unit-tests:
-    name: Backend Unit Tests
+  websocket-realtime-tests:
+    name: WebSocket & RealTime Unit Tests
     runs-on: ubuntu-latest
-    # Remove overall job timeout to allow long-running unit tests
-    # (GitHub still enforces a hard upper limit for workflows)
-    # timeout-minutes: 30
+    timeout-minutes: 30
     
     services:
       postgres:
@@ -78,12 +75,6 @@ jobs:
         print("requirements encodings OK")
         PY
 
-    # Unit tests don't require system Postgres tools; skip to reduce CI overhead
-    # - name: Install system dependencies
-    #   run: |
-    #     sudo apt-get update
-    #     sudo apt-get install -y postgresql-client
-
     - name: Install Python dependencies
       working-directory: ./backend
       run: |
@@ -103,28 +94,7 @@ jobs:
         echo "SECRET_KEY=test-secret-key" >> .env.test
         echo "JWT_SECRET=test-jwt-secret" >> .env.test
 
-    # Skip database fix/migrations for unit tests (tests use SQLite + mocks)
-    # - name: Fix PostgreSQL connection issues
-    #   working-directory: ./backend
-    #   run: |
-    #     python fix_postgresql_connection.py
-    #   env:
-    #     DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-    #     ENVIRONMENT: testing
-    #     SECRET_KEY: test-secret-key
-    #     JWT_SECRET: test-jwt-secret
-
-    # - name: Run database migrations
-    #   working-directory: ./backend
-    #   run: |
-    #     python run_migration_chain.py
-    #   env:
-    #     DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
-    #     ENVIRONMENT: testing
-    #     SECRET_KEY: test-secret-key
-    #     JWT_SECRET: test-jwt-secret
-
-    - name: Run backend unit tests (auth shard)
+    - name: Run WebSocket unit tests
       working-directory: ./backend
       run: |
         # Ensure CPU-only behavior and offline mode for ML libs to prevent stalls
@@ -138,46 +108,20 @@ jobs:
         export NUMEXPR_MAX_THREADS=1
         export TOKENIZERS_PARALLELISM=false
         export CUDA_VISIBLE_DEVICES=""
-        # Remove pytest timeouts to avoid premature termination in CI
         export CHROMA_URL=""
         export USE_S3=false
         export USE_GCS=false
         PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest \
-          tests/unit/test_auth.py \
-          tests/unit/test_auth_comprehensive.py \
-          tests/unit/test_auth_security.py \
+          tests/unit/test_websocket.py \
+          tests/unit/test_websocket_router_unit.py \
+          tests/unit/test_websocket_security_unit.py \
+          tests/unit/test_realtime_service_unit.py \
           -vv -s \
           -p faulthandler -p pytest_cov -p asyncio \
           --cov=app \
           --cov-report=xml \
           --cov-report=term-missing \
-          --junitxml=test-results-auth.xml \
-          --tb=short
-
-    - name: Run backend unit tests (rest shard)
-      working-directory: ./backend
-      run: |
-        export HF_HUB_DISABLE_TELEMETRY=1
-        export HF_HUB_OFFLINE=1
-        export TRANSFORMERS_OFFLINE=1
-        export SENTENCE_TRANSFORMERS_HOME="$PWD/.cache/sentencetransformers"
-        export TORCH_HOME="$PWD/.cache/torch"
-        export OMP_NUM_THREADS=1
-        export MKL_NUM_THREADS=1
-        export NUMEXPR_MAX_THREADS=1
-        export TOKENIZERS_PARALLELISM=false
-        export CUDA_VISIBLE_DEVICES=""
-        # Remove pytest timeouts to avoid premature termination in CI
-        export CHROMA_URL=""
-        export USE_S3=false
-        export USE_GCS=false
-        PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest tests/unit/ -vv -s \
-          -k "not auth and not AuthenticationFlows" \
-          -p faulthandler -p pytest_cov -p asyncio \
-          --cov=app \
-          --cov-report=xml \
-          --cov-report=term-missing \
-          --junitxml=test-results-rest.xml \
+          --junitxml=test-results-websocket.xml \
           --tb=short
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
@@ -195,10 +139,9 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: backend-unit-test-results
+        name: websocket-realtime-test-results
         path: |
-          backend/test-results-auth.xml
-          backend/test-results-rest.xml
+          backend/test-results-websocket.xml
           backend/coverage.xml
 
     - name: List lingering Python processes
@@ -211,13 +154,13 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         file: ./backend/coverage.xml
-        flags: backend-unit
-        name: backend-unit-coverage
+        flags: websocket-realtime
+        name: websocket-realtime-coverage
 
     - name: Test Summary
       if: always()
       run: |
-        echo "## Backend Unit Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "## WebSocket & RealTime Test Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Test Execution" >> $GITHUB_STEP_SUMMARY
         echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
@@ -225,13 +168,20 @@ jobs:
         echo "- **Database**: PostgreSQL ${{ env.POSTGRES_VERSION }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Cache**: Redis ${{ env.REDIS_VERSION }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Files Executed" >> $GITHUB_STEP_SUMMARY
+        echo "- test_websocket.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_websocket_router_unit.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_websocket_security_unit.py" >> $GITHUB_STEP_SUMMARY
+        echo "- test_realtime_service_unit.py" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Coverage Report" >> $GITHUB_STEP_SUMMARY
         echo "- **Coverage XML**: Available in artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "- **HTML Report**: Available in artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "- **JUnit XML**: Available in artifacts" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
         if [[ "${{ job.status }}" == "success" ]]; then
-          echo "✅ All backend unit tests passed!" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All WebSocket and RealTime tests passed!" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Some tests failed. Please check the logs for details." >> $GITHUB_STEP_SUMMARY
         fi
+

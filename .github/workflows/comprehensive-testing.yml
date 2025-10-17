@@ -1,6 +1,7 @@
 name: DISABLED - Comprehensive Testing Pipeline (Use backend-unit-tests.yml instead)
 
 on:
+  # DISABLED - Use websocket-realtime-tests.yml instead
   workflow_dispatch:
 
 env:

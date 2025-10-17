@@ -38,6 +38,8 @@ class RAGMode(Enum):
     SEARCH_ONLY = "search_only"    # Search only without generation
     GENERATE_ONLY = "generate_only"  # Generate only with provided context
     FULL_RAG = "full_rag"          # Full RAG pipeline
+    BALANCED = "balanced"          # Balanced speed and accuracy
+    ACCURACY = "accuracy"          # Prioritize accuracy over speed
 
 
 class ResponseStyle(Enum):

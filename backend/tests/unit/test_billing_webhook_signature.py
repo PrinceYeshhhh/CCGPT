@@ -20,15 +20,14 @@ def test_verify_webhook_signature_valid_returns_true():
         assert ok is True
 
 
-def test_create_checkout_session_happy_path_builds_session_and_returns_url():
+async def test_create_checkout_session_happy_path_builds_session_and_returns_url():
     # Mock customer list empty then create
     with patch("stripe.Customer.list", return_value=MagicMock(data=[])):
         with patch("stripe.Customer.create", return_value=MagicMock(id="cus_123")):
             # Mock checkout session
             fake_session = MagicMock(id="cs_test", url="https://stripe.test/session")
             with patch("stripe.checkout.Session.create", return_value=fake_session):
-                result = stripe_service.create_checkout_session.__wrapped__(  # type: ignore[attr-defined]
-                    stripe_service,
+                result = await stripe_service.create_checkout_session(
                     workspace_id="ws_1",
                     plan_tier="starter",
                     customer_email="user@example.com",

@@ -41,8 +41,7 @@ class TestEmbedService:
     def test_workspace(self, db_session, test_user):
         workspace = Workspace(
             id="ws_1",
-            name="Test Workspace",
-            user_id=test_user.id
+            name="Test Workspace"
         )
         db_session.add(workspace)
         db_session.commit()
@@ -320,7 +319,7 @@ class TestEmbedWidgetAPI:
     
     def test_generate_embed_code_endpoint(self, client, auth_headers, test_workspace):
         """Test embed code generation endpoint"""
-        with patch('app.api.api_v1.endpoints.embed_enhanced.get_current_user') as mock_get_user:
+        with patch('app.core.dependencies.get_current_user') as mock_get_user:
             mock_user = Mock()
             mock_user.id = "123"
             mock_user.workspace_id = str(test_workspace.id)
@@ -362,7 +361,7 @@ class TestEmbedWidgetAPI:
             mock_service.increment_usage.return_value = None
             mock_embed_service.return_value = mock_service
             
-            response = client.get("/api/v1/embed/widget/embed_123")
+            response = client.get("/api/v1/embed/widget/12345678-1234-1234-1234-123456789012")
             
             assert response.status_code == 200
             assert response.headers["content-type"] == "application/javascript"
@@ -375,7 +374,7 @@ class TestEmbedWidgetAPI:
             mock_service.get_widget_script.return_value = None
             mock_embed_service.return_value = mock_service
             
-            response = client.get("/api/v1/embed/widget/nonexistent")
+            response = client.get("/api/v1/embed/widget/00000000-0000-0000-0000-000000000000")
             
             assert response.status_code == 404
     
@@ -472,7 +471,7 @@ class TestEmbedWidgetAPI:
     
     def test_widget_preview_endpoint(self, client, auth_headers):
         """Test widget preview endpoint"""
-        with patch('app.api.api_v1.endpoints.embed_enhanced.get_current_user') as mock_get_user:
+        with patch('app.core.dependencies.get_current_user') as mock_get_user:
             mock_user = Mock()
             mock_user.id = "123"
             mock_get_user.return_value = mock_user

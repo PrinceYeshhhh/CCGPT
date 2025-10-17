@@ -4,7 +4,7 @@
 name: Status Dashboard
 
 on:
-  # DISABLED - Use backend-unit-tests.yml instead
+  # DISABLED - Use websocket-realtime-tests.yml instead
   # workflow_run:
   #   workflows: ["CI Pipeline", "CD Pipeline", "Test Pipeline", "Security Pipeline", "Performance Pipeline"]
   #   types: [completed]

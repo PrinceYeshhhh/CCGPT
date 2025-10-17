@@ -33,3 +33,4 @@ def test_filter_content_removes_common_vectors():
     assert "javascript:" not in filtered["content"].lower()
     assert "alert" not in filtered["content"].lower()
 
+

@@ -32,9 +32,8 @@ class TestGeminiService:
             mock_genai.GenerativeModel.return_value = mock_model
             
             result = await gemini_service.generate_response(
-                query="Test query",
-                context="Test context",
-                conversation_history=[]
+                user_message="Test query",
+                context="Test context"
             )
             
             assert result["content"] == "This is a test response"

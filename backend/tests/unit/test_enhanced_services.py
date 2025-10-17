@@ -194,9 +194,12 @@ class TestEnhancedEmbeddingsService:
     async def test_generate_embedding_single(self, embeddings_service):
         """Test single embedding generation"""
         with patch.object(embeddings_service, 'model') as mock_model:
-            mock_model.encode.return_value = [[0.1, 0.2, 0.3, 0.4, 0.5]]
+            mock_array = Mock()
+            mock_array.tolist.return_value = [[0.1, 0.2, 0.3, 0.4, 0.5]]
+            mock_model.encode.return_value = mock_array
             
-            embedding = await embeddings_service.generate_embedding("Test text")
+            embeddings = await embeddings_service.generate_embeddings(["Test text"])
+            embedding = embeddings[0]
             
             assert isinstance(embedding, list)
             assert len(embedding) == 5
@@ -206,11 +209,13 @@ class TestEnhancedEmbeddingsService:
     async def test_generate_embeddings_batch(self, embeddings_service):
         """Test batch embedding generation"""
         with patch.object(embeddings_service, 'model') as mock_model:
-            mock_model.encode.return_value = [
+            mock_array = Mock()
+            mock_array.tolist.return_value = [
                 [0.1, 0.2, 0.3],
                 [0.4, 0.5, 0.6],
                 [0.7, 0.8, 0.9]
             ]
+            mock_model.encode.return_value = mock_array
             
             texts = ["Text 1", "Text 2", "Text 3"]
             embeddings = await embeddings_service.generate_embeddings(texts)
@@ -230,7 +235,7 @@ class TestEnhancedEmbeddingsService:
     
     def test_switch_model(self, embeddings_service):
         """Test model switching"""
-        with patch.object(embeddings_service, '_load_model') as mock_load:
+        with patch.object(embeddings_service, '_initialize_model') as mock_load:
             mock_load.return_value = Mock()
             
             embeddings_service.switch_model(EmbeddingModel.ALL_MPNET_BASE_V2)
@@ -247,21 +252,21 @@ class TestEnhancedVectorService:
     def test_initialization(self, vector_service):
         """Test service initialization"""
         assert vector_service is not None
-        assert hasattr(vector_service, 'search_mode')
-        assert hasattr(vector_service, 'indexing_strategy')
+        assert hasattr(vector_service, 'client')
+        assert hasattr(vector_service, 'collections')
     
     @pytest.mark.asyncio
     async def test_search_similar_chunks(self, vector_service):
         """Test similar chunk search"""
-        with patch.object(vector_service, 'collection') as mock_collection:
-            mock_collection.query.return_value = {
-                "documents": [["Test content"]],
-                "metadatas": [[{"source": "doc1"}]],
-                "distances": [[0.1]]
-            }
+        with patch.object(vector_service, 'search_optimized') as mock_search:
+            mock_search.return_value = [{
+                "content": "Test content",
+                "metadata": {"source": "doc1"},
+                "score": 0.9
+            }]
             
-            results = await vector_service.search_similar_chunks(
-                query="Test query",
+            results = await vector_service.search_optimized(
+                query_embedding=[0.1, 0.2, 0.3],
                 workspace_id="ws_123",
                 limit=5
             )
@@ -287,32 +292,32 @@ class TestEnhancedVectorService:
             }
         ]
         
-        with patch.object(vector_service, 'collection') as mock_collection:
-            mock_collection.add.return_value = True
+        with patch.object(vector_service, 'add_documents') as mock_add:
+            mock_add.return_value = True
             
-            result = await vector_service.add_chunks(
-                chunks=chunks,
+            result = await vector_service.add_documents(
+                documents=chunks,
                 workspace_id="ws_123"
             )
             
             assert result is True
-            mock_collection.add.assert_called_once()
+            mock_add.assert_called_once()
     
     @pytest.mark.asyncio
     async def test_delete_chunks(self, vector_service):
         """Test deleting chunks from vector store"""
         chunk_ids = ["chunk_1", "chunk_2"]
         
-        with patch.object(vector_service, 'collection') as mock_collection:
-            mock_collection.delete.return_value = True
+        with patch.object(vector_service, 'delete_documents') as mock_delete:
+            mock_delete.return_value = True
             
-            result = await vector_service.delete_chunks(
-                chunk_ids=chunk_ids,
+            result = await vector_service.delete_documents(
+                document_ids=chunk_ids,
                 workspace_id="ws_123"
             )
             
             assert result is True
-            mock_collection.delete.assert_called_once()
+            mock_delete.assert_called_once()
 
 class TestEnhancedFileProcessor:
     """Unit tests for EnhancedFileProcessor"""
@@ -353,9 +358,9 @@ class TestEnhancedFileProcessor:
     def test_create_chunks_semantic(self, file_processor):
         """Test semantic chunking"""
         text_blocks = [
-            TextBlock(content="Block 1", metadata={}),
-            TextBlock(content="Block 2", metadata={}),
-            TextBlock(content="Block 3", metadata={})
+            TextBlock(text="Block 1", metadata={}, block_type="paragraph"),
+            TextBlock(text="Block 2", metadata={}, block_type="paragraph"),
+            TextBlock(text="Block 3", metadata={}, block_type="paragraph")
         ]
         
         chunks = file_processor.create_chunks(
@@ -369,9 +374,9 @@ class TestEnhancedFileProcessor:
     def test_create_chunks_fixed(self, file_processor):
         """Test fixed-size chunking"""
         text_blocks = [
-            TextBlock(content="Block 1", metadata={}),
-            TextBlock(content="Block 2", metadata={}),
-            TextBlock(content="Block 3", metadata={})
+            TextBlock(text="Block 1", metadata={}, block_type="paragraph"),
+            TextBlock(text="Block 2", metadata={}, block_type="paragraph"),
+            TextBlock(text="Block 3", metadata={}, block_type="paragraph")
         ]
         
         chunks = file_processor.create_chunks(
@@ -445,8 +450,8 @@ class TestProductionVectorService:
     """Unit tests for ProductionVectorService"""
     
     @pytest.fixture
-    def vector_service(self):
-        return ProductionVectorService()
+    def vector_service(self, db_session):
+        return ProductionVectorService(db_session)
     
     def test_initialization(self, vector_service):
         """Test service initialization"""

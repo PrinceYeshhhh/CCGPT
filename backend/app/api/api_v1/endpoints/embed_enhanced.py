@@ -24,6 +24,7 @@ from app.schemas.embed import (
 )
 from app.services.auth import AuthService
 from app.services.embed_service import EmbedService
+from app.services.chat import ChatService
 from app.services.rate_limiting import rate_limiting_service
 from app.api.api_v1.dependencies import get_current_user
 
@@ -494,7 +495,6 @@ async def widget_chat_message(
                 )
         
         # Process the chat message using existing chat service
-        from app.services.chat import ChatService
         chat_service = ChatService(db)
         
         response = await chat_service.process_message(

@@ -4,7 +4,7 @@
 name: Dependencies
 
 on:
-  # DISABLED - Use backend-unit-tests.yml instead
+  # DISABLED - Use websocket-realtime-tests.yml instead
   # schedule:
   #   # Run weekly on Mondays at 9 AM UTC
   #   - cron: '0 9 * * 1'
