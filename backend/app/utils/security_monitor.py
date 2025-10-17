@@ -21,6 +21,7 @@ class SecurityMonitor:
         self.blocked_ips = set()
         self.rate_limit_violations = defaultdict(list)
         self.security_events = deque(maxlen=10000)  # Keep last 10k events
+        self.alerts: list[dict] = []  # test-friendly alerts list
         
         # Thresholds
         self.MAX_FAILED_LOGINS = 10
@@ -39,6 +40,13 @@ class SecurityMonitor:
         }
         
         self.security_events.append(event)
+        # Mirror into alerts for tests that expect alert accumulation
+        self.alerts.append({
+            "type": event_type,
+            "ip_address": ip_address,
+            "details": details,
+            "timestamp": event["timestamp"].isoformat()
+        })
         
         # Log to structured logger
         logger.warning(
@@ -47,6 +55,17 @@ class SecurityMonitor:
             ip_address=ip_address,
             **details
         )
+
+    # ---- Test-friendly API ----
+    def detect(self, event_type: str, ip_address: str, details: Optional[Dict[str, Any]] = None):
+        """Alias used in tests to log an alert."""
+        self.log_security_event(event_type, ip_address, details or {})
+
+    def get_alerts(self) -> List[Dict[str, Any]]:
+        return list(self.alerts)
+
+    def clear_alerts(self):
+        self.alerts.clear()
     
     def record_failed_login(self, ip_address: str, identifier: str):
         """Record a failed login attempt"""

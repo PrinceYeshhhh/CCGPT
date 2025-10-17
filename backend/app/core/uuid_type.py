@@ -40,6 +40,10 @@ class UUID(TypeDecorator):
         if value is None:
             return value
         else:
-            if not isinstance(value, uuid.UUID):
-                return uuid.UUID(value)
-            return value
+            if isinstance(value, uuid.UUID):
+                return value
+            # Attempt to parse UUID strings; if invalid, return original string
+            try:
+                return uuid.UUID(str(value))
+            except Exception:
+                return value

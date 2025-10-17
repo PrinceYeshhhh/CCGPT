@@ -62,8 +62,9 @@ def get_logger(name: str) -> structlog.BoundLogger:
 class RequestLogger:
     """Logger with request context"""
     
-    def __init__(self, name: str):
-        self.logger = get_logger(name)
+    def __init__(self, name: Optional[str] = None):
+        # Optional name for tests; default to 'app'
+        self.logger = get_logger(name or "app")
         self.context = {}
     
     def bind(self, **kwargs) -> "RequestLogger":

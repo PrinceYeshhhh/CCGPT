@@ -1,0 +1,197 @@
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-7.4.3, pluggy-1.6.0
+rootdir: C:\Intel\CustomerCareGPT\backend
+configfile: pytest.ini
+plugins: anyio-3.7.1, asyncio-0.21.1, cov-5.0.0, mock-3.15.1, timeout-2.4.0, requests-mock-1.12.1, respx-0.21.1
+asyncio: mode=Mode.STRICT
+collected 451 items / 374 deselected / 77 selected
+
+tests\unit\test_auth.py ................                                 [ 20%]
+tests\unit\test_auth_comprehensive.py ....FFF.............F...F.....     [ 59%]
+tests\unit\test_auth_endpoints_core.py ..                                [ 62%]
+tests\unit\test_auth_security.py ....s..................                 [ 92%]
+tests\unit\test_csrf_middleware_api.py .                                 [ 93%]
+tests\unit\test_document_processing_comprehensive.py .                   [ 94%]
+tests\unit\test_models_validation.py ...                                 [ 98%]
+tests\unit\test_rag_system_comprehensive.py .                            [100%]
+
+================================== FAILURES ===================================
+___________ TestAuthenticationFlows.test_user_registration_success ____________
+
+self = <test_auth_comprehensive.TestAuthenticationFlows object at 0x000002B516E1C590>
+test_db = <sqlalchemy.orm.session.Session object at 0x000002B533066150>
+
+    def test_user_registration_success(self, test_db):
+        """Test successful user registration"""
+        user_data = {
+            "email": "test@example.com",
+            "password": "SecurePassword123!",
+            "mobile_phone": "+1234567890",
+            "full_name": "Test User"
+        }
+    
+        response = client.post("/api/v1/auth/register", json=user_data)
+    
+>       assert response.status_code == status.HTTP_201_CREATED
+E       assert 500 == 201
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+E        +  and   201 = status.HTTP_201_CREATED
+
+tests\unit\test_auth_comprehensive.py:129: AssertionError
+---------------------------- Captured stdout call -----------------------------
+2025-10-17 12:20:29 [INFO] app.middleware.logging_middleware:35: 2025-10-17T06:50:29.545100Z [info     ] Request started                [app.middleware.logging_middleware] event_type=request_start
+2025-10-17 12:20:29 [ERROR] app.api.api_v1.endpoints.auth:225: 2025-10-17T06:50:29.560830Z [error    ] User registration failed       [app.api.api_v1.endpoints.auth] email=test@example.com error=(sqlite3.OperationalError) no such table: users
+[SQL: INSERT INTO users (email, hashed_password, full_name, workspace_id, is_active, is_superuser, updated_at, business_name, business_domain, subscription_plan, mobile_phone, phone_verified, email_verified, email_verification_token, email_verification_sent_at, username, profile_picture_url, email_notifications, browser_notifications, usage_alerts, billing_updates, security_alerts, product_updates, theme, layout, language, timezone, two_factor_enabled, two_factor_secret, two_factor_backup_codes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at]
+[parameters: ('test@example.com', '$2b$12$e73803b76535e179MHX0Vyk40ifiG9DnjlEC9Zt1ZbRs4BMpZ7GR6', 'Test User', 'test-workspace', 1, 0, None, None, None, 'free', '+1234567890', 1, 0, None, None, None, None, 1, 0, 1, 1, 1, 0, 'system', 'comfortable', 'en', 'UTC', 0, None, None)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-10-17 12:20:29 [INFO] app.middleware.performance_middleware:71: 2025-10-17T06:50:29.560830Z [info     ] Request completed              [app.middleware.performance_middleware] client_ip=testclient duration=0.0030863285064697266 method=POST path=/api/v1/auth/register request_id=req_1760683829557_10 status_code=500
+2025-10-17 12:20:29 [INFO] app.api:247: 2025-10-17T06:50:29.560830Z [info     ] API request                    [app.api] duration_ms=15.730619430541992 event_type=api_request ip_address=testclient method=POST path=/api/v1/auth/register status_code=500 user_id=None
+2025-10-17 12:20:29 [INFO] app.performance:367: 2025-10-17T06:50:29.560830Z [info     ] Performance metric             [app.performance] duration_ms=15.730619430541992 event_type=performance operation=POST /api/v1/auth/register status_code=500
+_______ TestAuthenticationFlows.test_user_registration_duplicate_email ________
+
+self = <test_auth_comprehensive.TestAuthenticationFlows object at 0x000002B516E1CC50>
+test_db = <sqlalchemy.orm.session.Session object at 0x000002B533133750>
+test_user = <User(id=1, email='test@example.com')>
+
+    def test_user_registration_duplicate_email(self, test_db, test_user):
+        """Test registration with duplicate email fails"""
+        user_data = {
+            "email": test_user.email,  # Use existing email
+            "password": "SecurePassword123!",
+            "mobile_phone": "+9876543210",
+            "full_name": "Another User"
+        }
+    
+        response = client.post("/api/v1/auth/register", json=user_data)
+    
+>       assert response.status_code == status.HTTP_400_BAD_REQUEST
+E       assert 500 == 400
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+E        +  and   400 = status.HTTP_400_BAD_REQUEST
+
+tests\unit\test_auth_comprehensive.py:159: AssertionError
+---------------------------- Captured stdout call -----------------------------
+2025-10-17 12:20:29 [INFO] app.middleware.logging_middleware:35: 2025-10-17T06:50:29.608684Z [info     ] Request started                [app.middleware.logging_middleware] event_type=request_start
+2025-10-17 12:20:29 [ERROR] app.api.api_v1.endpoints.auth:225: 2025-10-17T06:50:29.608684Z [error    ] User registration failed       [app.api.api_v1.endpoints.auth] email=test@example.com error=(sqlite3.OperationalError) no such table: users
+[SQL: INSERT INTO users (email, hashed_password, full_name, workspace_id, is_active, is_superuser, updated_at, business_name, business_domain, subscription_plan, mobile_phone, phone_verified, email_verified, email_verification_token, email_verification_sent_at, username, profile_picture_url, email_notifications, browser_notifications, usage_alerts, billing_updates, security_alerts, product_updates, theme, layout, language, timezone, two_factor_enabled, two_factor_secret, two_factor_backup_codes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at]
+[parameters: ('test@example.com', '$2b$12$a1739f6d0f7fd40e9uPACZeMamEZ7Ijil25pkvD9HRm4nwpIlaqbz', 'Another User', 'test-workspace', 1, 0, None, None, None, 'free', '+9876543210', 1, 0, None, None, None, None, 1, 0, 1, 1, 1, 0, 'system', 'comfortable', 'en', 'UTC', 0, None, None)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-10-17 12:20:29 [INFO] app.middleware.performance_middleware:71: 2025-10-17T06:50:29.624682Z [info     ] Request completed              [app.middleware.performance_middleware] client_ip=testclient duration=0.015997648239135742 method=POST path=/api/v1/auth/register request_id=req_1760683829608_11 status_code=500
+2025-10-17 12:20:29 [INFO] app.api:247: 2025-10-17T06:50:29.624682Z [info     ] API request                    [app.api] duration_ms=15.997648239135742 event_type=api_request ip_address=testclient method=POST path=/api/v1/auth/register status_code=500 user_id=None
+2025-10-17 12:20:29 [INFO] app.performance:367: 2025-10-17T06:50:29.624682Z [info     ] Performance metric             [app.performance] duration_ms=15.997648239135742 event_type=performance operation=POST /api/v1/auth/register status_code=500
+_______ TestAuthenticationFlows.test_user_registration_duplicate_mobile _______
+
+self = <test_auth_comprehensive.TestAuthenticationFlows object at 0x000002B516E1D310>
+test_db = <sqlalchemy.orm.session.Session object at 0x000002B5332157D0>
+test_user = <User(id=1, email='test@example.com')>
+
+    def test_user_registration_duplicate_mobile(self, test_db, test_user):
+        """Test registration with duplicate mobile phone fails"""
+        user_data = {
+            "email": "different@example.com",
+            "password": "SecurePassword123!",
+            "mobile_phone": test_user.mobile_phone,  # Use existing mobile
+            "full_name": "Another User"
+        }
+    
+        response = client.post("/api/v1/auth/register", json=user_data)
+    
+>       assert response.status_code == status.HTTP_400_BAD_REQUEST
+E       assert 500 == 400
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+E        +  and   400 = status.HTTP_400_BAD_REQUEST
+
+tests\unit\test_auth_comprehensive.py:174: AssertionError
+---------------------------- Captured stdout call -----------------------------
+2025-10-17 12:20:29 [INFO] app.middleware.logging_middleware:35: 2025-10-17T06:50:29.678293Z [info     ] Request started                [app.middleware.logging_middleware] event_type=request_start
+2025-10-17 12:20:29 [ERROR] app.api.api_v1.endpoints.auth:225: 2025-10-17T06:50:29.682897Z [error    ] User registration failed       [app.api.api_v1.endpoints.auth] email=different@example.com error=(sqlite3.OperationalError) no such table: users
+[SQL: INSERT INTO users (email, hashed_password, full_name, workspace_id, is_active, is_superuser, updated_at, business_name, business_domain, subscription_plan, mobile_phone, phone_verified, email_verified, email_verification_token, email_verification_sent_at, username, profile_picture_url, email_notifications, browser_notifications, usage_alerts, billing_updates, security_alerts, product_updates, theme, layout, language, timezone, two_factor_enabled, two_factor_secret, two_factor_backup_codes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at]
+[parameters: ('different@example.com', '$2b$12$c3a68317b4c24428v06lJrNFdHZJgz5sQdGJ7wJLW2nLfzkTEowrN', 'Another User', 'test-workspace', 1, 0, None, None, None, 'free', '+1234567890', 1, 0, None, None, None, None, 1, 0, 1, 1, 1, 0, 'system', 'comfortable', 'en', 'UTC', 0, None, None)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-10-17 12:20:29 [INFO] app.middleware.performance_middleware:71: 2025-10-17T06:50:29.682897Z [info     ] Request completed              [app.middleware.performance_middleware] client_ip=testclient duration=0.004603385925292969 method=POST path=/api/v1/auth/register request_id=req_1760683829678_12 status_code=500
+2025-10-17 12:20:29 [INFO] app.api:247: 2025-10-17T06:50:29.682897Z [info     ] API request                    [app.api] duration_ms=4.603385925292969 event_type=api_request ip_address=testclient method=POST path=/api/v1/auth/register status_code=500 user_id=None
+2025-10-17 12:20:29 [INFO] app.performance:367: 2025-10-17T06:50:29.682897Z [info     ] Performance metric             [app.performance] duration_ms=4.603385925292969 event_type=performance operation=POST /api/v1/auth/register status_code=500
+_________ TestSecurityFeatures.test_input_validation_malicious_input __________
+
+self = <test_auth_comprehensive.TestSecurityFeatures object at 0x000002B516E21F50>
+
+    def test_input_validation_malicious_input(self):
+        """Test input validation against malicious input"""
+        malicious_inputs = [
+            {"email": "<script>alert('xss')</script>@example.com"},
+            {"password": "'; DROP TABLE users; --"},
+            {"mobile_phone": "1' OR '1'='1"},
+            {"full_name": "<img src=x onerror=alert('xss')>"}
+        ]
+    
+        for malicious_data in malicious_inputs:
+            user_data = {
+                "email": "test@example.com",
+                "password": "SecurePassword123!",
+                "mobile_phone": "+1234567890",
+                "full_name": "Test User",
+                **malicious_data
+            }
+    
+            response = client.post("/api/v1/auth/register", json=user_data)
+            # Should either succeed with sanitized input or fail validation
+>           assert response.status_code in [201, 400, 422]
+E           assert 500 in [201, 400, 422]
+E            +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+tests\unit\test_auth_comprehensive.py:381: AssertionError
+---------------------------- Captured stdout call -----------------------------
+2025-10-17 12:20:30 [INFO] app.middleware.logging_middleware:35: 2025-10-17T06:50:30.684110Z [info     ] Request started                [app.middleware.logging_middleware] event_type=request_start
+2025-10-17 12:20:30 [INFO] app.middleware.performance_middleware:71: 2025-10-17T06:50:30.684110Z [info     ] Request completed              [app.middleware.performance_middleware] client_ip=testclient duration=0.0 method=POST path=/api/v1/auth/register request_id=req_1760683830684_42 status_code=422
+2025-10-17 12:20:30 [INFO] app.api:247: 2025-10-17T06:50:30.699896Z [info     ] API request                    [app.api] duration_ms=15.785455703735352 event_type=api_request ip_address=testclient method=POST path=/api/v1/auth/register status_code=422 user_id=None
+2025-10-17 12:20:30 [INFO] app.performance:367: 2025-10-17T06:50:30.699896Z [info     ] Performance metric             [app.performance] duration_ms=15.785455703735352 event_type=performance operation=POST /api/v1/auth/register status_code=422
+2025-10-17 12:20:30 [INFO] app.middleware.logging_middleware:35: 2025-10-17T06:50:30.699896Z [info     ] Request started                [app.middleware.logging_middleware] event_type=request_start
+2025-10-17 12:20:30 [INFO] app.middleware.performance_middleware:71: 2025-10-17T06:50:30.715883Z [info     ] Request completed              [app.middleware.performance_middleware] client_ip=testclient duration=0.015987157821655273 method=POST path=/api/v1/auth/register request_id=req_1760683830699_43 status_code=422
+2025-10-17 12:20:30 [INFO] app.api:247: 2025-10-17T06:50:30.717892Z [info     ] API request                    [app.api] duration_ms=17.99607276916504 event_type=api_request ip_address=testclient method=POST path=/api/v1/auth/register status_code=422 user_id=None
+2025-10-17 12:20:30 [INFO] app.performance:367: 2025-10-17T06:50:30.717892Z [info     ] Performance metric             [app.performance] duration_ms=17.99607276916504 event_type=performance operation=POST /api/v1/auth/register status_code=422
+2025-10-17 12:20:30 [INFO] app.middleware.logging_middleware:35: 2025-10-17T06:50:30.721904Z [info     ] Request started                [app.middleware.logging_middleware] event_type=request_start
+2025-10-17 12:20:30 [ERROR] app.api.api_v1.endpoints.auth:225: 2025-10-17T06:50:30.731612Z [error    ] User registration failed       [app.api.api_v1.endpoints.auth] email=test@example.com error=(sqlite3.OperationalError) no such table: users
+[SQL: INSERT INTO users (email, hashed_password, full_name, workspace_id, is_active, is_superuser, updated_at, business_name, business_domain, subscription_plan, mobile_phone, phone_verified, email_verified, email_verification_token, email_verification_sent_at, username, profile_picture_url, email_notifications, browser_notifications, usage_alerts, billing_updates, security_alerts, product_updates, theme, layout, language, timezone, two_factor_enabled, two_factor_secret, two_factor_backup_codes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at]
+[parameters: ('test@example.com', '$2b$12$ac8b733694d81f07l2dKbICW8DyjlyFqaevHBOPz2fJ8YBDvk2OQ8', 'Test User', 'test-workspace', 1, 0, None, None, None, 'free', '1 OR 1=1', 1, 0, None, None, None, None, 1, 0, 1, 1, 1, 0, 'system', 'comfortable', 'en', 'UTC', 0, None, None)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-10-17 12:20:30 [INFO] app.middleware.performance_middleware:71: 2025-10-17T06:50:30.731612Z [info     ] Request completed              [app.middleware.performance_middleware] client_ip=testclient duration=0.009707927703857422 method=POST path=/api/v1/auth/register request_id=req_1760683830721_44 status_code=500
+2025-10-17 12:20:30 [INFO] app.api:247: 2025-10-17T06:50:30.731612Z [info     ] API request                    [app.api] duration_ms=9.707927703857422 event_type=api_request ip_address=testclient method=POST path=/api/v1/auth/register status_code=500 user_id=None
+2025-10-17 12:20:30 [INFO] app.performance:367: 2025-10-17T06:50:30.731612Z [info     ] Performance metric             [app.performance] duration_ms=9.707927703857422 event_type=performance operation=POST /api/v1/auth/register status_code=500
+______________ TestSecurityFeatures.test_email_verification_flow ______________
+
+self = <test_auth_comprehensive.TestSecurityFeatures object at 0x000002B516E1F810>
+test_user = <User(id=1, email='test@example.com')>
+
+    def test_email_verification_flow(self, test_user):
+        """Test email verification flow"""
+        # Create unverified user
+        user_data = {
+            "email": "unverified@example.com",
+            "password": "SecurePassword123!",
+            "mobile_phone": "+1111111111",
+            "full_name": "Unverified User"
+        }
+        response = client.post("/api/v1/auth/register", json=user_data)
+>       assert response.status_code == status.HTTP_201_CREATED
+E       assert 500 == 201
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+E        +  and   201 = status.HTTP_201_CREATED
+
+tests\unit\test_auth_comprehensive.py:435: AssertionError
+---------------------------- Captured stdout call -----------------------------
+2025-10-17 12:20:30 [INFO] app.middleware.logging_middleware:35: 2025-10-17T06:50:30.910270Z [info     ] Request started                [app.middleware.logging_middleware] event_type=request_start
+2025-10-17 12:20:30 [ERROR] app.api.api_v1.endpoints.auth:225: 2025-10-17T06:50:30.917776Z [error    ] User registration failed       [app.api.api_v1.endpoints.auth] email=unverified@example.com error=(sqlite3.OperationalError) no such table: users
+[SQL: INSERT INTO users (email, hashed_password, full_name, workspace_id, is_active, is_superuser, updated_at, business_name, business_domain, subscription_plan, mobile_phone, phone_verified, email_verified, email_verification_token, email_verification_sent_at, username, profile_picture_url, email_notifications, browser_notifications, usage_alerts, billing_updates, security_alerts, product_updates, theme, layout, language, timezone, two_factor_enabled, two_factor_secret, two_factor_backup_codes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, created_at]
+[parameters: ('unverified@example.com', '$2b$12$a5f7ca09c2318a82snvDMJNsAvsAQakHfw8UANzUhGTaEWkwDB3zV', 'Unverified User', 'test-workspace', 1, 0, None, None, None, 'free', '+1111111111', 1, 0, None, None, None, None, 1, 0, 1, 1, 1, 0, 'system', 'comfortable', 'en', 'UTC', 0, None, None)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-10-17 12:20:30 [INFO] app.middleware.performance_middleware:71: 2025-10-17T06:50:30.920765Z [info     ] Request completed              [app.middleware.performance_middleware] client_ip=testclient duration=0.009515047073364258 method=POST path=/api/v1/auth/register request_id=req_1760683830911_49 status_code=500
+2025-10-17 12:20:30 [INFO] app.api:247: 2025-10-17T06:50:30.921760Z [info     ] API request                    [app.api] duration_ms=11.490821838378906 event_type=api_request ip_address=testclient method=POST path=/api/v1/auth/register status_code=500 user_id=None
+2025-10-17 12:20:30 [INFO] app.performance:367: 2025-10-17T06:50:30.922692Z [info     ] Performance metric             [app.performance] duration_ms=12.422323226928711 event_type=performance operation=POST /api/v1/auth/register status_code=500
+- generated xml file: C:\Intel\CustomerCareGPT\backend\test-results-auth.xml --
+=========================== short test summary info ===========================
+FAILED tests/unit/test_auth_comprehensive.py::TestAuthenticationFlows::test_user_registration_success
+FAILED tests/unit/test_auth_comprehensive.py::TestAuthenticationFlows::test_user_registration_duplicate_email
+FAILED tests/unit/test_auth_comprehensive.py::TestAuthenticationFlows::test_user_registration_duplicate_mobile
+FAILED tests/unit/test_auth_comprehensive.py::TestSecurityFeatures::test_input_validation_malicious_input
+FAILED tests/unit/test_auth_comprehensive.py::TestSecurityFeatures::test_email_verification_flow
+========== 5 failed, 71 passed, 1 skipped, 374 deselected in 12.08s ===========

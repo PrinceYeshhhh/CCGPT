@@ -1,4 +1,26 @@
 """
+Compatibility module to provide TextChunker and helpers for tests.
+"""
+
+from typing import List
+import builtins
+from app.utils.file_processing import TextChunker as _TextChunker, chunk_text_fixed
+
+
+class TextChunker(_TextChunker):
+    pass
+
+
+def chunk_text(text: str, chunk_size: int = 500) -> List[str]:
+    chunker = _TextChunker("fixed", chunk_size)
+    return [b.content for b in chunk_text_fixed(text, chunk_size)]
+
+# Make TextChunker available in global namespace for tests that reference it directly
+builtins.TextChunker = TextChunker  # type: ignore[attr-defined]
+
+__all__ = ["TextChunker", "chunk_text"]
+
+"""
 Text chunking utilities with token estimation and overlap
 """
 

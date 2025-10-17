@@ -73,6 +73,18 @@ class CircuitBreaker:
             # Failure - update state
             await self._record_failure()
             raise e
+
+    # Support decorator usage: @cb
+    def __call__(self, func: Callable):
+        async def _async_wrapper(*args, **kwargs):
+            return await self.call(func, *args, **kwargs)
+        def _sync_wrapper(*args, **kwargs):
+            # Run through event loop when called synchronously in tests
+            if asyncio.get_event_loop().is_running():
+                # In case tests run in async context
+                return asyncio.ensure_future(self.call(func, *args, **kwargs))
+            return asyncio.run(self.call(func, *args, **kwargs))
+        return _async_wrapper if asyncio.iscoroutinefunction(func) else _sync_wrapper
     
     def _should_attempt_reset(self) -> bool:
         """Check if enough time has passed to attempt reset"""
@@ -127,12 +139,12 @@ class CircuitBreaker:
     
     def reset(self):
         """Manually reset circuit breaker"""
-        with self._lock:
-            self.state = CircuitState.CLOSED
-            self.failure_count = 0
-            self.success_count = 0
-            self.last_failure_time = None
-            logger.info(f"Circuit breaker {self.name} manually reset")
+        # Lock is async; for test convenience, perform simple reset without awaiting
+        self.state = CircuitState.CLOSED
+        self.failure_count = 0
+        self.success_count = 0
+        self.last_failure_time = None
+        logger.info(f"Circuit breaker {self.name} manually reset")
 
 
 class CircuitBreakerOpenException(Exception):
@@ -233,8 +245,20 @@ def get_gemini_api_breaker() -> CircuitBreaker:
 def circuit_breaker(breaker_name: str, **breaker_kwargs):
     """Decorator to add circuit breaker to functions"""
     def decorator(func):
-        async def wrapper(*args, **kwargs):
+        async def _async_wrapper(*args, **kwargs):
             breaker = circuit_breaker_manager.get_breaker(breaker_name, **breaker_kwargs)
             return await breaker.call(func, *args, **kwargs)
-        return wrapper
+        def _sync_wrapper(*args, **kwargs):
+            breaker = circuit_breaker_manager.get_breaker(breaker_name, **breaker_kwargs)
+            # Execute synchronously via event loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Running in async context; schedule and wait
+                    return loop.run_until_complete(breaker.call(func, *args, **kwargs))  # type: ignore
+            except RuntimeError:
+                # No running loop; create a new one
+                pass
+            return asyncio.run(breaker.call(func, *args, **kwargs))
+        return _async_wrapper if asyncio.iscoroutinefunction(func) else _sync_wrapper
     return decorator

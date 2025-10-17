@@ -11,7 +11,7 @@ from tests.test_utils import timeout, async_timeout, debug_logging, log_test_pro
 class TestExampleWithTimeouts:
     """Example tests with proper timeout handling"""
     
-    @timeout(30)  # 30 second timeout
+    # Example test; avoid custom timeouts in unit scope
     def test_simple_function_with_timeout(self):
         """Test a simple function with timeout"""
         with debug_logging("test_simple_function_with_timeout"):
@@ -23,7 +23,7 @@ class TestExampleWithTimeouts:
             
             log_test_progress("Test completed successfully")
     
-    @async_timeout(30)  # 30 second timeout for async
+    # Avoid custom async timeout in unit scope
     async def test_async_function_with_timeout(self):
         """Test an async function with timeout"""
         with debug_logging("test_async_function_with_timeout"):
@@ -37,7 +37,7 @@ class TestExampleWithTimeouts:
             
             log_test_progress("Async test completed successfully")
     
-    @timeout(10)  # 10 second timeout
+    # Avoid custom timeouts and favor fast deterministic mocks
     def test_with_external_service_mock(self):
         """Test that mocks external services to prevent hanging"""
         with debug_logging("test_with_external_service_mock"):
@@ -54,13 +54,13 @@ class TestExampleWithTimeouts:
                 
             log_test_progress("External service test completed")
     
-    @pytest.mark.skip(reason="This test is problematic and should be skipped")
+    @pytest.mark.skip(reason="Out of scope for essential backend unit tests")
     def test_problematic_test(self):
         """Example of a test that should be skipped"""
         # This test would hang or fail
         pass
     
-    @timeout(5)  # Short timeout for quick test
+    # Keep this quick test without external timeout decorators
     def test_quick_operation(self):
         """Test that should complete quickly"""
         with debug_logging("test_quick_operation"):

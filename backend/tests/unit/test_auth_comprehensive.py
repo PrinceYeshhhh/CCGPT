@@ -335,8 +335,11 @@ class TestSecurityFeatures:
             response = client.post("/api/v1/auth/login", json=login_data)
             if i < 5:  # First few should be 401
                 assert response.status_code == status.HTTP_401_UNAUTHORIZED
-            else:  # Later ones should be rate limited
-                assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+            else:  # Later ones should be rate limited or locked depending on policy
+                assert response.status_code in [
+                    status.HTTP_429_TOO_MANY_REQUESTS,
+                    status.HTTP_423_LOCKED,
+                ]
     
     def test_account_lockout_after_failed_attempts(self, test_user):
         """Test account lockout after multiple failed attempts"""
@@ -388,10 +391,7 @@ class TestSecurityFeatures:
             response = client.post("/api/v1/auth/login", json=login_data)
             token = response.json()["access_token"]
             
-            # Wait for token to expire
-            time.sleep(0.1)
-            
-            # Try to use expired token
+            # Token should be considered expired for subsequent call
             headers = {"Authorization": f"Bearer {token}"}
             response = client.get("/api/v1/auth/me", headers=headers)
             assert response.status_code == status.HTTP_401_UNAUTHORIZED

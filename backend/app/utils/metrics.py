@@ -187,6 +187,10 @@ class MetricsCollector:
         self.start_time = time.time()
         self.blocked_ips = set()
         self._lock = threading.Lock()
+        # Simple in-memory store expected by some unit tests
+        self._counters: dict[str, int] = {}
+        self._gauges: dict[str, float] = {}
+        self._histograms: dict[str, list[float]] = {}
     
     def record_request(self, method: str, path: str, status_code: int, duration: float):
         """Record a request metric"""
@@ -194,6 +198,11 @@ class MetricsCollector:
         normalized_path = self._normalize_path(path)
         http_requests_total.labels(method=method, endpoint=normalized_path, status_code=str(status_code)).inc()
         http_request_duration_seconds.labels(method=method, endpoint=normalized_path).observe(duration)
+        # Store in-memory tallies
+        with self._lock:
+            key = f"requests:{method}:{normalized_path}:{status_code}"
+            self._counters[key] = self._counters.get(key, 0) + 1
+            self._histograms.setdefault(f"request_duration:{method}:{normalized_path}", []).append(duration)
     
     def record_error(self, error_type: str, endpoint: str):
         """Record an error metric"""
@@ -242,6 +251,9 @@ class MetricsCollector:
         """Set database connection metrics"""
         database_connections_active.set(active)
         database_connections_idle.set(idle)
+        with self._lock:
+            self._gauges["db_active"] = float(active)
+            self._gauges["db_idle"] = float(idle)
     
     def record_redis_operation(self, operation: str, duration: float, success: bool = True):
         """Record Redis operation"""
@@ -276,6 +288,27 @@ class MetricsCollector:
         """Update application uptime"""
         uptime = time.time() - self.start_time
         application_uptime_seconds.set(uptime)
+
+    # ---- Test-friendly helpers ----
+    def increment(self, name: str, by: int = 1):
+        with self._lock:
+            self._counters[name] = self._counters.get(name, 0) + by
+
+    def record(self, name: str, value: float):
+        with self._lock:
+            self._histograms.setdefault(name, []).append(value)
+
+    def set_gauge(self, name: str, value: float):
+        with self._lock:
+            self._gauges[name] = value
+
+    def get(self, name: str):
+        with self._lock:
+            if name in self._counters:
+                return self._counters[name]
+            if name in self._gauges:
+                return self._gauges[name]
+            return self._histograms.get(name, [])
 
 
 # Global metrics collector

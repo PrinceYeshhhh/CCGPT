@@ -8,7 +8,7 @@ import asyncio
 import json
 from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect, FastAPI
 from fastapi.websockets import WebSocketState
 
 from app.api.websocket.chat_ws import router as websocket_router

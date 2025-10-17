@@ -61,11 +61,12 @@ class PlanLimits:
         """Get all limits for a plan tier"""
         tier = PlanTier(plan_tier) if plan_tier in [t.value for t in PlanTier] else PlanTier.FREE
         
+        # Tests expect canonical keys like max_documents, max_storage_bytes, max_requests_per_minute
         return {
-            "queries_limit": cls.QUERY_LIMITS[tier],
-            "documents_limit": cls.DOCUMENT_LIMITS[tier],
-            "storage_limit": cls.STORAGE_LIMITS[tier],
-            "rate_limit": cls.RATE_LIMITS[tier],
+            "max_queries_per_month": cls.QUERY_LIMITS[tier],
+            "max_documents": cls.DOCUMENT_LIMITS[tier],
+            "max_storage_bytes": cls.STORAGE_LIMITS[tier],
+            "max_requests_per_minute": cls.RATE_LIMITS[tier],
             "is_unlimited": cls.QUERY_LIMITS[tier] == -1
         }
     

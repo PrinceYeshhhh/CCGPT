@@ -14,6 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from unittest.mock import patch, MagicMock
+import types as _types
 
 # Add the backend directory to Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -33,6 +34,30 @@ os.environ["ENABLE_REQUEST_LOGGING"] = "false"
 os.environ["PROMETHEUS_ENABLED"] = "false"
 os.environ["METRICS_ENABLED"] = "false"
 os.environ["HEALTH_CHECK_ENABLED"] = "false"
+
+# Provide a lightweight stub for sentence_transformers to avoid importing heavy
+# ML libraries (which enforce strict tokenizers/transformers versions) during tests.
+# This allows our patches below to target these symbols without triggering imports.
+if "sentence_transformers" not in sys.modules:
+    _st_module = _types.ModuleType("sentence_transformers")
+    class _StubSentenceTransformer:  # minimal API used by code/tests
+        def __init__(self, *args, **kwargs):
+            pass
+        def get_sentence_embedding_dimension(self):
+            return 384
+        def encode(self, texts, options=None):
+            if isinstance(texts, str):
+                texts = [texts]
+            return [[0.1] * 384 for _ in texts]
+    class _StubCrossEncoder:
+        def __init__(self, *args, **kwargs):
+            pass
+        def predict(self, pairs):
+            return [0.8 for _ in (pairs or [])]
+    # Expose at top-level to satisfy patch('sentence_transformers.SentenceTransformer')
+    _st_module.SentenceTransformer = _StubSentenceTransformer
+    _st_module.CrossEncoder = _StubCrossEncoder
+    sys.modules["sentence_transformers"] = _st_module
 
 # Mock Redis to prevent connection issues in tests
 import redis

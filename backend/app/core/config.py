@@ -319,6 +319,36 @@ class Settings(BaseSettings):
         
         return defaults
     
+    # Normalize boolean environment variables that may arrive as strings
+    @field_validator(
+        "USE_S3",
+        "USE_GCS",
+        "USE_S3_BACKUP",
+        "PROMETHEUS_ENABLED",
+        "METRICS_ENABLED",
+        "HEALTH_CHECK_ENABLED",
+        "DEBUG",
+        "ENABLE_SECURITY_HEADERS",
+        "ENABLE_RATE_LIMITING",
+        "ENABLE_INPUT_VALIDATION",
+        "ENABLE_REQUEST_LOGGING",
+        "ENABLE_CORS",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_bool_env(cls, value):
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return value
+        if isinstance(value, str):
+            normalized = value.strip().strip('"').strip("'").lower()
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "n", "off", ""}:
+                return False
+        return value
+
     def apply_environment_defaults(self) -> None:
         """Apply environment-aware defaults to unset values"""
         defaults = self.get_environment_aware_defaults()

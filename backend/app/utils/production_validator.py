@@ -18,12 +18,29 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 class ProductionValidator:
-    """Comprehensive production environment validation"""
+    """Comprehensive production environment validation
+    Test-friendly shim methods are provided to satisfy unit tests that expect
+    simple synchronous validators and attributes like `checks`, `db`, and `redis_client`.
+    """
     
     def __init__(self):
         self.validation_results = {}
         self.critical_failures = []
         self.warnings = []
+        # Test-friendly attributes expected by unit tests
+        try:
+            self.db: Optional[Session] = next(get_db())
+        except Exception:
+            self.db = None
+        try:
+            self.redis_client = get_redis()
+        except Exception:
+            self.redis_client = None
+        self.checks = {
+            "environment": False,
+            "database": False,
+            "redis": False,
+        }
     
     async def validate_all(self) -> Dict[str, Any]:
         """Run all production validations"""
@@ -70,6 +87,54 @@ class ProductionValidator:
                 "failed": len([r for r in self.validation_results.values() if r.get("status") == "failed"]),
                 "warnings": len(self.warnings)
             }
+        }
+    
+    # ---------------- Test-friendly sync API below -----------------
+    def validate_environment(self) -> bool:
+        """Synchronous environment validation expected by unit tests."""
+        required = ["DATABASE_URL", "REDIS_URL", "SECRET_KEY", "GEMINI_API_KEY"]
+        missing = []
+        for var in required:
+            if not getattr(settings, var, None):
+                missing.append(var)
+        ok = len(missing) == 0
+        self.checks["environment"] = ok
+        return ok
+    
+    def validate_database_connection(self) -> bool:
+        """Synchronous DB validation expected by unit tests."""
+        try:
+            if self.db is None:
+                self.db = next(get_db())
+            # Basic connectivity check
+            self.db.execute(text("SELECT 1"))
+            self.checks["database"] = True
+            return True
+        except Exception:
+            self.checks["database"] = False
+            return False
+    
+    def validate_redis_connection(self) -> bool:
+        """Synchronous Redis validation expected by unit tests."""
+        try:
+            if self.redis_client is None:
+                self.redis_client = get_redis()
+            self.redis_client.ping()
+            self.checks["redis"] = True
+            return True
+        except Exception:
+            self.checks["redis"] = False
+            return False
+    
+    def run_all_checks(self) -> Dict[str, bool]:
+        """Run environment, database, and redis checks and return a simple map."""
+        env_ok = self.validate_environment()
+        db_ok = self.validate_database_connection()
+        redis_ok = self.validate_redis_connection()
+        return {
+            "environment": env_ok,
+            "database": db_ok,
+            "redis": redis_ok,
         }
     
     async def validate_environment_variables(self):

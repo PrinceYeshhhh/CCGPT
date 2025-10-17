@@ -16,6 +16,11 @@ logger = structlog.get_logger()
 class StorageAdapter:
     """Base storage adapter interface"""
     
+    def __init__(self):
+        # Prevent direct instantiation in tests
+        if self.__class__ is StorageAdapter:
+            raise TypeError("StorageAdapter is abstract and cannot be instantiated directly")
+
     async def save_file(self, file_content: bytes, workspace_id: str, document_id: str, filename: str) -> Tuple[str, int]:
         """Save file and return (path, size)"""
         raise NotImplementedError
@@ -33,6 +38,7 @@ class LocalStorageAdapter(StorageAdapter):
     """Local filesystem storage adapter"""
     
     def __init__(self, base_dir: Optional[str] = None):
+        super().__init__()
         self.base_dir = base_dir or settings.UPLOAD_DIR
     
     def _secure_storage_path(self, workspace_id: str, document_id: str, filename: str) -> str:
@@ -103,29 +109,42 @@ class LocalStorageAdapter(StorageAdapter):
 class S3StorageAdapter(StorageAdapter):
     """S3 storage adapter"""
     
-    def __init__(self):
-        if not settings.USE_S3:
-            raise ValueError("S3 storage is not enabled")
+    # Expose boto3 at module scope for tests that monkeypatch it
+    try:
+        import boto3  # type: ignore
+    except Exception:  # pragma: no cover
+        boto3 = None  # type: ignore
+    
+    def __init__(self, bucket: Optional[str] = None, region: Optional[str] = None):
+        super().__init__()
+        # In tests, constructor signature (bucket, region) is expected
+        if bucket is None:
+            bucket = getattr(settings, 'S3_BUCKET_NAME', '')
+        if region is None:
+            region = getattr(settings, 'AWS_REGION', 'us-east-1')
         
         # Lazy import and test-friendly fallbacks
         try:
-            import boto3
+            if S3StorageAdapter.boto3 is None:
+                import boto3 as _boto3  # type: ignore
+            else:
+                _boto3 = S3StorageAdapter.boto3  # type: ignore
             from botocore.exceptions import ClientError
         except Exception:  # pragma: no cover - tests will mock client
             class _Dummy:
                 def __getattr__(self, name):
                     raise RuntimeError("boto3 unavailable in test")
-            boto3 = _Dummy()  # type: ignore
+            _boto3 = _Dummy()  # type: ignore
             class ClientError(Exception):
                 pass
         
-        self.s3_client = boto3.client(
+        self.s3_client = _boto3.client(
             's3',
-            region_name=settings.AWS_REGION,
+            region_name=region,
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
         )
-        self.bucket_name = settings.S3_BUCKET_NAME
+        self.bucket_name = bucket
         self.ClientError = ClientError
     
     def _get_s3_key(self, workspace_id: str, document_id: str, filename: str) -> str:
@@ -206,6 +225,7 @@ class GCSStorageAdapter(StorageAdapter):
     """Google Cloud Storage adapter"""
     
     def __init__(self):
+        super().__init__()
         # Lazy import to allow tests to mock google clients
         from google.cloud import storage  # type: ignore
         try:
@@ -251,7 +271,7 @@ class GCSStorageAdapter(StorageAdapter):
 def get_storage_adapter() -> StorageAdapter:
     """Get appropriate storage adapter based on configuration"""
     if getattr(settings, "USE_S3", False):
-        return S3StorageAdapter()
+        return S3StorageAdapter(getattr(settings, 'S3_BUCKET_NAME', ''), getattr(settings, 'AWS_REGION', 'us-east-1'))
     if getattr(settings, "USE_GCS", False):
         return GCSStorageAdapter()
     else:
